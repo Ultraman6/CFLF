@@ -1,27 +1,12 @@
 import copy
 import logging
-import openpyxl
 import numpy as np
 from fedml import mlops
 from tqdm import tqdm
 from utils.model_trainer import ModelTrainer
 from .client import Client
-import matplotlib.pyplot as plt
 from ..aggregrate import average_weights_on_sample
 
-
-# 参数0
-# plt.figure(1, figsize=(10, 5))
-# # 创建一个新的Excel工作簿
-# wb = openpyxl.Workbook()
-# # 创建工作表
-# client_ws = wb.create_sheet('Clients Info')
-# # 写入损失指标的标头行
-# client_ws.append(['Round', 'ClientIdx', 'Loss', 'Accuracy', 'Time'])
-# # 创建工作表
-# round_ws = wb.create_sheet('Round Info')
-# # 写入精度指标的标头行
-# round_ws.append(['Round', 'Loss', 'Accuracy', 'Time', 'Selected Client Indexs', 'Total Selected Client Times'])
 # 设置时间间隔（以秒为单位）
 interval = 5
 
@@ -69,7 +54,7 @@ class FedAvgAPI(object):
 
         global_acc=[]
         global_loss=[]
-        for round_idx in tqdm(range(self.args.num_communication)):
+        for round_idx in range(self.args.num_communication):
 
             print("################Communication round : {}".format(round_idx))
 
@@ -109,12 +94,11 @@ class FedAvgAPI(object):
 
             # global test
             test_acc, test_loss = self._global_test_on_validation_set(round_idx)
+            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx), str(test_acc), str(test_loss)))
             global_loss.append(test_loss)
             global_acc.append(test_acc)
             # # 休眠一段时间，以便下一个循环开始前有一些时间
             # time.sleep(interval)
-        mlops.log_training_finished_status()
-        mlops.log_aggregation_finished_status()
         return global_acc, global_loss
 
     # def judge_model(self,prob): # 基于随机数结合概率判断是否成功返回模型

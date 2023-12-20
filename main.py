@@ -3,7 +3,7 @@ import torch
 
 from algo.FedAvg.fedavg_api import FedAvgAPI
 from data.data_loader import show_distribution
-from data.dataset import get_dataloaders
+from data.data_loader import get_dataloaders
 from model.initialize_model import initialize_model
 from options import args_parser
 from utils.drawing import create_result, plot_results

@@ -18,7 +18,7 @@ class Client:
     # 本地训练 调用trainer，传入args、device、训练数据集
     def local_train(self, w_global):
         self.model_trainer.set_model_params(w_global)
-        self.model_trainer.local_train(self.train_dataloader, self.device, self.args)
+        self.model_trainer.train(self.train_dataloader, self.device, self.args)
         weights = self.model_trainer.get_model_params()
         return weights
 

@@ -17,27 +17,8 @@ from os.path import dirname, abspath, join
 from torch.autograd import Variable
 from tqdm import tqdm
 
-
-
-
-
 def initialize_model(args, device):
-    if args.mtl_model:
-        print('Using different task specific layer for each user')
-        if args.dataset == 'cifar10':
-            if args.model == 'cnn_complex':
-                shared_layers = cifar_cnn_3conv_shared(input_channels=3)
-                feature_out_dim = shared_layers.feature_out_dim()
-                specific_layers = cifar_cnn_3conv_specific(input_channels=feature_out_dim,
-                                                           output_channels=10)
-            else:
-                raise ValueError('Model not implemented for CIFAR-10')
-        else:
-            raise ValueError('The dataset is not implemented for mtl yet')
-        if args.cuda:
-            shared_layers = shared_layers.cuda(device)
-            specific_layers = specific_layers.cuda(device)
-    elif args.global_model:
+    if args.global_model:
         print('Using same global model for all users')
         if args.dataset == 'cifar10':
             if args.model == 'cnn_complex':
@@ -77,8 +58,7 @@ def initialize_model(args, device):
         if args.cuda:
             shared_layers = shared_layers.cuda(device)
     else: raise ValueError('Wrong input for the --mtl_model and --global_model, only one is valid')
-    model = shared_layers
-    return model
+    return shared_layers
 
 def main():
     """
