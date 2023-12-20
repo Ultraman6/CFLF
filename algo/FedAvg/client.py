@@ -16,17 +16,17 @@ class Client:
         self.model_trainer.client_idx = client_idx
 
     # 本地训练 调用trainer，传入args、device、训练数据集
-    def train(self, w_global):
+    def local_train(self, w_global):
         self.model_trainer.set_model_params(w_global)
-        self.model_trainer.train(self.train_dataloader, self.device, self.args)
+        self.model_trainer.local_train(self.train_dataloader, self.device, self.args)
         weights = self.model_trainer.get_model_params()
         return weights
 
     # 本地测试 调用trainer，传入args、device、训练数据集
-    def test(self, use_test_dataset):
+    def local_test(self, use_test_dataset):
         if use_test_dataset:
             test_data = self.test_dataloader
         else:
             test_data = self.train_dataloader
-        metrics = self.model_trainer.test(test_data, self.device)
+        metrics = self.model_trainer.local_test(test_data, self.device)
         return metrics

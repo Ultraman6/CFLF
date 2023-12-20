@@ -24,7 +24,7 @@ class ModelTrainer():
         model = self.model
 
         model.to(device)
-        model.train()
+        model.local_train()
 
         # train and update
         criterion = nn.CrossEntropyLoss().to(device)  # pylint: disable=E1102

@@ -11,18 +11,17 @@ from ..aggregrate import average_weights_on_sample
 
 
 # 参数0
-plt.figure(1, figsize=(10, 5))
-
-# 创建一个新的Excel工作簿
-wb = openpyxl.Workbook()
-# 创建工作表
-client_ws = wb.create_sheet('Clients Info')
-# 写入损失指标的标头行
-client_ws.append(['Round', 'ClientIdx', 'Loss', 'Accuracy', 'Time'])
-# 创建工作表
-round_ws = wb.create_sheet('Round Info')
-# 写入精度指标的标头行
-round_ws.append(['Round', 'Loss', 'Accuracy', 'Time', 'Selected Client Indexs', 'Total Selected Client Times'])
+# plt.figure(1, figsize=(10, 5))
+# # 创建一个新的Excel工作簿
+# wb = openpyxl.Workbook()
+# # 创建工作表
+# client_ws = wb.create_sheet('Clients Info')
+# # 写入损失指标的标头行
+# client_ws.append(['Round', 'ClientIdx', 'Loss', 'Accuracy', 'Time'])
+# # 创建工作表
+# round_ws = wb.create_sheet('Round Info')
+# # 写入精度指标的标头行
+# round_ws.append(['Round', 'Loss', 'Accuracy', 'Time', 'Selected Client Indexs', 'Total Selected Client Times'])
 # 设置时间间隔（以秒为单位）
 interval = 5
 
@@ -90,7 +89,7 @@ class FedAvgAPI(object):
                     )
                     # 本地迭代训练
                     print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
-                    w = client.train(copy.deepcopy(w_global))
+                    w = client.local_train(copy.deepcopy(w_global))
                     print("train_end   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
                     # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型
                     w_locals.append(copy.deepcopy(w))

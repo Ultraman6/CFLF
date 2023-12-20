@@ -296,6 +296,11 @@ def get_dataset(dataset_root, dataset, args):
     return train_loaders, test_loaders, v_train_loader, v_test_loader
 
 
+# 数据读取与预处理方法
+def pre_process(dataset_root, dataset, args):
+    return
+
+
 def get_mnist(dataset_root, args):
     is_cuda = args.cuda
     kwargs = {'num_workers': 1, 'pin_memory': True} if is_cuda else {}
@@ -324,11 +329,12 @@ def get_mnist(dataset_root, args):
     # the actual batch_size may need to change.... Depend on the actual gradient...
     # originally written to get the gradient of the whole dataset
     # but now it seems to be able to improve speed of getting accuracy of virtual sequence
-    v_train_loader = DataLoader(train, batch_size=args.batch_size * args.num_clients,
+
+    val_loader_on_train = DataLoader(train, batch_size=args.batch_size * args.num_clients,
                                 shuffle=True, **kwargs)
-    v_test_loader = DataLoader(test, batch_size=args.batch_size * args.num_clients,
+    valid_loader_on_test = DataLoader(test, batch_size=args.batch_size * args.num_clients,
                                shuffle=False, **kwargs)
-    return train_loaders, test_loaders, v_train_loader, v_test_loader
+    return train_loaders, test_loaders, val_loader_on_train, valid_loader_on_test
 
 
 def get_cifar10(dataset_root, args):  # cifa10数据集下只能使用cnn_complex和resnet18模型

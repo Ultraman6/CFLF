@@ -132,149 +132,149 @@ def niid_esize_split_test(dataset, args, kwargs, split_pattern, is_shuffle=False
                                      )
     return data_loaders, None
 
-# def niid_esize_split(dataset, args, kwargs, is_shuffle=True):
-#     data_loaders = [0] * args.num_clients
-#     # each client has only two classes of the network
-#     num_shards = 2 * args.num_clients
-#     # the number of images in one shard
-#     num_imgs = int(len(dataset) / num_shards)
-#     idx_shard = [i for i in range(num_shards)]
-#     dict_users = {i: np.array([]) for i in range(args.num_clients)}
-#     idxs = np.arange(num_shards * num_imgs)
-#     # is_shuffle is used to differentiate between train and test
-#
-#     if args.dataset != "femnist":
-#         labels = dataset.targets
-#         idxs_labels = np.vstack((idxs, labels))
-#         idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#         # sort the data according to their label
-#         idxs = idxs_labels[0, :]
-#         idxs = idxs.astype(int)
-#     else:
-#         # custom
-#         labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
-#         idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
-#         idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#         idxs = idxs_labels[0, :]
-#         idxs = idxs.astype(int)
-#
-#     # divide and assign
-#     for i in range(args.num_clients):
-#         rand_set = set(np.random.choice(idx_shard, 2, replace=False))
-#         idx_shard = list(set(idx_shard) - rand_set)
-#         for rand in rand_set:
-#             dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-#             dict_users[i] = dict_users[i].astype(int)
-#         data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                      batch_size=args.batch_size,
-#                                      shuffle=is_shuffle, **kwargs)
-#     return data_loaders
+def niid_esize_split(dataset, args, kwargs, is_shuffle=True):
+    data_loaders = [0] * args.num_clients
+    # each client has only two classes of the network
+    num_shards = 2 * args.num_clients
+    # the number of images in one shard
+    num_imgs = int(len(dataset) / num_shards)
+    idx_shard = [i for i in range(num_shards)]
+    dict_users = {i: np.array([]) for i in range(args.num_clients)}
+    idxs = np.arange(num_shards * num_imgs)
+    # is_shuffle is used to differentiate between train and test
+
+    if args.dataset != "femnist":
+        labels = dataset.targets
+        idxs_labels = np.vstack((idxs, labels))
+        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+        # sort the data according to their label
+        idxs = idxs_labels[0, :]
+        idxs = idxs.astype(int)
+    else:
+        # custom
+        labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
+        idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
+        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+        idxs = idxs_labels[0, :]
+        idxs = idxs.astype(int)
+
+    # divide and assign
+    for i in range(args.num_clients):
+        rand_set = set(np.random.choice(idx_shard, 2, replace=False))
+        idx_shard = list(set(idx_shard) - rand_set)
+        for rand in rand_set:
+            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
+            dict_users[i] = dict_users[i].astype(int)
+        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
+                                     batch_size=args.batch_size,
+                                     shuffle=is_shuffle, **kwargs)
+    return data_loaders
 
 
-# def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle=True):
-#     data_loaders = [0] * args.num_clients
-#     num_shards = args.classes_per_client * args.num_clients
-#     num_imgs = int(len(dataset) / num_shards)
-#     idx_shard = [i for i in range(num_shards)]
-#     dict_users = {i: np.array([]) for i in range(args.num_clients)}
-#     idxs = np.arange(num_shards * num_imgs)
-#     labels = dataset.train_labels
-#     idxs_labels = np.vstack((idxs, labels))
-#     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#     idxs = idxs_labels[0, :]
-#     idxs = idxs.astype(int)
-#
-#     split_pattern = {i: [] for i in range(args.num_clients)}
-#     for i in range(args.num_clients):
-#         rand_set = np.random.choice(idx_shard, 2, replace=False)
-#         # split_pattern[i].append(rand_set)
-#         idx_shard = list(set(idx_shard) - set(rand_set))
-#         for rand in rand_set:
-#             dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-#             dict_users[i] = dict_users[i].astype(int)
-#             # store the label
-#             split_pattern[i].append(dataset.__getitem__(idxs[rand * num_imgs])[1])
-#         data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                      batch_size=args.batch_size,
-#                                      shuffle=is_shuffle,
-#                                      **kwargs
-#                                      )
-#     return data_loaders, split_pattern
-#
-#
-# def niid_esize_split_test_large(dataset, args, kwargs, split_pattern, is_shuffle=False):
-#     """
-#     :param dataset: test dataset
-#     :param args:
-#     :param kwargs:
-#     :param split_pattern: split pattern from trainloaders
-#     :param test_size: length of testloader of each client
-#     :param is_shuffle: False for testloader
-#     :return:
-#     """
-#     data_loaders = [0] * args.num_clients
-#     # for mnist and cifar 10, only 10 classes
-#     num_shards = 10
-#     num_imgs = int(len(dataset) / num_shards)
-#     idx_shard = [i for i in range(num_shards)]
-#     dict_users = {i: np.array([]) for i in range(args.num_clients)}
-#     idxs = np.arange(len(dataset))
-#     #     no need to judge train ans test here
-#     labels = dataset.test_labels
-#     idxs_labels = np.vstack((idxs, labels))
-#     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#     idxs = idxs_labels[0, :]
-#     idxs = idxs.astype(int)
-#     #     divide and assign
-#     for i in range(args.num_clients):
-#         rand_set = split_pattern[i]
-#         # idx_shard = list(set(idx_shard) - set(rand_set))
-#         for rand in rand_set:
-#             dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-#             dict_users[i] = dict_users[i].astype(int)
-#         data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                      batch_size=args.batch_size,
-#                                      shuffle=is_shuffle,
-#                                      **kwargs
-#                                      )
-#     return data_loaders, None
-#
-#
-# def niid_esize_split_oneclass(dataset, args, kwargs, is_shuffle=True):
-#     data_loaders = [0] * args.num_clients
-#     # one class perclients
-#     # any requirements on the number of clients?
-#     num_shards = args.num_clients
-#     num_imgs = int(len(dataset) / num_shards)
-#     idx_shard = [i for i in range(num_shards)]
-#     dict_users = {i: np.array([]) for i in range(args.num_clients)}
-#     idxs = np.arange(num_shards * num_imgs)
-#
-#     if args.dataset != "femnist":
-#         # original
-#         # editer: Ultraman6 20230928
-#         # torch>=1.4.0
-#         labels = dataset.targets
-#         idxs_labels = np.vstack((idxs, labels))
-#         idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#         idxs = idxs_labels[0, :]
-#         idxs = idxs.astype(int)
-#     else:
-#         # custom
-#         labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
-#         idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
-#         idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-#         idxs = idxs_labels[0, :]
-#         idxs = idxs.astype(int)
-#
-#     # divide and assign
-#     for i in range(args.num_clients):
-#         rand_set = set(np.random.choice(idx_shard, 1, replace=False))
-#         idx_shard = list(set(idx_shard) - rand_set)
-#         for rand in rand_set:
-#             dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-#             dict_users[i] = dict_users[i].astype(int)
-#         data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                      batch_size=args.batch_size,
-#                                      shuffle=is_shuffle, **kwargs)
-#     return data_loaders
+def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle=True):
+    data_loaders = [0] * args.num_clients
+    num_shards = args.classes_per_client * args.num_clients
+    num_imgs = int(len(dataset) / num_shards)
+    idx_shard = [i for i in range(num_shards)]
+    dict_users = {i: np.array([]) for i in range(args.num_clients)}
+    idxs = np.arange(num_shards * num_imgs)
+    labels = dataset.train_labels
+    idxs_labels = np.vstack((idxs, labels))
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    idxs = idxs_labels[0, :]
+    idxs = idxs.astype(int)
+
+    split_pattern = {i: [] for i in range(args.num_clients)}
+    for i in range(args.num_clients):
+        rand_set = np.random.choice(idx_shard, 2, replace=False)
+        # split_pattern[i].append(rand_set)
+        idx_shard = list(set(idx_shard) - set(rand_set))
+        for rand in rand_set:
+            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
+            dict_users[i] = dict_users[i].astype(int)
+            # store the label
+            split_pattern[i].append(dataset.__getitem__(idxs[rand * num_imgs])[1])
+        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
+                                     batch_size=args.batch_size,
+                                     shuffle=is_shuffle,
+                                     **kwargs
+                                     )
+    return data_loaders, split_pattern
+
+
+def niid_esize_split_test_large(dataset, args, kwargs, split_pattern, is_shuffle=False):
+    """
+    :param dataset: test dataset
+    :param args:
+    :param kwargs:
+    :param split_pattern: split pattern from trainloaders
+    :param test_size: length of testloader of each client
+    :param is_shuffle: False for testloader
+    :return:
+    """
+    data_loaders = [0] * args.num_clients
+    # for mnist and cifar 10, only 10 classes
+    num_shards = 10
+    num_imgs = int(len(dataset) / num_shards)
+    idx_shard = [i for i in range(num_shards)]
+    dict_users = {i: np.array([]) for i in range(args.num_clients)}
+    idxs = np.arange(len(dataset))
+    #     no need to judge train ans test here
+    labels = dataset.test_labels
+    idxs_labels = np.vstack((idxs, labels))
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    idxs = idxs_labels[0, :]
+    idxs = idxs.astype(int)
+    #     divide and assign
+    for i in range(args.num_clients):
+        rand_set = split_pattern[i]
+        # idx_shard = list(set(idx_shard) - set(rand_set))
+        for rand in rand_set:
+            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
+            dict_users[i] = dict_users[i].astype(int)
+        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
+                                     batch_size=args.batch_size,
+                                     shuffle=is_shuffle,
+                                     **kwargs
+                                     )
+    return data_loaders, None
+
+
+def niid_esize_split_oneclass(dataset, args, kwargs, is_shuffle=True):
+    data_loaders = [0] * args.num_clients
+    # one class perclients
+    # any requirements on the number of clients?
+    num_shards = args.num_clients
+    num_imgs = int(len(dataset) / num_shards)
+    idx_shard = [i for i in range(num_shards)]
+    dict_users = {i: np.array([]) for i in range(args.num_clients)}
+    idxs = np.arange(num_shards * num_imgs)
+
+    if args.dataset != "femnist":
+        # original
+        # editer: Ultraman6 20230928
+        # torch>=1.4.0
+        labels = dataset.targets
+        idxs_labels = np.vstack((idxs, labels))
+        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+        idxs = idxs_labels[0, :]
+        idxs = idxs.astype(int)
+    else:
+        # custom
+        labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
+        idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
+        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+        idxs = idxs_labels[0, :]
+        idxs = idxs.astype(int)
+
+    # divide and assign
+    for i in range(args.num_clients):
+        rand_set = set(np.random.choice(idx_shard, 1, replace=False))
+        idx_shard = list(set(idx_shard) - rand_set)
+        for rand in rand_set:
+            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
+            dict_users[i] = dict_users[i].astype(int)
+        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
+                                     batch_size=args.batch_size,
+                                     shuffle=is_shuffle, **kwargs)
+    return data_loaders
