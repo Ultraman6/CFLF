@@ -7,6 +7,9 @@ from torchvision import datasets
 import os
 import h5py
 import torch.utils.data as data
+import tensorflow_federated as tff
+
+from data.download import download_femnist, download_and_save_federated_emnist
 
 '''
    获得读取的原始数据：训练集、测试集
@@ -60,7 +63,7 @@ def get_cifar10(dataset_root, args):  # cifa10数据集下只能使用cnn_comple
 
 
 def get_femnist(dataset_root, args):
-
+    download_and_save_federated_emnist()
     train_h5 = h5py.File(os.path.join(dataset_root, 'femnist/fed_emnist_train.h5'), "r")
     test_h5 = h5py.File(os.path.join(dataset_root, 'femnist/fed_emnist_test.h5'), "r")
     train_x = []

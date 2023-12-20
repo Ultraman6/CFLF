@@ -278,3 +278,6 @@
 #                                      batch_size=args.batch_size,
 #                                      shuffle=is_shuffle, **kwargs)
 #     return data_loaders
+
+import tensorflow
+print(tensorflow.__version__)

@@ -12,7 +12,7 @@ def args_parser():
     parser.add_argument(
         '--dataset',
         type=str,
-        default='cifar10',
+        default='femnist',
         help='name of the dataset: mnist, cifar10, femnist'
     )
     parser.add_argument(
