@@ -6,12 +6,10 @@ from torch import nn, optim
 
 class ModelTrainer():
 
-    def __init__(self, model, args):
+    def __init__(self, model, args=None):
         self.model = model  # 模型本体
         self.cid = 0  # 所属客户id
         self.args = args # 运行参数
-        self.local_train_dataset = None # 本地训练数据集
-        self.local_test_dataset = None # 本地测试数据集
         self.criterion = nn.CrossEntropyLoss() # 损失函数
     def get_model_params(self):
         return self.model.state_dict()

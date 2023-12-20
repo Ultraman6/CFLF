@@ -5,12 +5,12 @@ from fedml import mlops
 from tqdm import tqdm
 from utils.model_trainer import ModelTrainer
 from .client import Client
-from ..aggregrate import average_weights_on_sample
+from ..aggregrate import average_weights_on_sample, average_weights
 
 # 设置时间间隔（以秒为单位）
 interval = 5
 
-class FedAvgAPI(object):
+class FedFAIMAPI(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
@@ -25,6 +25,7 @@ class FedAvgAPI(object):
 
         print("model = {}".format(model))
         self.model_trainer = ModelTrainer(model, args)
+        self.model_trainer_temp = ModelTrainer(model, args)
         self.model = model
         print("self.model_trainer = {}".format(self.model_trainer))
 
@@ -101,14 +102,15 @@ class FedAvgAPI(object):
             # time.sleep(interval)
         return global_acc, global_loss
 
-    # def judge_model(self,prob): # 基于随机数结合概率判断是否成功返回模型
-    #     random_number = random.random()  # 生成0到1之间的随机数
-    #     if random_number < prob:
-    #         return 1  # 成功返回模型
-    #     else:
-    #         return 0
+    # 基于重构计算本地模型的边际损失
+    def quality_detection(self, w_locals, client_idx): # 基于随机数结合概率判断是否成功返回模型
+        self.model_trainer_temp.set_model_params(average_weights(w_locals))
+        loss= self.model_trainer_temp.test(self.val_global, self.device)
+        self.model_trainer_temp.set_model_params(average_weights(np.delete(w_locals, client_idx)))
+        loss_i= self.model_trainer_temp.test(self.val_global, self.device)
+        loss-loss_i
 
-    # 随机选取客户（random）
+    # 根据
     def _client_sampling(self, client_num_in_total, client_num_per_round):
         if client_num_in_total == client_num_per_round:
             client_indexes = [client_index for client_index in range(client_num_in_total)]
@@ -118,22 +120,12 @@ class FedAvgAPI(object):
             client_indexes = np.random.choice(range(client_num_in_total), num_clients, replace=False)
         return client_indexes
 
-    # def _generate_validation_set(self, num_samples=10000):
-    #     test_data_num = len(self.test_global.dataset)
-    #     sample_indices = random.sample(range(test_data_num), min(num_samples, test_data_num))
-    #     subset = torch.utils.data.Subset(self.test_global.dataset, sample_indices)
-    #     sample_testset = torch.utils.data.DataLoader(subset, batch_size=self.args.batch_size)
-    #     self.val_global = sample_testset
-    #
 
-    def _global_test_on_validation_set(self, round_idx):
-        logging.info("################global_test_on_validation_set : {}".format(round_idx))
+    def _global_test_on_validation_set(self):
         # test data
         test_metrics = self.model_trainer.test(self.val_global, self.device)
         test_acc = test_metrics["test_correct"] / test_metrics["test_total"]
         test_loss = test_metrics["test_loss"] / test_metrics["test_total"]
         stats = {"test_acc": test_acc, "test_loss": test_loss}
-        mlops.log({"Test/Acc": test_acc, "round": round_idx})
-        mlops.log({"Test/Loss": test_loss, "round": round_idx})
         logging.info(stats)
         return test_acc, test_loss
