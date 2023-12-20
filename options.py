@@ -112,22 +112,34 @@ def args_parser():
     parser.add_argument(
         '--iid',
         type = int,
-        default = 1,
-        help = 'distribution of the data, 1,-1,-2(one-class)'
+        default = 0,
+        help = 'distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
-        '--imbalance',
-        type = int,
-        default = 0.5,
-        help = 'imbalanc of samples in clients, 0 means equal number of samples, '
-               '-1 means random number of samples'
+        '--strategy',
+        type=str,
+        default = 'dirichlet',
+        help='strategy (str): NIID划分的策略。例如："category-based", "dirichlet"等'
     )
     parser.add_argument(
-        '--classes_per_client',
+        '--alpha',
         type=int,
-        default = 2,
-        help='under artificial non-iid distribution, the classes per client'
+        default = 0.1,
+        help='`alpha`(i.e. alpha>=0) in Dir(alpha*p) where p is the global distribution. The smaller alpha is, the higher heterogeneity the data is.'
     )
+    parser.add_argument(
+        '--error_bar',
+        type=float,
+        default = 1e-6,
+        help='the allowed error when the generated distribution mismatches the distirbution that is actually wanted, since there may be no solution for particular imbalance and alpha.'
+    )
+    parser.add_argument(
+        '--diversity',
+        type=int,
+        default = 1,
+        help='the ratio of locally owned types of the attributes (i.e. the actual number=diversity * total_num_of_types)'
+    )
+
     parser.add_argument(
         '--test_on_all_samples',
         type = int,
@@ -137,11 +149,17 @@ def args_parser():
     # 定义clients及其分配样本量的关系
     parser.add_argument(
         '--self_sample',
-        default= 0,
+        default= -1,
         type=int,
         help='>=0: set， -1: auto'
     )
-
+    parser.add_argument(
+        '--imbalance',
+        type = int,
+        default = 0.5,
+        help = 'imbalanc of samples in clients, 0 means equal number of samples, '
+               '-1 means random number of samples'
+    )
     # 将映射关系转换为JSON格式，主键个数必须等于num_edges，value为-1表示all samples
     sample_mapping_json = json.dumps({
         "0": 3000,

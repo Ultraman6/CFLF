@@ -1,6 +1,7 @@
 """
 download the required dataset, split the data among the clients, and generate DataLoader for training
 """
+import collections
 import json
 import os
 from tqdm import tqdm
@@ -47,83 +48,7 @@ def gen_ran_sum(_sum, num_users):
     return size_users
 
 
-# def get_mean_and_std(dataset):
-#     """
-#     compute the mean and std value of dataset
-#     """
-#     dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=2)
-#     mean = torch.zeros(3)
-#     std = torch.zeros(3)
-#     print("=>compute mean and std")
-#     for inputs, targets in dataloader:
-#         for i in range(3):
-#             mean[i] += inputs[:, i, :, :].mean()
-#             std[i] += inputs[:, i, :, :].std()
-#     mean.div_(len(dataset))
-#     std.div_(len(dataset))
-#     return mean, std
-
-
-# def iid_esize_split(dataset, args, kwargs, is_shuffle=True):
-#     """
-#     iid划分 相同样本量
-#     可自定义每个客户端的训练样本量的
-#     """
-#     # 数据装载初始化
-#     data_loaders = [0] * args.num_clients
-#     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
-#     # if num_samples_per_client == -1, then use all samples
-#     if args.self_sample == -1:
-#         num_samples_per_client = int(len(dataset) / args.num_clients)
-#         # change from dict to list
-#         # print('start')
-#         for i in range(args.num_clients):
-#             # 打印all_idxs, num_samples_per_client的长度
-#             # print(len(all_idxs), num_samples_per_client)
-#             dict_users[i] = np.random.choice(all_idxs, num_samples_per_client, replace=False)
-#             # dict_users[i] = dict_users[i].astype(int)
-#             # dict_users[i] = set(dict_users[i])
-#             all_idxs = list(set(all_idxs) - set(dict_users[i]))
-#             data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                          batch_size=args.batch_size,
-#                                          shuffle=is_shuffle, **kwargs)
-#             # print(len(all_idxs), num_samples_per_client)
-#     else:  # 自定义每客户样本量开启
-#         # 提取映射关系参数并将其解析为JSON对象
-#         sample_mapping_json = args.sample_mapping
-#         sample_mapping = json.loads(sample_mapping_json)
-#         for i in range(args.num_clients):
-#             # 客户按id分配样本量
-#             sample = sample_mapping[str(i)]
-#             if sample == -1: sample = int(len(dataset) / args.num_clients)
-#             dict_users[i] = np.random.choice(all_idxs, sample, replace=False)
-#             all_idxs = list(set(all_idxs) - set(dict_users[i]))
-#             data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                          batch_size=args.batch_size,
-#                                          shuffle=is_shuffle, **kwargs)
-#     return data_loaders
-
-
-# def iid_nesize_split(dataset, args, kwargs, is_shuffle=True):
-#     """
-#     iid划分 不同样本量
-#     可自定义每个客户端的训练样本量的
-#     """
-#     sum_samples = len(dataset)
-#     num_samples_per_client = gen_ran_sum(sum_samples, args.num_clients)
-#     # change from dict to list
-#     data_loaders = [0] * args.num_clients
-#     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
-#     for (i, num_samples_client) in enumerate(num_samples_per_client):
-#         dict_users[i] = np.random.choice(all_idxs, num_samples_client, replace=False)
-#         all_idxs = list(set(all_idxs) - set(dict_users[i]))
-#         data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-#                                      batch_size=args.batch_size,
-#                                      shuffle=is_shuffle, **kwargs)
-#
-#     return data_loaders
-
-def data_imbalance_generator(num_clients, datasize, imbalance=0):
+def data_imbalance_generator(num_clients, datasize, args):
     r"""
     Split the data size into several parts
     Args:
@@ -133,51 +58,59 @@ def data_imbalance_generator(num_clients, datasize, imbalance=0):
     Returns:
         a list of integer numbers that represents local_movielens_recommendation data sizes
     """
-    if imbalance == 0:
-        samples_per_client = [int(datasize / num_clients) for _ in range(num_clients)]
-        for _ in range(datasize % num_clients): samples_per_client[_] += 1
-    else:
-        imbalance = max(0.1, imbalance)
-        sigma = imbalance
-        mean_datasize = datasize / num_clients
-        mu = np.log(mean_datasize) - sigma ** 2 / 2.0
-        samples_per_client = np.random.lognormal(mu, sigma, (num_clients)).astype(int)
-        thresold = int(imbalance ** 1.5 * (datasize - num_clients * 10))
-        delta = int(0.1 * thresold)
-        crt_data_size = sum(samples_per_client)
-        # force current data size to match the total data size
-        while crt_data_size != datasize:
-            if crt_data_size - datasize >= thresold:
-                maxid = np.argmax(samples_per_client)
-                maxvol = samples_per_client[maxid]
-                new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
-                while min(new_samples) > maxvol:
-                    new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
-                new_size_id = np.argmin(
-                    [np.abs(crt_data_size - samples_per_client[maxid] + s - datasize) for s in new_samples])
-                samples_per_client[maxid] = new_samples[new_size_id]
-            elif crt_data_size - datasize >= delta:
-                maxid = np.argmax(samples_per_client)
-                samples_per_client[maxid] -= delta
-            elif crt_data_size - datasize > 0:
-                maxid = np.argmax(samples_per_client)
-                samples_per_client[maxid] -= (crt_data_size - datasize)
-            elif datasize - crt_data_size >= thresold:
-                minid = np.argmin(samples_per_client)
-                minvol = samples_per_client[minid]
-                new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
-                while max(new_samples) < minvol:
-                    new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
-                new_size_id = np.argmin(
-                    [np.abs(crt_data_size - samples_per_client[minid] + s - datasize) for s in new_samples])
-                samples_per_client[minid] = new_samples[new_size_id]
-            elif datasize - crt_data_size >= delta:
-                minid = np.argmin(samples_per_client)
-                samples_per_client[minid] += delta
-            else:
-                minid = np.argmin(samples_per_client)
-                samples_per_client[minid] += (datasize - crt_data_size)
+    if args.self_sample == -1:  # 判断是否自定义样本量
+        if args.imbalance == 0:
+            samples_per_client = [int(datasize / num_clients) for _ in range(num_clients)]
+            for _ in range(datasize % num_clients): samples_per_client[_] += 1
+        elif args.imbalance == -1:
+            # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
+            samples_per_client = gen_ran_sum(datasize, args.num_clients)
+        else:
+            imbalance = max(0.1, args.imbalance)
+            sigma = imbalance
+            mean_datasize = datasize / num_clients
+            mu = np.log(mean_datasize) - sigma ** 2 / 2.0
+            samples_per_client = np.random.lognormal(mu, sigma, (num_clients)).astype(int)
+            thresold = int(imbalance ** 1.5 * (datasize - num_clients * 10))
+            delta = int(0.1 * thresold)
             crt_data_size = sum(samples_per_client)
+            # force current data size to match the total data size
+            while crt_data_size != datasize:
+                if crt_data_size - datasize >= thresold:
+                    maxid = np.argmax(samples_per_client)
+                    maxvol = samples_per_client[maxid]
+                    new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
+                    while min(new_samples) > maxvol:
+                        new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
+                    new_size_id = np.argmin(
+                        [np.abs(crt_data_size - samples_per_client[maxid] + s - datasize) for s in new_samples])
+                    samples_per_client[maxid] = new_samples[new_size_id]
+                elif crt_data_size - datasize >= delta:
+                    maxid = np.argmax(samples_per_client)
+                    samples_per_client[maxid] -= delta
+                elif crt_data_size - datasize > 0:
+                    maxid = np.argmax(samples_per_client)
+                    samples_per_client[maxid] -= (crt_data_size - datasize)
+                elif datasize - crt_data_size >= thresold:
+                    minid = np.argmin(samples_per_client)
+                    minvol = samples_per_client[minid]
+                    new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
+                    while max(new_samples) < minvol:
+                        new_samples = np.random.lognormal(mu, sigma, (10 * num_clients))
+                    new_size_id = np.argmin(
+                        [np.abs(crt_data_size - samples_per_client[minid] + s - datasize) for s in new_samples])
+                    samples_per_client[minid] = new_samples[new_size_id]
+                elif datasize - crt_data_size >= delta:
+                    minid = np.argmin(samples_per_client)
+                    samples_per_client[minid] += delta
+                else:
+                    minid = np.argmin(samples_per_client)
+                    samples_per_client[minid] += (datasize - crt_data_size)
+                crt_data_size = sum(samples_per_client)
+    else:  # 提取映射关系参数并将其解析为JSON对象
+        sample_mapping_json = args.sample_mapping
+        samples_per_client = list(json.loads(sample_mapping_json).values())
+
     return samples_per_client
 
 def iid_split(dataset, args, kwargs, is_shuffle=True):
@@ -192,19 +125,7 @@ def iid_split(dataset, args, kwargs, is_shuffle=True):
     """
     data_loaders = [0] * args.num_clients
     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
-
-    if args.self_sample == -1:  # 判断是否自定义样本量
-        if args.imbalance == -1:
-            # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
-            num_samples_per_client = gen_ran_sum(len(dataset), args.num_clients)
-        else:
-            # 当imbalance参数大于0时，生成不平衡的数据划分
-            num_samples_per_client = data_imbalance_generator(args.num_clients, len(dataset), args.imbalance)
-
-    else:  # 提取映射关系参数并将其解析为JSON对象
-        sample_mapping_json = args.sample_mapping
-        num_samples_per_client = list(json.loads(sample_mapping_json).values())
-
+    num_samples_per_client = data_imbalance_generator(args.num_clients, len(dataset), args)
     for i in range(args.num_clients):
         # 如果提供了客户端特定的数据量，则使用该数据量
         print(num_samples_per_client)
@@ -216,261 +137,136 @@ def iid_split(dataset, args, kwargs, is_shuffle=True):
                                      shuffle=is_shuffle, **kwargs)
     return data_loaders
 
-def niid_split(dataset, args, kwargs, is_shuffle=True, strategy="basic"):
-    """非独立同分布的数据划分方法。
 
+def niid_split(dataset, args, kwargs, is_shuffle=True):
+    """非独立同分布的数据划分方法。
     Args:
         dataset: 数据集。
         args: 包含num_clients, imbalance等参数的对象。
         kwargs: DataLoader的额外参数。
         is_shuffle (bool): 是否打乱数据。
-        strategy (str): NIID划分的策略。例如："basic", "dirichlet"等。
-
+        strategy (str): NIID划分的策略。例如："category-based", "dirichlet"等。
     Returns:
         list: 客户端数据加载器列表。
     """
-    data_loaders = [0] * args.num_clients
-    dict_users, all_idxs = {}, [i for i in range(len(dataset))]
-
-    if args.imbalance == -1:
-        # 使用随机样本量
-        num_samples_per_client = gen_ran_sum(len(dataset), args.num_clients)
-    elif args.imbalance > 0:
-        # 使用不平衡的样本量
-        num_samples_per_client = generate_imbalanced_data(args.num_clients, len(dataset), args.imbalance)
-    else:
-        # 使用平均样本量
-        num_samples_per_client = [len(dataset) // args.num_clients] * args.num_clients
-
-    if strategy == "basic":
-        # 基础的NIID划分逻辑
-        pass
-        # 添加您的逻辑
-    elif strategy == "dirichlet":
+    if args.strategy == "dirichlet":
         # 狄利克雷划分逻辑
-        pass
-        # 添加您的逻辑
+        # 这里需要您自己的实现，例如：使用狄利克雷分布进行样本划分
+        local_datas = dirichlet_partition(dataset, args)
+    else:
+        # 基于类别的NIID划分逻辑
+        # 这里需要您自己的实现，例如：为每个客户端分配不同的类别
+        local_datas = diversity_partition(dataset, args)
     # 可以根据需要添加更多的策略
+    return [DataLoader(DatasetSplit(dataset,ld), batch_size=args.batch_size, shuffle=is_shuffle, **kwargs) for ld in local_datas]
 
-    for i in range(args.num_clients):
-        sample = args.client_data_size[i] if hasattr(args, 'client_data_size') and args.client_data_size[i] != -1 else num_samples_per_client[i]
-        dict_users[i] = np.random.choice(all_idxs, sample, replace=False)
-        all_idxs = list(set(all_idxs) - set(dict_users[i]))
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle, **kwargs)
+def dirichlet_partition(dataset, args, index_func = lambda x: [xi[-1] for xi in x]):
+    attrs = index_func(dataset)
+    num_attrs = len(set(attrs))
+    samples_per_client = data_imbalance_generator(args.num_clients, len(dataset), args)
+    # count the label distribution
+    lb_counter = collections.Counter(attrs)
+    lb_names = list(lb_counter.keys())
+    p = np.array([1.0 * v / len(dataset) for v in lb_counter.values()])
+    lb_dict = {}
+    attrs = np.array(attrs)
+    for lb in lb_names:
+        lb_dict[lb] = np.where(attrs == lb)[0]
+    proportions = [np.random.dirichlet(args.alpha * p) for _ in range(args.num_clients)]
+    while np.any(np.isnan(proportions)):
+        proportions = [np.random.dirichlet(args.alpha * p) for _ in range(args.num_clients)]
+    sorted_cid_map = {k: i for k, i in zip(np.argsort(samples_per_client), [_ for _ in range(args.num_clients)])}
+    error_increase_interval = 500
+    max_error = args.error_bar
+    loop_count = 0
+    crt_id = 0
+    crt_error = 100000
+    while True:
+        if loop_count >= error_increase_interval:
+            loop_count = 0
+            max_error = max_error * 10
+        # generate dirichlet distribution till ||E(proportion) - P(D)||<=1e-5*self.num_classes
+        mean_prop = np.sum([pi * di for pi, di in zip(proportions, samples_per_client)], axis=0)
+        mean_prop = mean_prop / mean_prop.sum()
+        error_norm = ((mean_prop - p) ** 2).sum()
+        if crt_error - error_norm >= max_error:
+            print("Error: {:.8f}".format(error_norm))
+            crt_error = error_norm
+        if error_norm <= max_error:
+            break
+        excid = sorted_cid_map[crt_id]
+        crt_id = (crt_id + 1) % args.num_clients
+        sup_prop = [np.random.dirichlet(args.alpha * p) for _ in range(args.num_clients)]
+        del_prop = np.sum([pi * di for pi, di in zip(proportions, samples_per_client)], axis=0)
+        del_prop -= samples_per_client[excid] * proportions[excid]
+        for i in range(error_increase_interval - loop_count):
+            alter_norms = []
+            for cid in range(args.num_clients):
+                if np.any(np.isnan(sup_prop[cid])):
+                    continue
+                alter_prop = del_prop + samples_per_client[excid] * sup_prop[cid]
+                alter_prop = alter_prop / alter_prop.sum()
+                error_alter = ((alter_prop - p) ** 2).sum()
+                alter_norms.append(error_alter)
+            if min(alter_norms) < error_norm:
+                break
+        if len(alter_norms) > 0 and min(alter_norms) < error_norm:
+            alcid = np.argmin(alter_norms)
+            proportions[excid] = sup_prop[alcid]
+        loop_count += 1
+    local_datas = [[] for _ in range(args.num_clients)]
+    for lb in lb_names:
+        lb_idxs = lb_dict[lb]
+        lb_proportion = np.array([pi[lb_names.index(lb)] * si for pi, si in zip(proportions, samples_per_client)])
+        lb_proportion = lb_proportion / lb_proportion.sum()
+        lb_proportion = (np.cumsum(lb_proportion) * len(lb_idxs)).astype(int)[:-1]
+        lb_datas = np.split(lb_idxs, lb_proportion)
+        local_datas = [local_data + lb_data.tolist() for local_data, lb_data in zip(local_datas, lb_datas)]
+    for i in range(args.num_clients): np.random.shuffle(local_datas[i])
+    return local_datas
 
-    return data_loaders
-
-
-def niid_esize_split(dataset, args, kwargs, is_shuffle=True):
-    data_loaders = [0] * args.num_clients
-    # each client has only two classes of the network
-    num_shards = 2 * args.num_clients
-    # the number of images in one shard
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-    # is_shuffle is used to differentiate between train and test
-
-    if args.dataset != "femnist":
-        # original
-        # editer: Ultraman6 20230928
-        # torch>=1.4.0
-        labels = dataset.targets
-        idxs_labels = np.vstack((idxs, labels))
-        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-        # sort the data according to their label
-        idxs = idxs_labels[0, :]
-        idxs = idxs.astype(int)
+def diversity_partition(dataset, args, index_func = lambda x: [xi[-1] for xi in x]):
+    labels = index_func(dataset)
+    num_classes = len(set(labels))
+    dpairs = [[did, lb] for did, lb in zip(list(range(len(dataset))), labels)]
+    num = max(int(args.diversity * num_classes), 1)
+    K = num_classes
+    local_datas = [[] for _ in range(args.num_clients)]
+    if num == K:
+        for k in range(K):
+            idx_k = [p[0] for p in dpairs if p[1] == k]
+            np.random.shuffle(idx_k)
+            split = np.array_split(idx_k, args.num_clients)
+            for cid in range(args.num_clients):
+                local_datas[cid].extend(split[cid].tolist())
     else:
-        # custom
-        labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
-        idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
-        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-        idxs = idxs_labels[0, :]
-        idxs = idxs.astype(int)
-
-    # divide and assign
-    for i in range(args.num_clients):
-        rand_set = set(np.random.choice(idx_shard, 2, replace=False))
-        idx_shard = list(set(idx_shard) - rand_set)
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle, **kwargs)
-    return data_loaders
-
-
-def niid_esize_split_train(dataset, args, kwargs, is_shuffle=True):
-    data_loaders = [0] * args.num_clients
-    num_shards = args.classes_per_client * args.num_clients
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-    #     no need to judge train ans test here
-    labels = dataset.train_labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
-    idxs = idxs.astype(int)
-    #     divide and assign
-    #     and record the split patter
-    split_pattern = {i: [] for i in range(args.num_clients)}
-    for i in range(args.num_clients):
-        rand_set = np.random.choice(idx_shard, 2, replace=False)
-        split_pattern[i].append(rand_set)
-        idx_shard = list(set(idx_shard) - set(rand_set))
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle,
-                                     **kwargs
-                                     )
-    return data_loaders, split_pattern
+        times = [0 for _ in range(num_classes)]
+        contain = []
+        for i in range(args.num_clients):
+            current = []
+            j = 0
+            while (j < num):
+                mintime = np.min(times)
+                ind = np.random.choice(np.where(times == mintime)[0])
+                if (ind not in current):
+                    j = j + 1
+                    current.append(ind)
+                    times[ind] += 1
+            contain.append(current)
+        for k in range(K):
+            idx_k = [p[0] for p in dpairs if p[1] == k]
+            np.random.shuffle(idx_k)
+            split = np.array_split(idx_k, times[k])
+            ids = 0
+            for cid in range(args.num_clients):
+                if k in contain[cid]:
+                    local_datas[cid].extend(split[ids].tolist())
+                    ids += 1
+    # 返回客户端数据映射
+    print(local_datas)
+    return local_datas
 
 
-def niid_esize_split_test(dataset, args, kwargs, split_pattern, is_shuffle=False):
-    data_loaders = [0] * args.num_clients
-    num_shards = args.classes_per_client * args.num_clients
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-    #     no need to judge train ans test here
-    labels = dataset.test_labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
-    idxs = idxs.astype(int)
-    #     divide and assign
-    for i in range(args.num_clients):
-        rand_set = split_pattern[i][0]
-        idx_shard = list(set(idx_shard) - set(rand_set))
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle,
-                                     **kwargs
-                                     )
-    return data_loaders, None
-
-
-def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle=True):
-    data_loaders = [0] * args.num_clients
-    num_shards = args.classes_per_client * args.num_clients
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-    labels = dataset.train_labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
-    idxs = idxs.astype(int)
-
-    split_pattern = {i: [] for i in range(args.num_clients)}
-    for i in range(args.num_clients):
-        rand_set = np.random.choice(idx_shard, 2, replace=False)
-        # split_pattern[i].append(rand_set)
-        idx_shard = list(set(idx_shard) - set(rand_set))
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-            # store the label
-            split_pattern[i].append(dataset.__getitem__(idxs[rand * num_imgs])[1])
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle,
-                                     **kwargs
-                                     )
-    return data_loaders, split_pattern
-
-
-def niid_esize_split_test_large(dataset, args, kwargs, split_pattern, is_shuffle=False):
-    """
-    :param dataset: test dataset
-    :param args:
-    :param kwargs:
-    :param split_pattern: split pattern from trainloaders
-    :param test_size: length of testloader of each client
-    :param is_shuffle: False for testloader
-    :return:
-    """
-    data_loaders = [0] * args.num_clients
-    # for mnist and cifar 10, only 10 classes
-    num_shards = 10
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(len(dataset))
-    #     no need to judge train ans test here
-    labels = dataset.test_labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
-    idxs = idxs.astype(int)
-    #     divide and assign
-    for i in range(args.num_clients):
-        rand_set = split_pattern[i]
-        # idx_shard = list(set(idx_shard) - set(rand_set))
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle,
-                                     **kwargs
-                                     )
-    return data_loaders, None
-
-
-def niid_esize_split_oneclass(dataset, args, kwargs, is_shuffle=True):
-    data_loaders = [0] * args.num_clients
-    # one class perclients
-    # any requirements on the number of clients?
-    num_shards = args.num_clients
-    num_imgs = int(len(dataset) / num_shards)
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(args.num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-
-    if args.dataset != "femnist":
-        # original
-        # editer: Ultraman6 20230928
-        # torch>=1.4.0
-        labels = dataset.targets
-        idxs_labels = np.vstack((idxs, labels))
-        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-        idxs = idxs_labels[0, :]
-        idxs = idxs.astype(int)
-    else:
-        # custom
-        labels = np.array(dataset.targets)  # 将labels转换为NumPy数组
-        idxs_labels = np.vstack((idxs[:len(labels)], labels[:len(idxs)]))
-        idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-        idxs = idxs_labels[0, :]
-        idxs = idxs.astype(int)
-
-    # divide and assign
-    for i in range(args.num_clients):
-        rand_set = set(np.random.choice(idx_shard, 1, replace=False))
-        idx_shard = list(set(idx_shard) - rand_set)
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs: (rand + 1) * num_imgs]), axis=0)
-            dict_users[i] = dict_users[i].astype(int)
-        data_loaders[i] = DataLoader(DatasetSplit(dataset, dict_users[i]),
-                                     batch_size=args.batch_size,
-                                     shuffle=is_shuffle, **kwargs)
-    return data_loaders
 
 
 # 如何调整本地训练样本数量
@@ -478,14 +274,12 @@ def split_data(dataset, args, kwargs, is_shuffle=True):
     """
     return dataloaders
     """
-    if args.iid == 0:
-        data_loaders = niid_esize_split(dataset, args, kwargs, is_shuffle)
-    elif args.iid == 1:
+    if args.iid == 1:
         data_loaders = iid_split(dataset, args, kwargs, is_shuffle)
-    elif args.iid == -2:
-        data_loaders = niid_esize_split_oneclass(dataset, args, kwargs, is_shuffle)
     else:
-        raise ValueError('Data Distribution pattern `{}` not implemented '.format(args.iid))
+        data_loaders = niid_split(dataset, args, kwargs, is_shuffle)
+    # else:
+    #     raise ValueError('Data Distribution pattern `{}` not implemented '.format(args.iid))
     return data_loaders
 
 
