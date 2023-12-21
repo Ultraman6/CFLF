@@ -36,7 +36,7 @@ class FedFAIMAPI(object):
 
         # ----------- FedFAIM特定参数
         self.threshold = -0.01
-        self.alpha = []
+        self.alpha = np.array(self.args.num_clients)
         self.contrib = [0 for _ in range(self.args.num_clients)]
         self.gradient_global = None
         self.gradient_local = {}
@@ -58,7 +58,7 @@ class FedFAIMAPI(object):
                 model_trainer,
             )
             self.client_list.append(c)
-            self.alpha = [0 for _ in range(self.args.num_clients)]
+            self.alpha = np.zeros_like(self.alpha)
             # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
         print("############setup_clients (END)#############")
 
@@ -106,6 +106,7 @@ class FedFAIMAPI(object):
             print("agg_start   round: {}".format(str(round_idx)))
             # 质量敏感聚合，更新本地和全局梯度
             w_global_new= self.quality_detection(w_locals)
+            # 计算本地、全局更新的梯度
             self.upgrate_gradient(w_global, w_locals, w_global_new)
             self.model_trainer.set_model_params(w_global_new)
             print("agg_end   round: {}".format(str(round_idx)))
@@ -152,13 +153,14 @@ class FedFAIMAPI(object):
         # Compute m for each customer
         m_values = np.exp(gamma * np.array(margin_loss))
         m_values /= np.sum(m_values)
+
         # Compute alpha for each customer
         alpha_values = m_values / np.sum(m_values)
         np.put(self.alpha, pass_idx, alpha_values)
-        return average_weights_self(w_locals_pass, alpha_values)
+        return average_weights_self(w_locals_pass, alpha_values), pass_idx
 
     # 计算贡献
-    def Contribution_Assessment(self, w_global, w_locals):
+    def Contribution_Assessment(self):
         for idx in range(self.args.num_clients):
             self.contrib[idx] = max(0, self.contrib[idx] + self.alpha[idx] * self.cosine_similarity(self.gradient_global, self.gradient_local[idx]))
 
@@ -197,7 +199,7 @@ class FedFAIMAPI(object):
             score_final = np.multiply(g_score, g_score_global)
             sorted_indices = np.argsort(-score_final)
             # 先创建一个和w_local同样大小的全零张量
-            w_local_zeros = np.zeros_like(w_locals[client.client_idx])
+            w_local_zeros = np.zeros_like(self.w_locals[client.client_idx])
             for i in range(int(num)):
                 w_local_zeros[i] = w_global[sorted_indices[i]]
             # 分配定制的模型
