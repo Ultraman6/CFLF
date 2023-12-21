@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import torch
@@ -12,10 +13,10 @@ class ModelTrainer():
         self.args = args # 运行参数
         self.criterion = nn.CrossEntropyLoss() # 损失函数
     def get_model_params(self):
-        return self.model.state_dict()
+        return copy.deepcopy(self.model.state_dict())
 
     def set_model_params(self, model_parameters):
-        self.model.load_state_dict(model_parameters)
+        self.model.load_state_dict(copy.deepcopy(model_parameters))
 
     def print_current_lr(self):
         for param_group in self.optimizer.param_groups:

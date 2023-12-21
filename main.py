@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from algo.FedAvg.fedavg_api import FedAvgAPI
+from algo.FedFAIM.fedfaim_api import FedFAIM_API
 from data.data_loader import show_distribution
 from data.data_loader import get_dataloaders
 from model.initialize_model import initialize_model
@@ -39,9 +40,17 @@ def main(name):
             print("test dataloader {} distribution".format(i))
             print(f"test dataloader size {test_size}")
 
+    # fedavg = FedAvgAPI(args, device, [train_loaders, test_loaders, v_train_loader, v_test_loader], initialize_model(args, device))
+    print("联邦学习算法：FedFAIM开始")
+    fedfaim = FedFAIM_API(args, device, [train_loaders, test_loaders, v_train_loader, v_test_loader], initialize_model(args, device))
+    global_acc1, global_loss1 = fedfaim.train()
+    print("联邦学习算法：FedFAIM结束")
+    print("联邦学习算法：FedAvg开始")
     fedavg = FedAvgAPI(args, device, [train_loaders, test_loaders, v_train_loader, v_test_loader], initialize_model(args, device))
-    global_acc, global_loss = fedavg.train()
-    plot_results([create_result("fedavg", global_acc, [i for i in range(args.num_communication)], global_loss)])
+    global_acc2, global_loss2 = fedavg.train()
+    print("联邦学习算法：FedAvg结束")
+    plot_results([create_result("fedfaim", global_acc1, [i for i in range(args.num_communication)], global_loss1),
+                 create_result("fedavg", global_acc2, [i for i in range(args.num_communication)], global_loss2)])
 
 # 按装订区域中的绿色按钮以运行脚本。
 if __name__ == '__main__':

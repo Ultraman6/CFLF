@@ -38,15 +38,14 @@ class FedAvgAPI(object):
                 train_data_local_dict[client_idx],
                 test_data_local_dict[client_idx],
                 self.args,
-                self.device,
-                model_trainer,
+                self.device,  # 一定要深复制，不然所有客户及服务器共用一个trainer！
+                copy.deepcopy(model_trainer),
             )
             self.client_list.append(c)
             # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
         print("############setup_clients (END)#############")
 
     def train(self):
-        print("self.model_trainer = {}".format(self.model_trainer))
         w_global = self.model_trainer.get_model_params()
         mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
         mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
@@ -74,7 +73,6 @@ class FedAvgAPI(object):
                     )
                     # 本地迭代训练
                     print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
-                    print(copy.deepcopy(w_global))
                     w = client.local_train(copy.deepcopy(w_global))
                     print("train_end   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
                     # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型

@@ -37,7 +37,7 @@ def args_parser():
     parser.add_argument(
         '--batch_size',
         type=int,
-        default=10,
+        default=8,
         help='batch size when trained on client'
     )
     parser.add_argument(
@@ -107,7 +107,7 @@ def args_parser():
     parser.add_argument(
         '--iid',
         type=int,
-        default=1,
+        default=0,
         help='distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
@@ -119,7 +119,7 @@ def args_parser():
     parser.add_argument(
         '--alpha',
         type=int,
-        default=0.1,
+        default=0.5,
         help='`alpha`(i.e. alpha>=0) in Dir(alpha*p) where p is the global distribution. The smaller alpha is, the higher heterogeneity the data is.'
     )
     parser.add_argument(
@@ -151,7 +151,7 @@ def args_parser():
     parser.add_argument(
         '--imbalance',
         type=int,
-        default=0,
+        default=0.5,
         help='imbalanc of samples in clients, 0 means equal number of samples, '
              '-1 means random number of samples'
     )

@@ -7,7 +7,8 @@ import torch
 from fedml import mlops
 from tqdm import tqdm
 
-from utils.gradient import getGradient, gradient_flatten
+from utils.gradient import getGradient, gradient_flatten, gradient_flatten_and_shapes, reconstruct_gradients, \
+    calGradientNorm, calGradientDot
 from utils.model_trainer import ModelTrainer
 from .client import Client
 from ..aggregrate import average_weights_on_sample, average_weights, average_weights_self
@@ -15,7 +16,7 @@ from ..aggregrate import average_weights_on_sample, average_weights, average_wei
 # 设置时间间隔（以秒为单位）
 interval = 5
 
-class FedFAIMAPI(object):
+class FedFAIM_API(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
@@ -30,16 +31,17 @@ class FedFAIMAPI(object):
 
         print("model = {}".format(model))
         self.model_trainer = ModelTrainer(model, args)
-        self.model_trainer_temp = ModelTrainer(model, args)
+        self.model_trainer_temp = copy.deepcopy(self.model_trainer)
         self.model = model
         print("self.model_trainer = {}".format(self.model_trainer))
 
         # ----------- FedFAIM特定参数
         self.threshold = -0.01
-        self.alpha = np.array(self.args.num_clients)
+        self.alpha = np.zeros(self.args.num_clients, dtype=float) # 创建大小为num_client的np数组
         self.contrib = [0 for _ in range(self.args.num_clients)]
         self.gradient_global = None
         self.gradient_local = {}
+        self.gamma = 0.1
         self.a=1
         self.b=-1
         self.c=-5.5
@@ -55,16 +57,15 @@ class FedFAIMAPI(object):
                 test_data_local_dict[client_idx],
                 self.args,
                 self.device,
-                model_trainer,
-            )
+                copy.deepcopy(model_trainer),
+            ) # 初始化就赋予初始全局模型
+            c.setModel(self.model_trainer.get_model_params())
             self.client_list.append(c)
-            self.alpha = np.zeros_like(self.alpha)
+            self.alpha = np.zeros_like(self.alpha, dtype=float)
             # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
         print("############setup_clients (END)#############")
 
     def train(self):
-        print("self.model_trainer = {}".format(self.model_trainer))
-        w_global = self.model_trainer.get_model_params()
         mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
         mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
         mlops.log_round_info(self.args.num_communication, -1)
@@ -74,9 +75,10 @@ class FedFAIMAPI(object):
         for round_idx in range(self.args.num_communication):
 
             print("################Communication round : {}".format(round_idx))
-
+            w_global = self.model_trainer.get_model_params()
+            # print(w_global)
             w_locals = []
-
+            self.alpha = np.zeros_like(self.alpha) # 清零质量权重
             client_indexes = self._client_sampling(self.args.num_clients, self.args.num_selected_clients)
             print("client_indexes = " + str(client_indexes))
 
@@ -89,7 +91,6 @@ class FedFAIMAPI(object):
                         self.train_data_local_dict[client.client_idx],
                         self.test_data_local_dict[client.client_idx],
                     )
-                    client.getModel(copy.deepcopy(w_global))
                     # 本地迭代训练
                     print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
                     w = client.local_train()
@@ -97,7 +98,7 @@ class FedFAIMAPI(object):
                     # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型
                     w_locals.append(copy.deepcopy(w))
                     logging.info("client: " + str(client.client_idx)+" successfully return model")
-
+            # print(w_global)
             # 借助client_selected_times统计global_client_num_in_total个客户每个人的被选择次数
             # for i in client_indexes:
             #     client_selected_times[i] += 1
@@ -105,19 +106,22 @@ class FedFAIMAPI(object):
             # 质量敏感聚合
             print("agg_start   round: {}".format(str(round_idx)))
             # 质量敏感聚合，更新本地和全局梯度
-            w_global_new= self.quality_detection(w_locals)
+            w_global_new = self.quality_detection(w_locals)
+            # print(w_global)
+            self.model_trainer.set_model_params(copy.deepcopy(w_global_new))
             # 计算本地、全局更新的梯度
+            # print(w_global)
+            # print(w_global_new)
             self.upgrate_gradient(w_global, w_locals, w_global_new)
-            self.model_trainer.set_model_params(w_global_new)
             print("agg_end   round: {}".format(str(round_idx)))
             # 奖励分配
             print("reward_start   round: {}".format(str(round_idx)))
-            self.Contribution_Assessment(w_global_new, w_locals)
-            self.Reward_Allocation()
+            self.Contribution_Assessment()  # 评估所有客户贡献
+            self.Reward_Allocation()   # 分配奖励与定制模型
             print("reward_start   round: {}".format(str(round_idx)))
 
             # global test
-            test_acc, test_loss = self._global_test_on_validation_set(round_idx)
+            test_acc, test_loss = self._global_test_on_validation_set()
             print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx), str(test_acc), str(test_loss)))
             global_loss.append(test_loss)
             global_acc.append(test_acc)
@@ -132,15 +136,19 @@ class FedFAIMAPI(object):
 
     # 基于重构计算本地模型的边际损失
     def quality_detection(self, w_locals): # 基于随机数结合概率判断是否成功返回模型
-        # 质量检测
+        # 质量检测:先计算全局损失，再计算每个本地的损失
         self.model_trainer_temp.set_model_params(average_weights(w_locals))
-        loss= self.model_trainer_temp.test(self.val_global, self.device)
+
+        test_metrics = self.model_trainer_temp.test(self.val_global, self.device)
+        loss = test_metrics["test_loss"] / test_metrics["test_total"]
+
         w_locals_pass = [] # 用于存放通过质量检测的模型
         margin_loss = [] # 用于存放边际损失
         pass_idx = [] # 用于存放通过质量检测的客户id
         for client in self.client_list:
             self.model_trainer_temp.set_model_params(average_weights(np.delete(w_locals, client.client_idx)))
-            loss_i = self.model_trainer_temp.test(self.val_global, self.device)
+            test_metrics = self.model_trainer_temp.test(self.val_global, self.device)
+            loss_i = test_metrics["test_loss"] / test_metrics["test_total"]
             margin_loss_i = loss_i - loss
             if margin_loss_i > self.threshold:
                 client.n_pass += 1
@@ -148,64 +156,75 @@ class FedFAIMAPI(object):
                 w_locals_pass.append(w_locals[client.client_idx])
                 pass_idx.append(client.client_idx)
             else: client.n_pass += 1
+
         # 质量聚合
-        gamma = 0.5  # Example gamma value
         # Compute m for each customer
-        m_values = np.exp(gamma * np.array(margin_loss))
+        m_values = np.exp(self.gamma * np.array(margin_loss))
         m_values /= np.sum(m_values)
 
         # Compute alpha for each customer
         alpha_values = m_values / np.sum(m_values)
+        # print(alpha_values)
+        # print(self.alpha)
         np.put(self.alpha, pass_idx, alpha_values)
-        return average_weights_self(w_locals_pass, alpha_values), pass_idx
+        # print(self.alpha)
+        return average_weights_self(w_locals_pass, alpha_values)
 
-    # 计算贡献
+    # 计算累计贡献
     def Contribution_Assessment(self):
         for idx in range(self.args.num_clients):
-            self.contrib[idx] = max(0, self.contrib[idx] + self.alpha[idx] * self.cosine_similarity(self.gradient_global, self.gradient_local[idx]))
+            norm = calGradientNorm(self.gradient_local[idx])
+            cos = self.cosine_similarity(self.gradient_global, self.gradient_local[idx])
+            self.contrib[idx] = max(0, self.contrib[idx] + self.alpha[idx] * norm * cos)
 
     def cosine_similarity(self, u, v):
-        return np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+        return calGradientDot(u, v) / (calGradientNorm(u) * calGradientNorm(v))
 
     # 奖励分配
     def Reward_Allocation(self):
         c_max = max(self.contrib)
+        # print(self.contrib)
         r = [] # 记录本轮的声誉
         for client in self.client_list:
             x = (self.beta*client.n_pass-(1-self.beta)*client.n_fail)/(self.beta*client.n_pass+(1-self.beta)*client.n_fail)
-            r.append(self.contrib[client.client_idx]/c_max*self.a*exp(self.b*exp(self.c*x)))
+            r.append(self.contrib[client.client_idx]/c_max * self.a*exp(self.b*exp(self.c*x)))
         r_max = max(r)
 
         # 先计算全局梯度中每个参数的得分，需要分模块，每个模块平坦化
         g_score_global = []
-        g_global_flat = gradient_flatten(self.gradient_global)
+        g_global_flat, g_global_shape, parameter_names = gradient_flatten_and_shapes(self.gradient_global)
         g_abs_global_flat = np.abs(g_global_flat)
         total_abs_grad_sum = torch.sum(g_abs_global_flat)
+        num_params = g_abs_global_flat.numel()
         # 计算全局梯度中每个参数的得分（占比），需要先flatten
-        for grad in g_abs_global_flat.items():
-            g_score_global.append(grad/ total_abs_grad_sum)
-
+        for i in range(num_params):
+            g_score_global.append(g_abs_global_flat[i].item() / total_abs_grad_sum)
 
         # 再计算本地梯度得分、数量分配
         for client in self.client_list:
-            num = r[client.client_idx]/r_max * len(g_global_flat) # 长度是所有参数数量，flat之后
+            num = r[client.client_idx]/r_max * num_params # 长度是所有参数数量，flat之后
             g_score = []
             g_local_flat = gradient_flatten(self.gradient_local[client.client_idx])
             g_abs_local_flat = np.abs(g_local_flat)
             total_abs_grad_sum = torch.sum(g_abs_local_flat)
-            for grad in g_abs_local_flat.items():
-                g_score.append(grad/total_abs_grad_sum)
+            for i in range(num_params):
+                g_score.append(g_abs_local_flat[i].item() / total_abs_grad_sum)
 
+            # 将总得分逆序排序，得到参数对应的下标
             score_final = np.multiply(g_score, g_score_global)
             sorted_indices = np.argsort(-score_final)
+
             # 先创建一个和w_local同样大小的全零张量
-            w_local_zeros = np.zeros_like(self.w_locals[client.client_idx])
-            for i in range(int(num)):
-                w_local_zeros[i] = w_global[sorted_indices[i]]
+            cus_local = reconstruct_gradients(self.cusGradient(num, sorted_indices, g_global_flat), g_global_shape, parameter_names)
             # 分配定制的模型
-            client.getGradient(copy.deepcopy(w_local_zeros))
+            client.setGradient(cus_local)
 
-
+    # 定制梯度
+    def cusGradient(self, num, sorted_indices, g_global_flat):
+        customized_local = np.zeros_like(g_global_flat)
+        for i in range(int(num)): # 将当前名次的梯度赋给对应的参数，其余没有赋的仍未为0
+            customized_local[sorted_indices[i]] = g_global_flat[sorted_indices[i]]
+        return torch.from_numpy(customized_local)
 
 
     # 根据

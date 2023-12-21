@@ -1,3 +1,8 @@
+import copy
+
+from utils.gradient import bindGradient
+
+
 class Client:
     def __init__(self, client_idx, train_dataloader, test_dataloader, args, device, model_trainer):
         self.client_idx = client_idx
@@ -23,11 +28,12 @@ class Client:
         self.model_trainer.train(self.train_dataloader, self.device, self.args)
         weights = self.model_trainer.get_model_params()
         return weights
-    def getModel(self, w_global):
+
+    def setModel(self, w_global):
         self.model_trainer.set_model_params(w_global)
 
-    def getGradient(self, g):
-        self.model_trainer.set_model_params(self.model_trainer.get_model_params+g)
+    def setGradient(self, g_global):
+        self.model_trainer.set_model_params(bindGradient(self.model_trainer.get_model_params(), g_global))
 
     # 本地测试 调用trainer，传入args、device、训练数据集
     def local_test(self, use_test_dataset):
