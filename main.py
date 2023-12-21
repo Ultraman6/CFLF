@@ -11,6 +11,7 @@ from utils.drawing import create_result, plot_results
 
 
 def main(name):
+    global cuda_to_use
     args = args_parser()
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)

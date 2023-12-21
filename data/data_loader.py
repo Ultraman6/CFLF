@@ -12,7 +12,7 @@ from data.partition import dirichlet_partition, diversity_partition, imbalance_p
 
 cudnn.banchmark = True
 
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from options import args_parser
 
 
@@ -131,10 +131,15 @@ def load_data(train, test, args):
 
     val_loader_on_train = DataLoader(train, batch_size=args.batch_size * args.num_clients,
                                 shuffle=True, **kwargs)
-    valid_loader_on_test = DataLoader(test, batch_size=args.batch_size * args.num_clients,
-                               shuffle=False, **kwargs)
+    if args.valid_strategy == 1: # 随机选择1%的训练集作为测试集
+        val_size = int(0.01 * len(train))  # 1% of the training set size
+        val_indices = np.random.choice(len(train), val_size, replace=False)
+        val_subset = Subset(train, val_indices)
+        val_loader_on_test = DataLoader(val_subset, batch_size=args.batch_size, shuffle=True, **kwargs)
+    else:
+        val_loader_on_test = DataLoader(test, batch_size=args.batch_size, shuffle=False, **kwargs)
 
-    return train_loaders, test_loaders, val_loader_on_train, valid_loader_on_test
+    return train_loaders, test_loaders, val_loader_on_train, val_loader_on_test
 
 
 

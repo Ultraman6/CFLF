@@ -193,7 +193,7 @@ class FedFAIM_API(object):
         # 先计算全局梯度中每个参数的得分，需要分模块，每个模块平坦化
         g_score_global = []
         g_global_flat, g_global_shape, parameter_names = gradient_flatten_and_shapes(self.gradient_global)
-        g_abs_global_flat = np.abs(g_global_flat)
+        g_abs_global_flat = torch.abs(g_global_flat)
         total_abs_grad_sum = torch.sum(g_abs_global_flat)
         num_params = g_abs_global_flat.numel()
         # 计算全局梯度中每个参数的得分（占比），需要先flatten
@@ -205,14 +205,14 @@ class FedFAIM_API(object):
             num = r[client.client_idx]/r_max * num_params # 长度是所有参数数量，flat之后
             g_score = []
             g_local_flat = gradient_flatten(self.gradient_local[client.client_idx])
-            g_abs_local_flat = np.abs(g_local_flat)
+            g_abs_local_flat = torch.abs(g_local_flat) # 只能cpu提取np
             total_abs_grad_sum = torch.sum(g_abs_local_flat)
             for i in range(num_params):
                 g_score.append(g_abs_local_flat[i].item() / total_abs_grad_sum)
 
             # 将总得分逆序排序，得到参数对应的下标
-            score_final = np.multiply(g_score, g_score_global)
-            sorted_indices = np.argsort(-score_final)
+            score_final = [gs * gg for gs, gg in zip(g_score, g_score_global)]
+            sorted_indices = sorted(range(len(score_final)), key=lambda i: score_final[i], reverse=True)
 
             # 先创建一个和w_local同样大小的全零张量
             cus_local = reconstruct_gradients(self.cusGradient(num, sorted_indices, g_global_flat), g_global_shape, parameter_names)
@@ -221,10 +221,10 @@ class FedFAIM_API(object):
 
     # 定制梯度
     def cusGradient(self, num, sorted_indices, g_global_flat):
-        customized_local = np.zeros_like(g_global_flat)
+        customized_local = torch.zeros_like(g_global_flat)
         for i in range(int(num)): # 将当前名次的梯度赋给对应的参数，其余没有赋的仍未为0
             customized_local[sorted_indices[i]] = g_global_flat[sorted_indices[i]]
-        return torch.from_numpy(customized_local)
+        return customized_local
 
 
     # 根据

@@ -87,7 +87,7 @@ def args_parser():
     parser.add_argument(
         '--num_local_update',
         type=int,
-        default=2,
+        default=1,
         help='number of local update (K_1)'
     )
 
@@ -95,13 +95,13 @@ def args_parser():
     parser.add_argument(
         '--num_clients',
         type=int,
-        default=5,
+        default=2,
         help='number of all available clients'
     )
     parser.add_argument(
         '--num_selected_clients',
         type=float,
-        default=5,
+        default=2,
         help='selection of participated clients'
     )
     parser.add_argument(
@@ -119,27 +119,36 @@ def args_parser():
     parser.add_argument(
         '--alpha',
         type=int,
-        default=0.5,
-        help='`alpha`(i.e. alpha>=0) in Dir(alpha*p) where p is the global distribution. The smaller alpha is, the higher heterogeneity the data is.'
+        default=0.1,
+        help='`alpha`(i.e. alpha>0) in Dir(alpha*p) where p is the global distribution. The smaller alpha is, '
+             'the higher heterogeneity the data is.'
     )
     parser.add_argument(
         '--error_bar',
         type=float,
         default=1e-6,
-        help='the allowed error when the generated distribution mismatches the distirbution that is actually wanted, since there may be no solution for particular imbalance and alpha.'
+        help='the allowed error when the generated distribution mismatches the distirbution that is actually wanted, '
+             'since there may be no solution for particular imbalance and alpha.'
     )
     parser.add_argument(
         '--diversity',
         type=int,
         default=1,
-        help='the ratio of locally owned types of the attributes (i.e. the actual number=diversity * total_num_of_types)'
+        help='the ratio of locally owned types of the attributes (i.e. the actual number=diversity * '
+             'total_num_of_types)'
     )
 
     parser.add_argument(
         '--test_on_all_samples',
         type=int,
         default=1,
-        help='1 means test on all samples, 0 means test samples will be split averagely to each client'
+        help='1 means test on all samples, 0 means test samples will be split averagely to each client, '
+    )
+    parser.add_argument(
+        '--valid_strategy',
+        type=int,
+        default=1,
+        help='1 means valid on 1% samples of train set '
     )
     # 定义clients及其分配样本量的关系
     parser.add_argument(
@@ -151,7 +160,7 @@ def args_parser():
     parser.add_argument(
         '--imbalance',
         type=int,
-        default=0.5,
+        default=1,
         help='imbalanc of samples in clients, 0 means equal number of samples, '
              '-1 means random number of samples'
     )

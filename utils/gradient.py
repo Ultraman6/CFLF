@@ -22,10 +22,9 @@ def getGradient(model_current, model_previous):
         gradient[name] = current_param - previous_param
     return gradient
 
+
 def bindGradient(model_previous, gradient_current):
     model_current = OrderedDict()
-    print(type(model_previous))
-    print(type(gradient_current))
     for (name, previous_param), (_, current_grad) in zip(model_previous.items(), gradient_current.items()):
         # Ensure the parameter names from both models match
         assert name == _, "The models have different architectures or parameter orders"
@@ -61,6 +60,7 @@ def gradient_flatten_and_shapes(gradient):
     parameter_names = list(gradient.keys())
     return flat_gradient, original_shapes, parameter_names
 
+
 def reconstruct_gradients(flat_gradient, original_shapes, parameter_names):
     position = 0
     reconstructed_gradients = OrderedDict()
@@ -75,7 +75,6 @@ def reconstruct_gradients(flat_gradient, original_shapes, parameter_names):
         position += num_elements
 
     return reconstructed_gradients
-
 
 # Example usage:
 # flat_gradient is your flattened gradient tensor
