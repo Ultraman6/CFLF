@@ -183,49 +183,41 @@ class FedFAIM_API(object):
     # 奖励分配
     def Reward_Allocation(self):
         c_max = max(self.contrib)
-        # print(self.contrib)
-        r = [] # 记录本轮的声誉
+        r = []  # Record reputation for this round
         for client in self.client_list:
-            x = (self.beta*client.n_pass-(1-self.beta)*client.n_fail)/(self.beta*client.n_pass+(1-self.beta)*client.n_fail)
-            r.append(self.contrib[client.client_idx]/c_max * self.a*exp(self.b*exp(self.c*x)))
+            x = (self.beta * client.n_pass - (1 - self.beta) * client.n_fail) / (
+                        self.beta * client.n_pass + (1 - self.beta) * client.n_fail)
+            r.append(self.contrib[client.client_idx] / c_max * self.a * exp(self.b * exp(self.c * x)))
         r_max = max(r)
 
-        # 先计算全局梯度中每个参数的得分，需要分模块，每个模块平坦化
-        g_score_global = []
+        # Calculate scores for global gradient
         g_global_flat, g_global_shape, parameter_names = gradient_flatten_and_shapes(self.gradient_global)
         g_abs_global_flat = torch.abs(g_global_flat)
         total_abs_grad_sum = torch.sum(g_abs_global_flat)
-        num_params = g_abs_global_flat.numel()
-        # 计算全局梯度中每个参数的得分（占比），需要先flatten
-        for i in range(num_params):
-            g_score_global.append(g_abs_global_flat[i].item() / total_abs_grad_sum)
+        g_score_global = g_abs_global_flat / total_abs_grad_sum
 
-        # 再计算本地梯度得分、数量分配
+        # Calculate local gradient scores and distribute the custom model
         for client in self.client_list:
-            num = r[client.client_idx]/r_max * num_params # 长度是所有参数数量，flat之后
-            g_score = []
+            num = r[client.client_idx] / r_max * g_global_flat.numel()
             g_local_flat = gradient_flatten(self.gradient_local[client.client_idx])
-            g_abs_local_flat = torch.abs(g_local_flat) # 只能cpu提取np
-            total_abs_grad_sum = torch.sum(g_abs_local_flat)
-            for i in range(num_params):
-                g_score.append(g_abs_local_flat[i].item() / total_abs_grad_sum)
+            g_abs_local_flat = torch.abs(g_local_flat)
+            g_score = g_abs_local_flat / torch.sum(g_abs_local_flat)
 
-            # 将总得分逆序排序，得到参数对应的下标
-            score_final = [gs * gg for gs, gg in zip(g_score, g_score_global)]
-            sorted_indices = sorted(range(len(score_final)), key=lambda i: score_final[i], reverse=True)
+            # Multiply and sort scores
+            score_final = g_score * g_score_global
+            sorted_indices = torch.argsort(score_final, descending=True)
 
-            # 先创建一个和w_local同样大小的全零张量
-            cus_local = reconstruct_gradients(self.cusGradient(num, sorted_indices, g_global_flat), g_global_shape, parameter_names)
-            # 分配定制的模型
+            # Create a customized local gradient
+            cus_local = reconstruct_gradients(self.cusGradient(num, sorted_indices, g_global_flat), g_global_shape,
+                                              parameter_names)
             client.setGradient(cus_local)
 
     # 定制梯度
     def cusGradient(self, num, sorted_indices, g_global_flat):
         customized_local = torch.zeros_like(g_global_flat)
-        for i in range(int(num)): # 将当前名次的梯度赋给对应的参数，其余没有赋的仍未为0
-            customized_local[sorted_indices[i]] = g_global_flat[sorted_indices[i]]
+        top_indices = sorted_indices[:int(num)]
+        customized_local[top_indices] = g_global_flat[top_indices]
         return customized_local
-
 
     # 根据
     def _client_sampling(self, client_num_in_total, client_num_per_round):
