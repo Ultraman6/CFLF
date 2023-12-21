@@ -8,6 +8,9 @@ class Client:
         # 存放其他参数，如本地epoch、本地batch_size等
         self.args = args
 
+        self.n_pass = 0
+        self.n_fail = 0
+        # self.sv_acm = 0
     # 更新本地数据集（训练、测试）
     def update_dataset(self, client_idx, train_data, test_data):
         self.client_idx = client_idx
@@ -16,11 +19,15 @@ class Client:
         self.model_trainer.client_idx = client_idx
 
     # 本地训练 调用trainer，传入args、device、训练数据集
-    def local_train(self, w_global):
-        self.model_trainer.set_model_params(w_global)
+    def local_train(self):
         self.model_trainer.train(self.train_dataloader, self.device, self.args)
         weights = self.model_trainer.get_model_params()
         return weights
+    def getModel(self, w_global):
+        self.model_trainer.set_model_params(w_global)
+
+    def getGradient(self, g):
+        self.model_trainer.set_model_params(self.model_trainer.get_model_params+g)
 
     # 本地测试 调用trainer，传入args、device、训练数据集
     def local_test(self, use_test_dataset):

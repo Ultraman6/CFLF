@@ -17,6 +17,13 @@ def average_weights(w):
         w_avg[k] = torch.mul(w_avg[k], 1/total_num)
     return w_avg
 
+# 自定义权重聚合
+def average_weights_self(w_locals, weights):
+    w_avg = copy.deepcopy(w_locals[0])
+    for k in w_avg.keys():  #the nn layer loop
+        for i in range(1, len(w_locals)):   #the client loop
+            w_avg[k] = w_avg[k] + torch.mul(w_locals[i][k], weights[k])
+    return w_avg
 
 # 权重平均聚合,基于样本量
 def average_weights_on_sample(w, s_num):

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
-from data.dataset import get_mnist, get_femnist, get_cifar10
+from data.dataset import get_mnist, get_cifar10
 from data.partition import dirichlet_partition, diversity_partition, imbalance_partition
 
 cudnn.banchmark = True
@@ -46,7 +46,6 @@ def iid_split(dataset, args, kwargs, is_shuffle=True):
     num_samples_per_client = imbalance_partition(args.num_clients, len(dataset), args)
     for i in range(args.num_clients):
         # 如果提供了客户端特定的数据量，则使用该数据量
-        print(num_samples_per_client)
         sample = num_samples_per_client[i]
         dict_users[i] = np.random.choice(all_idxs, sample, replace=False)
         all_idxs = list(set(all_idxs) - set(dict_users[i]))

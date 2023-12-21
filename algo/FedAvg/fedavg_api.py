@@ -74,6 +74,7 @@ class FedAvgAPI(object):
                     )
                     # 本地迭代训练
                     print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
+                    print(copy.deepcopy(w_global))
                     w = client.local_train(copy.deepcopy(w_global))
                     print("train_end   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
                     # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型

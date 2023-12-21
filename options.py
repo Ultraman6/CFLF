@@ -12,13 +12,13 @@ def args_parser():
     parser.add_argument(
         '--dataset',
         type=str,
-        default='femnist',
+        default='mnist',
         help='name of the dataset: mnist, cifar10, femnist'
     )
     parser.add_argument(
         '--model',
         type=str,
-        default='cnn_complex',
+        default='cnn',
         help='name of model. mnist: logistic, lenet, cnn; cifar10: resnet18, cnn_complex; femnist: logistic, lenet, cnn'
     )
     parser.add_argument(
@@ -107,7 +107,7 @@ def args_parser():
     parser.add_argument(
         '--iid',
         type=int,
-        default=0,
+        default=1,
         help='distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
@@ -151,7 +151,7 @@ def args_parser():
     parser.add_argument(
         '--imbalance',
         type=int,
-        default=0.5,
+        default=0,
         help='imbalanc of samples in clients, 0 means equal number of samples, '
              '-1 means random number of samples'
     )
@@ -211,7 +211,6 @@ def args_parser():
         default=0,
         type=int
     )
-
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
     return args
