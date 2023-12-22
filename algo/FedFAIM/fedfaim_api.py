@@ -157,6 +157,8 @@ class FedFAIM_API(object):
                 pass_idx.append(client.client_idx)
             else: client.n_pass += 1
 
+        print("本轮的边际损失为：{}".format(str(margin_loss)))
+        print("本轮通过检测的客户为：{}".format(str(pass_idx)))
         # 质量聚合
         # Compute m for each customer
         m_values = np.exp(self.gamma * np.array(margin_loss))

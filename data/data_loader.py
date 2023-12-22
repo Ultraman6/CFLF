@@ -1,6 +1,10 @@
 """
     数据集装载方法
 """
+import copy
+import json
+import random
+from collections import defaultdict
 
 import numpy as np
 
@@ -54,7 +58,6 @@ def iid_split(dataset, args, kwargs, is_shuffle=True):
                                      shuffle=is_shuffle, **kwargs)
     return data_loaders
 
-
 def niid_split(dataset, args, kwargs, is_shuffle=True):
     """非独立同分布的数据划分方法。
     Args:
@@ -66,16 +69,57 @@ def niid_split(dataset, args, kwargs, is_shuffle=True):
     Returns:
         list: 客户端数据加载器列表。
     """
-    if args.strategy == "dirichlet":
-        # 狄利克雷划分逻辑
-        # 这里需要您自己的实现，例如：使用狄利克雷分布进行样本划分
+    if args.strategy == "custom_class":
+        class_num_per_client = args.class_mapping  # 从 args 获取每个客户的类别数
+        local_datas = custom_class_split(dataset, class_num_per_client)
+    elif args.strategy == "dirichlet":
         local_datas = dirichlet_partition(dataset, args)
     else:
-        # 基于类别的NIID划分逻辑
-        # 这里需要您自己的实现，例如：为每个客户端分配不同的类别
         local_datas = diversity_partition(dataset, args)
-    # 可以根据需要添加更多的策略
-    return [DataLoader(DatasetSplit(dataset,ld), batch_size=args.batch_size, shuffle=is_shuffle, **kwargs) for ld in local_datas]
+
+    return [DataLoader(DatasetSplit(dataset, ld), batch_size=args.batch_size, shuffle=is_shuffle, **kwargs) for ld in local_datas]
+
+def custom_class_split(dataset, class_distribution_json):
+    # 解析 JSON 字符串
+    class_distribution = json.loads(class_distribution_json)
+
+    # 创建每个类别的索引列表
+    class_indices = defaultdict(list)
+    for idx, (_, label) in enumerate(dataset):
+        class_indices[label].append(idx)
+
+    total_classes = len(class_indices.keys())
+    total_samples = len(dataset)
+
+    client_datasets = []
+    for client_id, num_classes in class_distribution.items():
+        # 每个客户端应该获得的样本数量
+        total_samples_per_client = total_samples // len(class_distribution)
+        selected_classes = random.sample(list(class_indices.keys()), num_classes)
+        samples_per_class = total_samples_per_client // num_classes
+        # 对于每个选中的类别，随机选择样本
+        client_sample_indices = []
+        for cls in selected_classes:
+            cls_indices = class_indices[cls]
+            random.shuffle(cls_indices)
+            client_sample_indices.extend(cls_indices[:samples_per_class])
+        client_datasets.append(client_sample_indices)
+
+    return client_datasets
+
+
+
+def add_noise_to_labels(dataset, noise_ratio):
+    noisy_dataset = copy.deepcopy(dataset)
+    num_noisy_labels = int(len(dataset) * noise_ratio)
+    all_labels = set([label for _, label in dataset])
+
+    for _ in range(num_noisy_labels):
+        idx = random.randint(0, len(dataset) - 1)
+        original_label = dataset[idx][1]
+        noisy_dataset[idx] = (dataset[idx][0], random.choice(list(all_labels - {original_label})))
+
+    return noisy_dataset
 
 
 # 如何调整本地训练样本数量
@@ -112,34 +156,25 @@ def load_data(train, test, args):
     is_cuda = args.cuda
     kwargs = {'num_workers': 1, 'pin_memory': True} if is_cuda else {}
 
+    # 分割训练数据
     train_loaders = split_data(train, args, kwargs, is_shuffle=True)
-    test_loaders = []
 
-    if args.test_on_all_samples == 1:
-        # 将整个测试集分配给每个客户端
-        for i in range(args.num_clients):
-            test_loader = torch.utils.data.DataLoader(
-                test, batch_size=args.batch_size, shuffle=False, **kwargs
-            )
-            test_loaders.append(test_loader)
-    else:
-        test_loaders = split_data(test, args, kwargs, is_shuffle=False)
+    # 为训练数据添加噪声
+    if args.self_noise == 1:
+        noise_ratios = json.loads(args.noise_mapping)
+        for i, loader in enumerate(train_loaders):
+            noisy_dataset = add_noise_to_labels(loader.dataset.dataset, noise_ratios[i])
+            train_loaders[i] = DataLoader(noisy_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    # the actual batch_size may need to change.... Depend on the actual gradient...
-    # originally written to get the gradient of the whole dataset
-    # but now it seems to be able to improve speed of getting accuracy of virtual sequence
+    # 分割测试数据
+    test_loaders = split_data(test, args, kwargs, is_shuffle=False) if args.test_on_all_samples != 1 else [DataLoader(test, batch_size=args.batch_size, shuffle=False, **kwargs) for _ in range(args.num_clients)]
 
-    val_loader_on_train = DataLoader(train, batch_size=args.batch_size * args.num_clients,
-                                shuffle=True, **kwargs)
-    if args.valid_strategy == 1: # 随机选择1%的训练集作为测试集
-        val_size = int(0.01 * len(train))  # 1% of the training set size
-        val_indices = np.random.choice(len(train), val_size, replace=False)
-        val_subset = Subset(train, val_indices)
-        val_loader_on_test = DataLoader(val_subset, batch_size=args.batch_size, shuffle=True, **kwargs)
-    else:
-        val_loader_on_test = DataLoader(test, batch_size=args.batch_size, shuffle=False, **kwargs)
+    # 创建验证集加载器
+    val_loader_on_train = DataLoader(train, batch_size=args.batch_size * args.num_clients, shuffle=True, **kwargs)
+    val_loader_on_test = DataLoader(test, batch_size=args.batch_size * args.num_clients, shuffle=False, **kwargs) if args.valid_strategy != 1 else DataLoader(Subset(train, np.random.choice(len(train), int(0.01 * len(train)), replace=False)), batch_size=args.batch_size, shuffle=True, **kwargs)
 
     return train_loaders, test_loaders, val_loader_on_train, val_loader_on_test
+
 
 
 

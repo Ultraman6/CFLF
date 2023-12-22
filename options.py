@@ -87,7 +87,7 @@ def args_parser():
     parser.add_argument(
         '--num_local_update',
         type=int,
-        default=1,
+        default=4,
         help='number of local update (K_1)'
     )
 
@@ -95,13 +95,13 @@ def args_parser():
     parser.add_argument(
         '--num_clients',
         type=int,
-        default=2,
+        default=20,
         help='number of all available clients'
     )
     parser.add_argument(
         '--num_selected_clients',
         type=float,
-        default=2,
+        default=20,
         help='selection of participated clients'
     )
     parser.add_argument(
@@ -113,13 +113,13 @@ def args_parser():
     parser.add_argument(
         '--strategy',
         type=str,
-        default='dirichlet',
-        help='strategy (str): NIID划分的策略。例如："category-based", "dirichlet"等'
+        default='custom_class',
+        help='strategy (str): NIID划分的策略。例如："category-based", "dirichlet", "custom_class"等。'
     )
     parser.add_argument(
         '--alpha',
         type=int,
-        default=0.1,
+        default=0.5,
         help='`alpha`(i.e. alpha>0) in Dir(alpha*p) where p is the global distribution. The smaller alpha is, '
              'the higher heterogeneity the data is.'
     )
@@ -150,35 +150,67 @@ def args_parser():
         default=1,
         help='1 means valid on 1% samples of train set '
     )
-    # 定义clients及其分配样本量的关系
-    parser.add_argument(
-        '--self_sample',
-        default=-1,
-        type=int,
-        help='>=0: set， -1: auto'
-    )
     parser.add_argument(
         '--imbalance',
         type=int,
-        default=1,
+        default=0,
         help='imbalanc of samples in clients, 0 means equal number of samples, '
              '-1 means random number of samples'
     )
+    # 定义clients及其分配样本量的关系
+    parser.add_argument(
+        '--self_sample',
+        default=0,
+        type=int,
+        help='>=0: set， -1: auto'
+    )
     # 将映射关系转换为JSON格式，主键个数必须等于num_edges，value为-1表示all samples
     sample_mapping_json = json.dumps({
-        "0": 3000,
-        "1": 2000,
-        "2": 5000,
-        "3": 10000,
-        "4": 8000,
+        "0": 50, "1": 100, "2": 150, "3": 200, "4": 250,
+        "5": 300, "6": 350, "7": 400, "8": 450, "9": 500,
+        "10": 500, "11": 550, "12": 600, "13": 650, "14": 700,
+        "15": 750, "16": 800, "17": 850, "18": 900, "19": 950,
     })
+    # 将映射关系转换为JSON格式，主键个数必须等于num_edges，value为-1表示all samples
     parser.add_argument(
         '--sample_mapping',
         type=str,
         default=sample_mapping_json,
         help='mapping of clients and their samples'
     )
-
+    # niid自定义每个客户的类别数
+    class_mapping_json = json.dumps({
+        "0": 1, "1": 1, "2": 2, "3": 2, "4": 3,
+        "5": 3, "6": 4, "7": 4, "8": 5, "9": 5,
+        "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
+        "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
+    })
+    parser.add_argument(
+        '--class_mapping',
+        type=str,
+        default=class_mapping_json,
+        help='mapping of clients and their class'
+    )
+    parser.add_argument(
+        '--self_noise',
+        default=0,
+        type=int,
+        help='>=1: set， 0: undo'
+    )
+    # 异构性自定义每个客户的噪声比例
+    noise_mapping_json = json.dumps({
+        "0": 0.95, "1": 1, "2": 150, "3": 200, "4": 250,
+        "5": 300, "6": 350, "7": 400, "8": 450, "9": 500,
+        "10": 500, "11": 550, "12": 600, "13": 650, "14": 700,
+        "15": 750, "16": 800, "17": 850, "18": 900, "19": 950,
+    })
+    # niid自定义每个客户的类别数
+    parser.add_argument(
+        '--noise_mapping',
+        type=str,
+        default=noise_mapping_json,
+        help='mapping of clients and their class'
+    )
     # ----------- 定义client的通信参数
     parser.add_argument(
         '--seed',
