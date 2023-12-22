@@ -5,12 +5,30 @@ import numpy as np
 
 import torch
 import torch.backends.cudnn as cudnn
+from torch.utils.data import Dataset
 
 cudnn.banchmark = True
 
 '''
    数据集划分方法
 '''
+
+class DatasetSplit(Dataset):
+# 工具类，将原始数据集解耦为可迭代的(x，y)序列，按照映射访问特定的子集
+    def __init__(self, dataset, idxs=None):
+        super(DatasetSplit, self).__init__()
+        self.dataset = dataset
+        # 如果 idxs 为 None，则映射整个数据集
+        self.idxs = range(len(dataset)) if idxs is None else idxs
+
+    def __len__(self):
+        return len(self.idxs)
+
+    def __getitem__(self, item):
+        image, target = self.dataset[self.idxs[item]]
+        return image, target
+
+
 #随机确定客户样本量
 def random_partition(_sum, num_users):
     base = 100 * np.ones(num_users, dtype=np.int32)
@@ -195,3 +213,20 @@ def diversity_partition(dataset, args, index_func = lambda x: [xi[-1] for xi in 
     # 返回客户端数据映射
     print(local_datas)
     return local_datas
+
+def gaussian_perturbation_partition(dataset, args):
+    shape = tuple(np.array([xi[0] for xi in dataset][0].shape))
+    samples_per_client = imbalance_partition(args.num_clients, len(dataset), args.imbalance)
+    d_idxs = np.random.permutation(len(dataset))
+    local_datas = np.split(d_idxs, np.cumsum(samples_per_client))[:-1]
+    local_datas = [di.tolist() for di in local_datas]
+
+    local_perturbation_means = [np.random.normal(0, args.sigma, shape) for _ in range(args.num_clients)]
+    local_perturbation_stds = [args.scale * np.ones(shape) for _ in range(args.num_clients)]
+    local_perturbation = []
+
+    for cid in range(args.num_clients):
+        c_perturbation = [np.random.normal(local_perturbation_means[cid], local_perturbation_stds[cid]).tolist() for _ in range(len(local_datas[cid]))]
+        local_perturbation.append(c_perturbation)
+
+    return local_datas, local_perturbation

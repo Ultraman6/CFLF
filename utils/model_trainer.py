@@ -23,10 +23,8 @@ class ModelTrainer():
             print(param_group['lr'])
     def train(self, train_data, device, args):
         model = self.model
-
         model.to(device)
         model.train()
-
         # train and update
         criterion = nn.CrossEntropyLoss().to(device)  # pylint: disable=E1102
         if args.client_optimizer == "sgd":
@@ -42,7 +40,6 @@ class ModelTrainer():
                 weight_decay=args.weight_decay,
                 amsgrad=True,
             )
-
         epoch_loss = []
         for epoch in range(args.num_local_update):
             batch_loss = []
@@ -63,11 +60,13 @@ class ModelTrainer():
                 epoch_loss.append(0.0)
             else:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
+            train_loss = sum(epoch_loss) / len(epoch_loss)
             print(
                 "Client Index = {}\tEpoch: {}\tLoss: {:.6f}".format(
-                    self.cid, epoch, sum(epoch_loss) / len(epoch_loss)
+                    self.cid, epoch, train_loss
                 )
             )
+            return train_loss
 
     def test(self, test_data, device):
         model = self.model

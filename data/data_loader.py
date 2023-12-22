@@ -12,27 +12,14 @@ import torch
 import torch.backends.cudnn as cudnn
 
 from data.dataset import get_mnist, get_cifar10
-from data.partition import dirichlet_partition, diversity_partition, imbalance_partition
+from data.partition import dirichlet_partition, diversity_partition, imbalance_partition, DatasetSplit, \
+    gaussian_perturbation_partition
 
 cudnn.banchmark = True
 
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Subset
 from options import args_parser
 
-
-class DatasetSplit(Dataset):
-# 工具类，将原始数据集解耦为可迭代的(x，y)序列
-    def __init__(self, dataset, idxs):
-        super(DatasetSplit, self).__init__()
-        self.dataset = dataset
-        self.idxs = idxs
-
-    def __len__(self):
-        return len(self.idxs)
-
-    def __getitem__(self, item):
-        image, target = self.dataset[self.idxs[item]]
-        return image, target
 
 
 def iid_split(dataset, args, kwargs, is_shuffle=True):
@@ -58,6 +45,7 @@ def iid_split(dataset, args, kwargs, is_shuffle=True):
                                      shuffle=is_shuffle, **kwargs)
     return data_loaders
 
+
 def niid_split(dataset, args, kwargs, is_shuffle=True):
     """非独立同分布的数据划分方法。
     Args:
@@ -65,19 +53,23 @@ def niid_split(dataset, args, kwargs, is_shuffle=True):
         args: 包含num_clients, imbalance等参数的对象。
         kwargs: DataLoader的额外参数。
         is_shuffle (bool): 是否打乱数据。
-        strategy (str): NIID划分的策略。例如："category-based", "dirichlet"等。
     Returns:
         list: 客户端数据加载器列表。
     """
-    if args.strategy == "custom_class":
-        class_num_per_client = args.class_mapping  # 从 args 获取每个客户的类别数
-        local_datas = custom_class_split(dataset, class_num_per_client)
-    elif args.strategy == "dirichlet":
+    if args.strategy == "dirichlet":
+        # 狄利克雷划分逻辑
         local_datas = dirichlet_partition(dataset, args)
+    elif args.strategy == "gaussian_perturbation":
+        # 高斯扰动分区逻辑
+        local_datas, _ = gaussian_perturbation_partition(dataset, args)
     else:
+        # 基于类别的NIID划分逻辑
         local_datas = diversity_partition(dataset, args)
 
-    return [DataLoader(DatasetSplit(dataset, ld), batch_size=args.batch_size, shuffle=is_shuffle, **kwargs) for ld in local_datas]
+    # 创建客户端数据加载器列表
+    return [DataLoader(DatasetSplit(dataset, ld), batch_size=args.batch_size, shuffle=is_shuffle, **kwargs) for ld in
+            local_datas]
+
 
 def custom_class_split(dataset, class_distribution_json):
     # 解析 JSON 字符串
@@ -148,9 +140,9 @@ def get_dataset(dataset_root, dataset, args):
     else:
         raise ValueError('Dataset `{}` not found'.format(dataset))
     print("数据集{}读取完毕，开始划分".format(str(args.dataset)))
-    train_loaders, test_loaders, v_train_loader, v_test_loader = load_data(train, test, args)
+    train_loaders, test_loaders, val_loader_on_global, val_loader_on_local = load_data(train, test, args)
     print("数据集{}划分完毕，准备进入联邦学习进程".format(str(args.dataset)))
-    return train_loaders, test_loaders, v_train_loader, v_test_loader
+    return train_loaders, test_loaders, val_loader_on_global, val_loader_on_local
 
 def load_data(train, test, args):
     is_cuda = args.cuda
@@ -164,16 +156,18 @@ def load_data(train, test, args):
         noise_ratios = json.loads(args.noise_mapping)
         for i, loader in enumerate(train_loaders):
             noisy_dataset = add_noise_to_labels(loader.dataset.dataset, noise_ratios[i])
-            train_loaders[i] = DataLoader(noisy_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
-
+            train_loaders[i] = DataLoader(DatasetSplit(noisy_dataset), batch_size=args.batch_size, shuffle=True, **kwargs)
+    
     # 分割测试数据
-    test_loaders = split_data(test, args, kwargs, is_shuffle=False) if args.test_on_all_samples != 1 else [DataLoader(test, batch_size=args.batch_size, shuffle=False, **kwargs) for _ in range(args.num_clients)]
+    test_loaders = split_data(test, args, kwargs, is_shuffle=False) if args.test_on_all_samples != 1 \
+        else [DataLoader(DatasetSplit(test), batch_size=args.batch_size, shuffle=False, **kwargs) for _ in range(args.num_clients)]
 
     # 创建验证集加载器
-    val_loader_on_train = DataLoader(train, batch_size=args.batch_size * args.num_clients, shuffle=True, **kwargs)
-    val_loader_on_test = DataLoader(test, batch_size=args.batch_size * args.num_clients, shuffle=False, **kwargs) if args.valid_strategy != 1 else DataLoader(Subset(train, np.random.choice(len(train), int(0.01 * len(train)), replace=False)), batch_size=args.batch_size, shuffle=True, **kwargs)
+    val_loader_on_global = DataLoader(DatasetSplit(test), batch_size=args.batch_size * args.num_clients, shuffle=True, **kwargs)
+    val_loader_on_local = DataLoader(Subset(train, np.random.choice(len(train), int(args.valid_local_radio * len(train)), replace=False)),
+                                     batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    return train_loaders, test_loaders, val_loader_on_train, val_loader_on_test
+    return train_loaders, test_loaders, val_loader_on_global, val_loader_on_local
 
 
 
@@ -184,11 +178,11 @@ def get_dataloaders(args):
     :return: A list of trainloaders, a list of testloaders, a concatenated trainloader and a concatenated testloader
     """
     if args.dataset in ['mnist', 'cifar10', "femnist"]:
-        train_loaders, test_loaders, v_train_loader, v_test_loader = get_dataset(dataset_root=args.dataset_root,                                                                         dataset=args.dataset,
+        train_loaders, test_loaders, v_global, v_local = get_dataset(dataset_root=args.dataset_root,                                                                         dataset=args.dataset,
                                                                                        args = args)
     else:
         raise ValueError("This dataset is not implemented yet")
-    return train_loaders, test_loaders, v_train_loader, v_test_loader
+    return train_loaders, test_loaders, v_global, v_local
 
 
 def show_distribution(dataloader, args):

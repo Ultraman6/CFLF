@@ -1,7 +1,5 @@
 import copy
 import torch
-from torch import nn
-
 '''
    全局聚合算法
 '''
@@ -20,13 +18,6 @@ def average_weights(w):
         w_avg[k] = torch.mul(w_avg[k], 1 / total_num)
     return w_avg
 
-
-# 自定义权重聚合
-import copy
-import torch
-
-import copy
-import torch
 
 
 def average_weights_self(w_locals, weights):

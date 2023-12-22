@@ -81,13 +81,13 @@ def args_parser():
     parser.add_argument(
         '--num_communication',
         type=int,
-        default=5,
+        default=6,
         help='number of communication rounds with the cloud server'
     )
     parser.add_argument(
         '--num_local_update',
         type=int,
-        default=4,
+        default=5,
         help='number of local update (K_1)'
     )
 
@@ -141,14 +141,14 @@ def args_parser():
     parser.add_argument(
         '--test_on_all_samples',
         type=int,
-        default=1,
+        default=0,
         help='1 means test on all samples, 0 means test samples will be split averagely to each client, '
     )
     parser.add_argument(
-        '--valid_strategy',
-        type=int,
-        default=1,
-        help='1 means valid on 1% samples of train set '
+        '--valid_local_radio',
+        type=float,
+        default=0.01,
+        help='means valid on 1% samples of train set '
     )
     parser.add_argument(
         '--imbalance',
@@ -193,7 +193,7 @@ def args_parser():
     )
     parser.add_argument(
         '--self_noise',
-        default=0,
+        default=1,
         type=int,
         help='>=1: set， 0: undo'
     )

@@ -20,8 +20,9 @@ class FedFAIM_API(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
-        [train_loaders, test_loaders, v_train_loader, v_test_loader] = dataset
-        self.val_global = v_test_loader
+        [train_loaders, test_loaders, v_global, v_local] = dataset
+        self.v_global = v_global
+        self.v_local = v_local
         self.sample_num = [len(loader.dataset) for loader in train_loaders]
         # 参数1
         self.client_list = []
@@ -137,18 +138,12 @@ class FedFAIM_API(object):
     # 基于重构计算本地模型的边际损失
     def quality_detection(self, w_locals): # 基于随机数结合概率判断是否成功返回模型
         # 质量检测:先计算全局损失，再计算每个本地的损失
-        self.model_trainer_temp.set_model_params(average_weights(w_locals))
-
-        test_metrics = self.model_trainer_temp.test(self.val_global, self.device)
-        loss = test_metrics["test_loss"] / test_metrics["test_total"]
-
+        acc, loss = self._local_test_on_validation_set(average_weights(w_locals))
         w_locals_pass = [] # 用于存放通过质量检测的模型
         margin_loss = [] # 用于存放边际损失
         pass_idx = [] # 用于存放通过质量检测的客户id
         for client in self.client_list:
-            self.model_trainer_temp.set_model_params(average_weights(np.delete(w_locals, client.client_idx)))
-            test_metrics = self.model_trainer_temp.test(self.val_global, self.device)
-            loss_i = test_metrics["test_loss"] / test_metrics["test_total"]
+            acc_i, loss_i = self._local_test_on_validation_set(average_weights(np.delete(w_locals, client.client_idx)))
             margin_loss_i = loss_i - loss
             if margin_loss_i > self.threshold:
                 client.n_pass += 1
@@ -233,7 +228,17 @@ class FedFAIM_API(object):
 
     def _global_test_on_validation_set(self):
         # test data
-        test_metrics = self.model_trainer.test(self.val_global, self.device)
+        test_metrics = self.model_trainer.test(self.v_global, self.device)
+        test_acc = test_metrics["test_correct"] / test_metrics["test_total"]
+        test_loss = test_metrics["test_loss"] / test_metrics["test_total"]
+        stats = {"test_acc": test_acc, "test_loss": test_loss}
+        logging.info(stats)
+        return test_acc, test_loss
+
+    def _local_test_on_validation_set(self, model_params):
+        self.model_trainer_temp.set_model_params(model_params)
+        # test data
+        test_metrics = self.model_trainer_temp.test(self.v_local, self.device)
         test_acc = test_metrics["test_correct"] / test_metrics["test_total"]
         test_loss = test_metrics["test_loss"] / test_metrics["test_total"]
         stats = {"test_acc": test_acc, "test_loss": test_loss}

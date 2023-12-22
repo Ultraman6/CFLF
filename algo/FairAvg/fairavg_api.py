@@ -5,12 +5,12 @@ from fedml import mlops
 from tqdm import tqdm
 from utils.model_trainer import ModelTrainer
 from .client import Client
-from ..aggregrate import average_weights_on_sample
+from ..aggregrate import average_weights_on_sample, average_weights
 
 # 设置时间间隔（以秒为单位）
 interval = 5
 
-class FedAvgAPI(object):
+class FairAvg_API(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
@@ -87,7 +87,7 @@ class FedAvgAPI(object):
             # update global weights
             mlops.event("agg", event_started=True, event_value=str(round_idx))
 
-            w_global = average_weights_on_sample(w_locals, self.sample_num)
+            w_global = average_weights(w_locals)
 
             self.model_trainer.set_model_params(w_global)
             mlops.event("agg", event_started=False, event_value=str(round_idx))
