@@ -17,7 +17,7 @@ def main():
     args = args_parser()
     setup_seed(args)
     device = setup_device(args)
-
+    print(f"使用设备：{device}")
     # 构建数据加载器
     dataloaders = get_dataloaders(args)
     show_data_distribution(dataloaders, args)

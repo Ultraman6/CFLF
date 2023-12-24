@@ -107,7 +107,7 @@ def args_parser():
     parser.add_argument(
         '--iid',
         type=int,
-        default=0,
+        default=1,
         help='distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
@@ -193,7 +193,7 @@ def args_parser():
     )
     parser.add_argument(
         '--self_noise',
-        default=1,
+        default=0,
         type=int,
         help='>=1: set， 0: undo'
     )

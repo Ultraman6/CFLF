@@ -34,11 +34,11 @@ def random_partition(_sum, num_users):
     base = 100 * np.ones(num_users, dtype=np.int32)
     _sum = _sum - 100 * num_users
     p = np.random.dirichlet(np.ones(num_users), size=1)
-    print(p.sum())
+    # print(p.sum())
     p = p[0]
     size_users = np.random.multinomial(_sum, p, size=1)[0]
     size_users = size_users + base
-    print(size_users.sum())
+    # print(size_users.sum())
     return size_users
 
 def imbalance_partition(num_clients, datasize, args):
@@ -211,7 +211,6 @@ def diversity_partition(dataset, args, index_func = lambda x: [xi[-1] for xi in 
                     local_datas[cid].extend(split[ids].tolist())
                     ids += 1
     # 返回客户端数据映射
-    print(local_datas)
     return local_datas
 
 def gaussian_perturbation_partition(dataset, args):

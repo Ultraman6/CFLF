@@ -56,7 +56,10 @@ def niid_split(dataset, args, kwargs, is_shuffle=True):
     Returns:
         list: 客户端数据加载器列表。
     """
-    if args.strategy == "dirichlet":
+    if args.strategy == "custom_class":
+        class_num_per_client = args.class_mapping  # 从 args 获取每个客户的类别数
+        local_datas = custom_class_split(dataset, class_num_per_client)
+    elif args.strategy == "dirichlet":
         # 狄利克雷划分逻辑
         local_datas = dirichlet_partition(dataset, args)
     elif args.strategy == "gaussian_perturbation":

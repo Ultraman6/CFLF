@@ -5,21 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/algo/FairAvg/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FairAvg/client.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FairAvg/fairavg_api.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FedQD/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FedQD/client.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FedQD/fedqd_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/CFLF.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/CFLF.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/FedAvg/fedavg_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/FedAvg/fedavg_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/FedFAIM/fedfaim_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/FedFAIM/fedfaim_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/aggregrate.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/aggregrate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/data_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/data_loader.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/partition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/partition.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/options.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/model_trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/model_trainer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,17 +47,19 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "D:/CFLF/algo/FedQD",
+    "last_opened_file_path": "C:/Users/30235/Documents/GitHub/CFLF",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.black.configuration.BlackFormatterConfigurable",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\30235\Documents\GitHub\CFLF" />
       <recent name="D:\CFLF\algo\FedQD" />
       <recent name="D:\CFLF\algo\FairAvg" />
     </key>
@@ -109,6 +104,9 @@
       <workItem from="1703171244330" duration="9059000" />
       <workItem from="1703208048718" duration="8742000" />
       <workItem from="1703228466865" duration="11999000" />
+      <workItem from="1703254249239" duration="3047000" />
+      <workItem from="1703425129052" duration="6505000" />
+      <workItem from="1703432246150" duration="1345000" />
     </task>
     <servers />
   </component>
@@ -116,6 +114,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main Coverage Results" MODIFIED="1703238017054" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main 覆盖结果" MODIFIED="1703427740133" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
