@@ -61,6 +61,8 @@ python main.py --args
 ```
 ## 📓 复现记录
 ### Paper: FedFAIM: a model performance-based fair incentive mechanism for federated learning
+<details>
+
 #### 梯度聚合
 - [x] FedAvg:
   - **Approach**: Built client and server models based on the original paper description.
@@ -77,8 +79,7 @@ python main.py --args
 - [x] FedQD:
   - **Approach**: 
   - **Challenges**: 
-  - **Outcome**: 
-
+  - **Outcome**:
 #### 贡献评估
 - [x] CI:
   - **Approach**: 
@@ -96,7 +97,6 @@ python main.py --args
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
-
 #### 梯度定制
 - [x] CFFL:
   - **Approach**:
@@ -106,7 +106,7 @@ python main.py --args
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
-
+<details>
 ## License
 该项目基于[Apache-2.0 License](LICENSE)许可证开源<br/>
 This project is released under the [Apache-2.0 License](LICENSE).<br/>
