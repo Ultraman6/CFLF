@@ -5,14 +5,36 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/algo/FedFAIM_改进/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FedFAIM_改进/client.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algo/FedFAIM_改进/fedfaim_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/CFLF.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/CFLF.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/paper：FAIR 2022/FAIR/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/paper：FAIR 2022/FAIR/client.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/paper：FAIR 2022/FAIR/fair_api.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/paper：FAIR 2022/FAIR/task.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/algo/paper：FAIR 2022/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/experiment/paper：FAIR/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/experiment/paper：FAIR/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/experiment/paper：FAIR/options.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/experiment/paper：FedFAIM/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/experiment/paper：FedFAIM/options.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/img.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/result/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FairAvg/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FairAvg/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FairAvg/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FairAvg/client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FairAvg/fairavg_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FairAvg/fairavg_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedAvg/fedavg_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/FedAvg/fedavg_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM/client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM/fedfaim_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM/fedfaim_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM_改进/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM_改进/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM_改进/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM_改进/client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedFAIM_改进/fedfaim_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedFAIM_改进/fedfaim_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedQD/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedQD/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedQD/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedQD/client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/FedQD/fedqd_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/Paper：FedFAIM/FedQD/fedqd_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/aggregrate.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/aggregrate.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/options.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/model_trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/model_trainer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,7 +69,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "D:/CFLF/algo/FedFAIM_改进",
+    "last_opened_file_path": "D:/CFLF/experiment/paper：FAIR",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -59,12 +81,14 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\CFLF\experiment\paper：FAIR" />
+      <recent name="D:\CFLF\experiment\paper：FedFAIM" />
+      <recent name="D:\CFLF\algo\paper：FAIR 2022" />
       <recent name="D:\CFLF\algo\FedFAIM_改进" />
       <recent name="C:\Users\30235\Documents\GitHub\CFLF" />
-      <recent name="D:\CFLF\algo\FedQD" />
-      <recent name="D:\CFLF\algo\FairAvg" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\CFLF\algo\Paper：FedFAIM" />
       <recent name="C:\Users\30235\Documents\GitHub\CFLF\experiment\simulation" />
     </key>
   </component>
@@ -112,7 +136,8 @@
       <workItem from="1703425129052" duration="6505000" />
       <workItem from="1703432246150" duration="1345000" />
       <workItem from="1703433972279" duration="1086000" />
-      <workItem from="1703467761535" duration="7866000" />
+      <workItem from="1703467761535" duration="8279000" />
+      <workItem from="1703486810265" duration="15576000" />
     </task>
     <servers />
   </component>
@@ -120,6 +145,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main Coverage Results" MODIFIED="1703473487076" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main Coverage Results" MODIFIED="1703488808545" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

@@ -5,7 +5,7 @@ import torch
 '''
 
 
-# 权重平均聚合
+# 模型参数平均聚合
 def average_weights(w):
     # copy the first client's weights
     total_num = len(w)
@@ -19,7 +19,7 @@ def average_weights(w):
     return w_avg
 
 
-
+# 自定义权重的模型参数聚合
 def average_weights_self(w_locals, weights):
     # Initialize w_avg with a deep copy of the first client's weights
     w_avg = copy.deepcopy(w_locals[0])
@@ -36,7 +36,7 @@ def average_weights_self(w_locals, weights):
     return w_avg
 
 
-# 权重平均聚合,基于样本量
+# 参数平均聚合,基于样本量
 def average_weights_on_sample(w, s_num):
     # copy the first client's weights
     total_sample_num = sum(s_num)
@@ -52,7 +52,7 @@ def average_weights_on_sample(w, s_num):
     return w_avg
 
 
-# 权重平均聚合,基于质量
+# 参数平均聚合,基于学习质量
 def average_weights_on_quality(w, s_num):
     # copy the first client's weights
     total_sample_num = sum(s_num)
@@ -68,7 +68,7 @@ def average_weights_on_quality(w, s_num):
     return w_avg
 
 
-# 权重平均聚合,基于质量和样本量
+# 参数平均聚合,基于质量和样本量
 def average_weights_on_sample_and_quality(w, s_num):
     # copy the first client's weights
     total_sample_num = sum(s_num)

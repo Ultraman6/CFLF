@@ -11,7 +11,7 @@ from utils.gradient import getGradient, gradient_flatten, gradient_flatten_and_s
     calGradientNorm, calGradientDot
 from utils.model_trainer import ModelTrainer
 from .client import Client
-from ..aggregrate import average_weights_on_sample, average_weights, average_weights_self
+from algo.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 
 # 设置时间间隔（以秒为单位）
 interval = 5

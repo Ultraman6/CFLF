@@ -1,16 +1,23 @@
 import copy
 import logging
+from math import exp
+
 import numpy as np
+import torch
 from fedml import mlops
 from tqdm import tqdm
+
+from utils.gradient import getGradient, gradient_flatten, gradient_flatten_and_shapes, reconstruct_gradients, \
+    calGradientNorm, calGradientDot
 from utils.model_trainer import ModelTrainer
 from .client import Client
-from ..aggregrate import average_weights_on_sample, average_weights
+from algo.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 
 # 设置时间间隔（以秒为单位）
 interval = 5
 
-class FairAvg_API(object):
+
+class FedQD_API(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
@@ -26,8 +33,21 @@ class FairAvg_API(object):
 
         print("model = {}".format(model))
         self.model_trainer = ModelTrainer(model, args)
+        self.model_trainer_temp = copy.deepcopy(self.model_trainer)
         self.model = model
         print("self.model_trainer = {}".format(self.model_trainer))
+
+        # ----------- FedFAIM特定参数
+        self.threshold = -0.01
+        self.alpha = np.zeros(self.args.num_clients, dtype=float)  # 创建大小为num_client的np数组
+        # self.contrib = [0 for _ in range(self.args.num_clients)]
+        # self.gradient_global = None
+        # self.gradient_local = {}
+        # self.gamma = 0.1
+        # self.a = 1
+        # self.b = -1
+        # self.c = -5.5
+        # self.beta = 0.2
 
         self._setup_clients(self.train_data_local_dict, self.test_data_local_dict, self.model_trainer)
 
@@ -39,31 +59,33 @@ class FairAvg_API(object):
                 train_data_local_dict[client_idx],
                 test_data_local_dict[client_idx],
                 self.args,
-                self.device,  # 一定要深复制，不然所有客户及服务器共用一个trainer！
+                self.device,
                 copy.deepcopy(model_trainer),
-            )
+            )  # 初始化就赋予初始全局模型
+            c.setModel(self.model_trainer.get_model_params())
             self.client_list.append(c)
+            self.alpha = np.zeros_like(self.alpha, dtype=float)
             # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
         print("############setup_clients (END)#############")
 
     def train(self):
-        w_global = self.model_trainer.get_model_params()
         mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
         mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
         mlops.log_round_info(self.args.num_communication, -1)
 
-        global_acc=[]
-        global_loss=[]
+        global_acc = []
+        global_loss = []
         for round_idx in range(self.args.num_communication):
 
             print("################Communication round : {}".format(round_idx))
-
+            w_global = self.model_trainer.get_model_params()
+            train_losses=[]
             w_locals = []
-
+            self.alpha = np.zeros_like(self.alpha)  # 清零质量权重
             client_indexes = self._client_sampling(self.args.num_clients, self.args.num_selected_clients)
             print("client_indexes = " + str(client_indexes))
 
-            for idx, client in enumerate(self.client_list):
+            for client in self.client_list:
                 # update dataset
                 # 判断如果idx是client_indexes中的某一client的下标，那么就更新这个client的数据集
                 if client.client_idx in client_indexes:
@@ -74,41 +96,31 @@ class FairAvg_API(object):
                     )
                     # 本地迭代训练
                     print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
-                    w = client.local_train(copy.deepcopy(w_global))
+                    loss, w = client.local_train(copy.deepcopy(w_global))
                     print("train_end   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
                     # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型
                     w_locals.append(copy.deepcopy(w))
-                    logging.info("client: " + str(client.client_idx)+" successfully return model")
-
+                    train_losses.append(loss)
+                    logging.info("client: " + str(client.client_idx) + " successfully return model")
             # 借助client_selected_times统计global_client_num_in_total个客户每个人的被选择次数
             # for i in client_indexes:
             #     client_selected_times[i] += 1
 
-            # update global weights
-            mlops.event("agg", event_started=True, event_value=str(round_idx))
-
-            w_global = average_weights(w_locals)
-
-            self.model_trainer.set_model_params(w_global)
-            mlops.event("agg", event_started=False, event_value=str(round_idx))
+            # 质量敏感聚合
+            print("agg_start   round: {}".format(str(round_idx)))
+            # 质量敏感聚合，更新本地和全局梯度
+            self.model_trainer.set_model_params(copy.deepcopy(average_weights_on_sample(w_locals, train_losses)))
 
             # global test
             test_acc, test_loss = self._global_test_on_validation_set()
-            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx), str(test_acc), str(test_loss)))
+            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx),str(test_acc),str(test_loss)))
             global_loss.append(test_loss)
             global_acc.append(test_acc)
             # # 休眠一段时间，以便下一个循环开始前有一些时间
             # time.sleep(interval)
         return global_acc, global_loss
 
-    # def judge_model(self,prob): # 基于随机数结合概率判断是否成功返回模型
-    #     random_number = random.random()  # 生成0到1之间的随机数
-    #     if random_number < prob:
-    #         return 1  # 成功返回模型
-    #     else:
-    #         return 0
-
-    # 随机选取客户（random）
+    # 根据
     def _client_sampling(self, client_num_in_total, client_num_per_round):
         if client_num_in_total == client_num_per_round:
             client_indexes = [client_index for client_index in range(client_num_in_total)]
@@ -117,14 +129,6 @@ class FairAvg_API(object):
             # np.random.seed(round_idx)  # make sure for each comparison, we are selecting the same clients each round
             client_indexes = np.random.choice(range(client_num_in_total), num_clients, replace=False)
         return client_indexes
-
-    # def _generate_validation_set(self, num_samples=10000):
-    #     test_data_num = len(self.test_global.dataset)
-    #     sample_indices = random.sample(range(test_data_num), min(num_samples, test_data_num))
-    #     subset = torch.utils.data.Subset(self.test_global.dataset, sample_indices)
-    #     sample_testset = torch.utils.data.DataLoader(subset, batch_size=self.args.batch_size)
-    #     self.val_global = sample_testset
-    #
 
     def _global_test_on_validation_set(self):
         # test data

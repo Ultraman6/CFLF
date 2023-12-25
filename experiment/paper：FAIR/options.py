@@ -81,13 +81,13 @@ def args_parser():
     parser.add_argument(
         '--num_communication',
         type=int,
-        default=30,
+        default=10,
         help='number of communication rounds with the cloud server'
     )
     parser.add_argument(
         '--num_local_update',
         type=int,
-        default=1,
+        default=2,
         help='number of local update (K_1)'
     )
 

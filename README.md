@@ -80,6 +80,13 @@ python main.py --args
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
+
+运行结果
+![img.png](img.png)
+虽然算法部分已经和原文对齐，但实验结果与原文对比，有以下待解决问题：
+1. FedFAIM算法到最后的表现远不如其他的算法，需要搞清楚是不是梯度定制的问题
+2. niid场景下所有算法的精度过于高，需要检验
+
 #### 贡献评估
 - [x] CI:
   - **Approach**: 
@@ -106,7 +113,37 @@ python main.py --args
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
+</details>
+
+## 📓 复现记录
+### Paper: Improving_Federated_Learning_With_Quality-Aware_User_Incentive_and_Auto-Weighted_Model_Aggregation
 <details>
+#### 实验设置
+
+- [x] 模型:
+  - **Approach**: 
+  - **Challenges**: 
+  - **Outcome**:
+- [x] 数据集:
+  - **Approach**: 
+  - **Challenges**: 
+  - **Outcome**:
+#### 学习质量估计模块
+- [x] FedQD:
+  - **Approach**: 
+  - **Challenges**: 
+  - **Outcome**:
+#### 学习质量估计模块
+- [x] FedQD:
+  - **Approach**: 
+  - **Challenges**: 
+  - **Outcome**:
+#### 学习质量估计模块
+- [x] FedQD:
+  - **Approach**: 
+  - **Challenges**: 
+  - **Outcome**:
+</details>
 ## License
 该项目基于[Apache-2.0 License](LICENSE)许可证开源<br/>
 This project is released under the [Apache-2.0 License](LICENSE).<br/>

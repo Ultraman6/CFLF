@@ -11,7 +11,7 @@ from utils.gradient import getGradient, gradient_flatten, gradient_flatten_and_s
     calGradientNorm, calGradientDot
 from utils.model_trainer import ModelTrainer
 from .client import Client
-from ..aggregrate import average_weights_on_sample, average_weights, average_weights_self
+from algo.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 
 # 设置时间间隔（以秒为单位）
 interval = 5
@@ -39,7 +39,7 @@ class FedFAIM_API(object):
         # ----------- FedFAIM特定参数
         self.threshold = -0.01
         self.alpha = np.zeros(self.args.num_clients, dtype=float) # 创建大小为num_client的np数组
-        self.contrib = [0 for _ in range(self.args.num_clients)]
+        self.contrib = [0 for _ in range(self.args.num_clients)]  # 每个客户的累计贡献值
         self.gradient_global = None
         self.gradient_local = {}
         self.gamma = 0.1
@@ -60,7 +60,7 @@ class FedFAIM_API(object):
                 self.device,
                 copy.deepcopy(model_trainer),
             ) # 初始化就赋予初始全局模型
-            c.setModel(self.model_trainer.get_model_params())
+            # c.setModel(self.model_trainer.get_model_params())
             self.client_list.append(c)
             self.alpha = np.zeros_like(self.alpha, dtype=float)
             # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
@@ -146,14 +146,15 @@ class FedFAIM_API(object):
             acc_i, loss_i = self._local_test_on_validation_set(average_weights(np.delete(w_locals, client.client_idx)))
             margin_loss_i = loss_i - loss
             if margin_loss_i > self.threshold:
-                client.n_pass += 1
+                client.n_pass += 1 # 获胜记录
                 margin_loss.append(margin_loss_i)
                 w_locals_pass.append(w_locals[client.client_idx])
                 pass_idx.append(client.client_idx)
-            else: client.n_pass += 1
+            else: client.n_fail += 1 # 失败记录 （之前没有记录失败，导致梯度分配失调造成后期的梯度消失）
 
         print("本轮的边际损失为：{}".format(str(margin_loss)))
         print("本轮通过检测的客户为：{}".format(str(pass_idx)))
+
         # 质量聚合
         # Compute m for each customer
         m_values = np.exp(self.gamma * np.array(margin_loss))
