@@ -60,13 +60,13 @@ class ModelTrainer():
                 epoch_loss.append(0.0)
             else:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-            train_loss = sum(epoch_loss) / len(epoch_loss)
+            # train_loss = sum(epoch_loss) / len(epoch_loss)
             print(
                 "Client Index = {}\tEpoch: {}\tLoss: {:.6f}".format(
-                    self.cid, epoch, train_loss
+                    self.cid, epoch, epoch_loss[epoch]
                 )
             )
-            return train_loss
+        return sum(epoch_loss) / len(epoch_loss)
 
     def test(self, test_data, device):
         model = self.model
