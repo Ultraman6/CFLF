@@ -3,10 +3,10 @@ import copy
 import numpy as np
 import torch
 
-from algo.FairAvg.fairavg_api import FairAvg_API
+from algo.Paper_FedFAIM.FairAvg.fairavg_api import FairAvg_API
 from algo.FedAvg.fedavg_api import FedAvgAPI
-from algo.FedFAIM.fedfaim_api import FedFAIM_API
-from algo.FedQD.fedqd_api import FedQD_API
+from algo.paper_FAIR.FAIR.fair_api import Fair_API
+from algo.Paper_FedFAIM.FedQD.fedqd_api import FedQD_API
 from data.data_loader import show_distribution
 from data.data_loader import get_dataloaders
 from model.initialize_model import initialize_model
@@ -23,14 +23,14 @@ def main():
     show_data_distribution(dataloaders, args)
 
     # 运行和比较算法
-    compare_algorithms([FedFAIM_API, FedAvgAPI, FairAvg_API, FedQD_API], args, device, dataloaders)
+    compare_algorithms([Fair_API], args, device, dataloaders)
 
 
 def compare_algorithms(algo_classes, args, device, dataloaders):
     results = []
-    model = initialize_model(args, device)
+    models = [initialize_model(args, device) for _ in range(args.num_tasks)]
     for algo_class in algo_classes:
-        global_acc, global_loss = run_federated_learning(algo_class, args, device, dataloaders, model)
+        global_acc, global_loss = run_federated_learning(algo_class, args, device, dataloaders, models)
         results.append(create_result(algo_class.__name__.lower(), global_acc, list(range(args.num_communication)), global_loss))
     plot_results(results)
 

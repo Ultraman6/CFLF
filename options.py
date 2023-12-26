@@ -22,6 +22,12 @@ def args_parser():
         help='name of model. mnist: logistic, lenet, cnn; cifar10: resnet18, cnn_complex; femnist: logistic, lenet, cnn'
     )
     parser.add_argument(
+        '--num_tasks',
+        type=int,
+        default=3,
+        help='name of model. mnist: logistic, lenet, cnn; cifar10: resnet18, cnn_complex; femnist: logistic, lenet, cnn'
+    )
+    parser.add_argument(
         '--input_channels',
         type=int,
         default=1,
@@ -30,7 +36,7 @@ def args_parser():
     parser.add_argument(
         '--output_channels',
         type=int,
-        default=62,
+        default=10,
         help='output channels. femnist:62'
     )
     # nn training hyper parameter
@@ -95,19 +101,19 @@ def args_parser():
     parser.add_argument(
         '--num_clients',
         type=int,
-        default=20,
+        default=5,
         help='number of all available clients'
     )
     parser.add_argument(
         '--num_selected_clients',
         type=float,
-        default=20,
+        default=5,
         help='selection of participated clients'
     )
     parser.add_argument(
         '--iid',
         type=int,
-        default=0,
+        default=1,
         help='distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
@@ -141,7 +147,7 @@ def args_parser():
     parser.add_argument(
         '--test_on_all_samples',
         type=int,
-        default=1,
+        default=0,
         help='1 means test on all samples, 0 means test samples will be split averagely to each client, '
     )
     parser.add_argument(

@@ -18,9 +18,10 @@ class ModelTrainer():
     def set_model_params(self, model_parameters):
         self.model.load_state_dict(copy.deepcopy(model_parameters))
 
-    def print_current_lr(self):
-        for param_group in self.optimizer.param_groups:
-            print(param_group['lr'])
+    # def print_current_lr(self):
+    #     for param_group in self.optimizer.param_groups:
+    #         print(param_group['lr'])
+
     def train(self, train_data, device, args):
         model = self.model
         model.to(device)
