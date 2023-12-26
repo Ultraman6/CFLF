@@ -8,7 +8,7 @@ class Client:
         # 存放其他参数，如本地epoch、本地batch_size等
         self.args = args
     # 更新本地数据集（训练、测试）
-    def update_dataset(self, client_idx, train_data, test_data):
+    def update_dataset(self, train_data, test_data):
         self.client_idx = client_idx
         self.train_dataloader = train_data
         self.test_dataloader = test_data
