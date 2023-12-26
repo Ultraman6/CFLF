@@ -81,94 +81,104 @@ class AggregateModel(nn.Module):
     def aggregate_and_apply(self, layer_list, x, apply_func=None, agg_weights=None):
         local_outputs = [layer(x) for layer in layer_list]
         agg_output = torch.stack(local_outputs, dim=1)
+        # Apply softmax to the aggregation weights for the current forward pass
+        softmax_weights = F.softmax(agg_weights, dim=0)
         if local_outputs[0].dim() == 4:
-            agg_weights = agg_weights.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+            agg_weights = softmax_weights.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
         else:
-            agg_weights = agg_weights.unsqueeze(0).unsqueeze(-1)
-        agg_output = (agg_output * F.softmax(agg_weights,dim=0)).sum(dim=1)
-        # agg_output = (torch.stack(local_outputs) * agg_weights.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)).sum(0)
+            agg_weights = softmax_weights.unsqueeze(0).unsqueeze(-1)
+        agg_output = (agg_output * agg_weights).sum(dim=1)
         if apply_func:
             agg_output = apply_func(agg_output)
         return agg_output
 
-    def train_model(self, data_loader, num_epochs, learning_rate=0.001):
+    def train_model(self, data_loader, num_epochs, device, learning_rate=0.001):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+        # Move the entire model to the specified device，并设置为训练模式
+        self.to(device)
+        self.train()
 
         for epoch in range(num_epochs):
             for inputs, targets in data_loader:
+                # Move data to the correct device
+                inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
                 outputs = self(inputs)
                 loss = criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
 
-    def get_aggregation_weights(self):
-        # Return a copy of the aggregation weights as a numpy array
-        return F.softmax(self.aggregation_weights,dim=0).detach().cpu().numpy()
+    def get_aggregation_weights_quality(self):
+        # Normalized aggregation weights after softmax
+        normalized_weights = F.softmax(self.aggregation_weights, dim=0).detach().cpu().numpy()
+        # Original raw quality (aggregation weights before softmax)
+        raw_quality = self.aggregation_weights.detach().cpu().numpy()
+        return normalized_weights, raw_quality
 
-class AggregateModel1(nn.Module):
-    def __init__(self, num_classes, models):
-        super(AggregateModel1, self).__init__()
-        # First convolutional block
-        self.conv1 = nn.ModuleList()
-        self.relu1 = nn.ReLU()
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Second convolutional block
-        self.conv2 = nn.ModuleList()
-        self.relu2 = nn.ReLU()
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # Fully connected layers
-        self.fc1 = nn.ModuleList()  # Assuming the input is 28x28
-        self.relu3 = nn.ReLU()
-        self.fc2 = nn.ModuleList()
-
-        # act layers
-        self.softmax = nn.Softmax()
-
-        for model in models:
-            self.conv1.append(model.conv1)
-            self.conv2.append(model.conv2)
-            self.fc1.append(model.fc1)
-            self.fc2.append(model.fc2)
-
-        self.num_classes = num_classes
-        self.aggregation_weights = nn.Parameter(torch.ones(len(models)))
-        # Freeze parameters of local models
-        self.freeze_parameters()
-
-    def freeze_parameters(self):
-        for name, param in self.named_parameters():
-            if 'aggregation_weights' not in name:
-                param.requires_grad = False
-    def forward(self, x):
-        x = self.aggregate_and_apply(self.conv1, x, apply_func=lambda y: self.pool1(self.relu1(y)))
-        x = self.aggregate_and_apply(self.conv2, x, apply_func=lambda y: self.pool2(self.relu2(y)))
-        x = self.aggregate_and_apply(self.fc1, x, apply_func=self.relu3)
-        x = self.aggregate_and_apply(self.fc2, x, apply_func=self.softmax)
-        return x
-
-    def aggregate_and_apply(self, layer_list, x, apply_func=None):
-        local_outputs = [layer(x) for layer in layer_list]
-        agg_output = (torch.stack(local_outputs) * F.softmax(self.aggregation_weights.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)).sum(0))
-        if apply_func:
-            agg_output = apply_func(agg_output)
-        return agg_output
-
-    def train_model(self, data_loader, num_epochs, learning_rate=0.001):
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-
-        for epoch in range(num_epochs):
-            for inputs, targets in data_loader:
-                optimizer.zero_grad()
-                outputs = self(inputs)
-                loss = criterion(outputs, targets)
-                loss.backward()
-                optimizer.step()
-
-    def get_aggregation_weights(self):
-        # Return a copy of the aggregation weights as a numpy array
-        return self.aggregation_weights.detach().cpu().numpy()
+# class AggregateModel1(nn.Module):
+#     def __init__(self, num_classes, models):
+#         super(AggregateModel1, self).__init__()
+#         # First convolutional block
+#         self.conv1 = nn.ModuleList()
+#         self.relu1 = nn.ReLU()
+#         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+#
+#         # Second convolutional block
+#         self.conv2 = nn.ModuleList()
+#         self.relu2 = nn.ReLU()
+#         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+#
+#         # Fully connected layers
+#         self.fc1 = nn.ModuleList()  # Assuming the input is 28x28
+#         self.relu3 = nn.ReLU()
+#         self.fc2 = nn.ModuleList()
+#
+#         # act layers
+#         self.softmax = nn.Softmax()
+#
+#         for model in models:
+#             self.conv1.append(model.conv1)
+#             self.conv2.append(model.conv2)
+#             self.fc1.append(model.fc1)
+#             self.fc2.append(model.fc2)
+#
+#         self.num_classes = num_classes
+#         self.aggregation_weights = nn.Parameter(torch.ones(len(models)))
+#         # Freeze parameters of local models
+#         self.freeze_parameters()
+#
+#     def freeze_parameters(self):
+#         for name, param in self.named_parameters():
+#             if 'aggregation_weights' not in name:
+#                 param.requires_grad = False
+#     def forward(self, x):
+#         x = self.aggregate_and_apply(self.conv1, x, apply_func=lambda y: self.pool1(self.relu1(y)))
+#         x = self.aggregate_and_apply(self.conv2, x, apply_func=lambda y: self.pool2(self.relu2(y)))
+#         x = self.aggregate_and_apply(self.fc1, x, apply_func=self.relu3)
+#         x = self.aggregate_and_apply(self.fc2, x, apply_func=self.softmax)
+#         return x
+#
+#     def aggregate_and_apply(self, layer_list, x, apply_func=None):
+#         local_outputs = [layer(x) for layer in layer_list]
+#         agg_output = (torch.stack(local_outputs) * F.softmax(self.aggregation_weights.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)).sum(0))
+#         if apply_func:
+#             agg_output = apply_func(agg_output)
+#         return agg_output
+#
+#     def train_model(self, data_loader, num_epochs, learning_rate=0.001):
+#         criterion = nn.CrossEntropyLoss()
+#         optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+#
+#         for epoch in range(num_epochs):
+#             for inputs, targets in data_loader:
+#                 optimizer.zero_grad()
+#                 outputs = self(inputs)
+#                 loss = criterion(outputs, targets)
+#                 loss.backward()
+#                 optimizer.step()
+#
+#     def get_aggregation_weights(self):
+#         # Return a copy of the aggregation weights as a numpy array
+#         return self.aggregation_weights.detach().cpu().numpy()

@@ -47,6 +47,7 @@ def setup_seed(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     if args.cuda:
+        print("使用GPU")
         torch.cuda.manual_seed(args.seed)
 
 def setup_device(args):

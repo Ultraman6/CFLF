@@ -5,7 +5,8 @@ class Client:
         self.test_dataloader = test_dataloader
         self.device = device
         self.model_trainers = model_trainers
-        # 存放其他参数，如本地epoch、本地batch_size等
+        for model_trainer in self.model_trainers:
+            model_trainer.cid = self.client_idx
         self.args = args
 
     # 更新本地数据集（训练、测试）
@@ -13,7 +14,9 @@ class Client:
         # self.client_idx = client_idx
         self.train_dataloader = train_data
         self.test_dataloader = test_data
-        # self.model_trainer.client_idx = client_idx
+        for model_trainer in self.model_trainers:
+            model_trainer.cid = self.client_idx
+
 
     # 本地训练 调用trainer，传入args、device、训练数据集
     def local_train(self, w_global, tid):

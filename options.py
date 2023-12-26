@@ -96,6 +96,12 @@ def args_parser():
         default=1,
         help='number of local update (K_1)'
     )
+    parser.add_argument(
+        '--num_epochs',
+        type=int,
+        default=5,
+        help='number of auto weights update'
+    )
 
     # ----------- 客户数、数据集设置
     parser.add_argument(
