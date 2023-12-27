@@ -25,7 +25,7 @@ class Fair_API(object):
 
         # 多任务参数
         self.task_models = []  # 存放多个任务的模型
-        self.task_budgets = [20,20,20]  # 存放每个任务的总预算，每轮刷新一次
+        self.task_budgets = [6, 6, 6]  # 存放每个任务的总预算，不能太大，否则出现某些任务垄断所有客户
         # self.task_bids = {client_id: [] for client_id in range(args.num_clients)}  # 存放每个客户的投标
 
         # 质量激励参数,客户历史质量,存放格式：(轮次，质量
@@ -74,14 +74,15 @@ class Fair_API(object):
             print("################Communication round : {}".format(round_idx))
 
             w_locals_tasks = [[] for _ in range(self.args.num_tasks)]  # 存放每个任务的本地权重，将产生的投标数据、计算的估计质量传入
+            # 产生投标信息
             client_bids = self.generate_bids()
             client_task_indexes = {task_id: [] for task_id in range(self.args.num_tasks)}
             if round_idx == 0:  # 初始轮选择全部投标
                 for client_idx, bids in client_bids.items():
-                    for bid in bids:
-                        client_task_indexes[bid[0]].append(client_idx)
+                    for tid, bid in bids.items():
+                        client_task_indexes[tid].append(client_idx)
             else:
-                client_task_indexes = self.LQM_client_sampling(round_idx, client_bids, self.cal_estimate_quality())
+                client_task_indexes = self.LQM_client_sampling(client_bids, self.cal_estimate_quality())
 
             for task_id in range(self.args.num_tasks):  # 显示当前轮次每个任务获胜的客户索引
                 print("task_id：{}，client_indexes = {} ".format(task_id, str(client_task_indexes[task_id])))
@@ -115,18 +116,18 @@ class Fair_API(object):
         return self.global_accs, self.global_losses
 
     # 产生拍卖数据
-    def generate_bids(self):
+    def generate_bids(self):  # 投标数据结构：{客户id:{任务id:(出价,量)...}...}
         np.random.seed(42)
         # 初始化投标数据矩阵
         bid_prices = np.random.uniform(1, 3, (self.args.num_clients, self.args.num_tasks))
         data_volumes = np.random.uniform(100, 10000, (self.args.num_clients, self.args.num_tasks))
-        client_task_bids = {client_id: [(task_id, bid_prices[client_id, task_id], data_volumes[client_id, task_id])
-                                        for task_id in range(self.args.num_tasks)] for client_id in
+        client_task_bids = {client_id: {task_id: (bid_prices[client_id, task_id], data_volumes[client_id, task_id])
+                                        for task_id in range(self.args.num_tasks)} for client_id in
                             range(self.args.num_clients)}
         return client_task_bids
 
     # 计算估计质量
-    def cal_estimate_quality(self):
+    def cal_estimate_quality(self):  # 估计质量数据结构：{客户id:[估计质量...]...}, 因为每个任务的估计质量是一定要计算的，所以不区分客户投标意愿
         num_tasks = self.args.num_tasks  # Number of tasks from the arguments
         num_clients = self.args.num_clients
         # 创建估计质量容器
@@ -151,65 +152,62 @@ class Fair_API(object):
         return estimate_quality
 
     # 质量敏感地选择客户（LQM）
-    def LQM_client_sampling(self, round_idx, client_bids, estimate_quality):
+    def LQM_client_sampling(self, client_bids, estimate_quality):
         # print(estimate_quality)
         # 创建胜者客户映射
         client_task_indexes = {task_id: [] for task_id in range(self.args.num_tasks)}
-        if round_idx == 0:  # 初始轮选择全部投标
-            for client_idx, bids in client_bids.items():
-                for bid in bids:
-                    client_task_indexes[bid[0]].append(client_idx)
 
-        else:  # 之后执行质量敏感的选择
-            # Initialize N'_j, p'_j for each task，候选客户集合、任务最优标志
-            candidate_clients_per_task = {task_id: [] for task_id in range(self.args.num_tasks)}  # N'_j,
-            task_allocated = [0 for _ in range(self.args.num_tasks)]  # 已经最优的任务 p'_j
-            client_available = [1 for _ in range(self.args.num_clients)]  # 可用客户集 x'_i，作为最后的任务-客户映射的证据
-            payments = {cid: [0 for _ in range(self.args.num_clients)] for cid in
-                        range(self.args.num_clients)}  # 客户在每个任务下的奖励
-            for client_id, bids in client_bids.items():
-                for bid in bids:  # 遍历客户的所有投标
-                    candidate_clients_per_task[bid[0]].append(client_id)
+        # 之后执行质量敏感的选择
+        # Initialize N'_j, p'_j for each task，候选客户集合、任务最优标志
+        candidate_clients_per_task = {task_id: [] for task_id in range(self.args.num_tasks)}  # N'_j,
+        task_allocated = [0 for _ in range(self.args.num_tasks)]  # 已经最优的任务 p'_j
+        client_available = [1 for _ in range(self.args.num_clients)]  # 可用客户集 x'_i，作为最后的任务-客户映射的证据
+        payments = {tid: [0.0 for _ in range(self.args.num_clients)] for tid in
+                    # {任务id:[支付1...]...}, 是一个全数组，每个客户在每个任务都有记录，要求实际支付需要与indexes对齐
+                    range(self.args.num_tasks)}  # 客户在每个任务下的奖励
+        for client_id, bids in client_bids.items():
+            for tid, bid in bids.items():  # 遍历客户的所有投标
+                candidate_clients_per_task[tid].append(client_id)
 
-            while any(x_i == 1 for x_i in client_available) and any(p_j == 0 for p_j in task_allocated):
-                # 每个任务的客户暂存集合，有可能此客户已经被前任务用了，但还可以在里面 M'_j
-                selected_clients_per_task = {task_id: [] for task_id in range(self.args.num_tasks)}
-                cumulative_quality = [0 for _ in range(self.args.num_tasks)]  # 存放每个任务的累计估计质量
-                cumulative_payment = [0 for _ in range(self.args.num_tasks)]  # 存放每个任务的累计支付
-                for t_id in range(self.args.num_tasks):
-                    if task_allocated[t_id] == 0:  # 是否已经最优
-                        # 将候选集合中的客户按单位价格的估计质量排序
-                        sorted_clients = sorted(candidate_clients_per_task[t_id],
-                                                key=lambda c_id: estimate_quality[c_id][t_id] /
-                                                                 client_bids[c_id][t_id],
-                                                reverse=True)
-                        k = 0  # 代表个数,用于访问sorted_clients的索引
-                        # Find the smallest k such that the sum exceeds the budget B'_j，同时也计算每个客户在当前任务下的支付
-                        for c_id in sorted_clients:  # 在满足预算前提下遍历候选,找到 k
-                            cumulative_payment[t_id] = 0
-                            b_k = client_bids[t_id][c_id]
-                            q_k = estimate_quality[t_id][c_id]
-                            for i in range(0, k + 1):  # 检验每一个k
-                                q_i = estimate_quality[sorted_clients[i]]
-                                x_i = client_available[sorted_clients[i]]
-                                cumulative_payment[t_id] += b_k / q_k * q_i * x_i
-                            if cumulative_payment[t_id] > self.task_budgets[t_id]: break  # 如果当前的k恰好满足预算
-                            k += 1  # 个数更新
-                        for i in range(k):  # 只记录前k-1客户的
-                            cid = sorted_clients[i]
-                            selected_clients_per_task[t_id].append(cid)  # 记录客户i在任务j下的支付
-                            payments[t_id][cid] = client_bids[t_id][k] / estimate_quality[t_id][k] * \
-                                                  estimate_quality[t_id][i]
-                            cumulative_quality[t_id] += estimate_quality[t_id][i] * client_available[t_id][i]
+        while any(x_i == 1 for x_i in client_available) and any(p_j == 0 for p_j in task_allocated):
+            # 每个任务的客户暂存集合，有可能此客户已经被前任务用了，但还可以在里面 M'_j
+            selected_clients_per_task = {task_id: [] for task_id in range(self.args.num_tasks)}
+            cumulative_quality = [0 for _ in range(self.args.num_tasks)]  # 存放每个任务的累计估计质量
+            cumulative_payment = [0 for _ in range(self.args.num_tasks)]  # 存放每个任务的累计支付
+            for t_id in range(self.args.num_tasks):
+                if task_allocated[t_id] == 0:  # 是否已经最优
+                    # 将候选集合中的客户按单位价格的估计质量排序
+                    sorted_clients = sorted(candidate_clients_per_task[t_id],
+                                            key=lambda c_id: estimate_quality[c_id][t_id] /
+                                                             client_bids[c_id][t_id][0],  # 这个地方必须要根据tid索引到价格
+                                            reverse=True)
+                    k = 0  # 代表个数,用于访问sorted_clients的索引
+                    # Find the smallest k such that the sum exceeds the budget B'_j，同时也计算每个客户在当前任务下的支付
+                    for c_id in sorted_clients:  # 在满足预算前提下遍历候选,找到 k
+                        cumulative_payment[t_id] = 0
+                        b_k = client_bids[c_id][t_id][0]
+                        q_k = estimate_quality[c_id][t_id]
+                        for i in range(0, k + 1):  # 检验每一个k
+                            q_i = estimate_quality[sorted_clients[i]][t_id]
+                            x_i = client_available[sorted_clients[i]]
+                            cumulative_payment[t_id] += b_k / q_k * q_i * x_i
+                        if cumulative_payment[t_id] > self.task_budgets[t_id]: break  # 如果当前的k恰好满足预算
+                        k += 1  # 个数更新
+                    for i in range(k):  # 只记录前k-1客户的
+                        cid = sorted_clients[i]
+                        selected_clients_per_task[t_id].append(cid)  # 记录客户i在任务j下的支付
+                        payments[t_id][cid] = client_bids[cid][t_id][0] / estimate_quality[cid][t_id] * \
+                                              estimate_quality[cid][t_id]
+                        cumulative_quality[t_id] += estimate_quality[cid][t_id] * client_available[cid]
 
-                # 找到最大累计质量任务的下标
-                max_k = cumulative_quality.index(max(cumulative_quality))
-                task_allocated[max_k] = 1  # 任务已分配
-                # 更新客户的任务分配状态和可用性
-                for client_id in selected_clients_per_task[max_k]:
-                    if client_available[client_id] == 1:  # 如果客户当前是可用的
-                        client_task_indexes[max_k].append(client_id)  # 客户分配给任务 t_k
-                        client_available[client_id] = 0  # 客户现在被分配，不再可用
+            # 找到最大累计质量任务的下标
+            max_k = cumulative_quality.index(max(cumulative_quality))
+            task_allocated[max_k] = 1  # 任务已分配
+            # 更新客户的任务分配状态和可用性
+            for client_id in selected_clients_per_task[max_k]:
+                if client_available[client_id] == 1:  # 如果客户当前是可用的
+                    client_task_indexes[max_k].append(client_id)  # 客户分配给任务 t_k
+                    client_available[client_id] = 0  # 客户现在被分配，不再可用
 
         return client_task_indexes  # 返回每个任务分配的用户
 
