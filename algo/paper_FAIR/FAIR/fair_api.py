@@ -76,20 +76,21 @@ class Fair_API(object):
             w_locals_tasks = [[] for _ in range(self.args.num_tasks)]  # 存放每个任务的本地权重，将产生的投标数据、计算的估计质量传入
             # 产生投标信息
             client_bids = self.generate_bids()
-            client_task_indexes = {task_id: [] for task_id in range(self.args.num_tasks)}
+            client_task_info = {task_id: [] for task_id in range(self.args.num_tasks)}
             if round_idx == 0:  # 初始轮选择全部投标
                 for client_idx, bids in client_bids.items():
                     for tid, bid in bids.items():
-                        client_task_indexes[tid].append(client_idx)
-            else:
-                client_task_indexes = self.LQM_client_sampling(client_bids, self.cal_estimate_quality())
+                        client_task_info[tid].append(client_idx)
+            else: # 接收客户分配请款及其支付
+                client_task_info = self.LQM_client_sampling(client_bids, self.cal_estimate_quality())
 
-            for task_id in range(self.args.num_tasks):  # 显示当前轮次每个任务获胜的客户索引
-                print("task_id：{}，client_indexes = {} ".format(task_id, str(client_task_indexes[task_id])))
+            for task_id in range(self.args.num_tasks):   # 显示当前轮次每个任务获胜的客户索引及其支付
+                print("task_id：{},  client_indexes = {},  payment = {} "
+                      .format(task_id, str(client_task_info[task_id][0]), client_task_info[task_id][1]))
 
-            for task_id, win_bids in client_task_indexes.items():  # 遍历每个任务的获胜投标
+            for task_id, win_bids in client_task_info.items():  # 遍历每个任务的获胜投标
                 print("task_id：{}, 开始训练".format(task_id))
-                for client_idx in win_bids:
+                for client_idx, _ in win_bids:
                     # 本地迭代训练
                     w = self.client_list[client_idx].local_train(copy.deepcopy(w_global_tasks[task_id]), task_id)
                     w_locals_tasks[task_id].append(copy.deepcopy(w))
@@ -98,7 +99,7 @@ class Fair_API(object):
             # 聚合每个任务的全局模型
             for t_id, w_locals in enumerate(w_locals_tasks):
                 print("task_id：{}, 开始聚合".format(t_id))
-                w_global_tasks[t_id], weights = self.auto_weights_aggreate(w_locals, t_id, client_task_indexes[t_id],
+                w_global_tasks[t_id], weights = self.auto_weights_aggreate(w_locals, t_id, client_task_info[t_id],
                                                                            round_idx)
                 print(weights)  # 打印自动聚合权重
                 print("task_id：{}, 结束聚合".format(t_id))
@@ -125,6 +126,14 @@ class Fair_API(object):
                                         for task_id in range(self.args.num_tasks)} for client_id in
                             range(self.args.num_clients)}
         return client_task_bids
+
+    def allocate_sample(self,client_task_infoms):
+        # 分配样本
+        client_samples = {client_id: [] for client_id in range(self.args.num_clients)}  # 每个客户分配的样本
+        for task_id, clients in client_task_infoms.items():
+            for client_id in clients:
+                client_samples[client_id].append((task_id, self.train_data_local[client_id][task_id]))
+        return client_samples
 
     # 计算估计质量
     def cal_estimate_quality(self):  # 估计质量数据结构：{客户id:[估计质量...]...}, 因为每个任务的估计质量是一定要计算的，所以不区分客户投标意愿
@@ -155,7 +164,7 @@ class Fair_API(object):
     def LQM_client_sampling(self, client_bids, estimate_quality):
         # print(estimate_quality)
         # 创建胜者客户映射
-        client_task_indexes = {task_id: [] for task_id in range(self.args.num_tasks)}
+        client_task_info = {task_id: [] for task_id in range(self.args.num_tasks)}
 
         # 之后执行质量敏感的选择
         # Initialize N'_j, p'_j for each task，候选客户集合、任务最优标志
@@ -206,10 +215,10 @@ class Fair_API(object):
             # 更新客户的任务分配状态和可用性
             for client_id in selected_clients_per_task[max_k]:
                 if client_available[client_id] == 1:  # 如果客户当前是可用的
-                    client_task_indexes[max_k].append(client_id)  # 客户分配给任务 t_k
+                    client_task_info[max_k].append((client_id, payments[max_k][client_id], client_bids[client_id][max_k][0]))  # 记录客户分配情况，包括支付
                     client_available[client_id] = 0  # 客户现在被分配，不再可用
 
-        return client_task_indexes  # 返回每个任务分配的用户
+        return client_task_info  # 返回每个任务分配的用户及其支付
 
     # 自定义权重的模型参数聚合
     def auto_weights_aggreate(self, w_locals, tid, cids, round_idx):  # 需要当前任务id，参与聚合的客户id

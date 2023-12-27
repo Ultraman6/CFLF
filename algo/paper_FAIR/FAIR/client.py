@@ -1,7 +1,7 @@
 class Client:
-    def __init__(self, client_idx, train_dataloader, test_dataloader, args, device, model_trainers):
-        self.client_idx = client_idx
-        self.train_dataloader = train_dataloader
+    def __init__(self, client_idx, train_dataloaders, test_dataloader, args, device, model_trainers):
+        self.client_idx = client_idx  # 存放每个任务的训练loader
+        self.train_dataloaders = train_dataloaders
         self.test_dataloader = test_dataloader
         self.device = device
         self.model_trainers = model_trainers
@@ -21,7 +21,7 @@ class Client:
     # 本地训练 调用trainer，传入args、device、训练数据集
     def local_train(self, w_global, tid):
         self.model_trainers[tid].set_model_params(w_global)
-        self.model_trainers[tid].train(self.train_dataloader, self.device, self.args)
+        self.model_trainers[tid].train(self.train_dataloaders[tid], self.device, self.args)
         weights = self.model_trainers[tid].get_model_params()
         return weights
 
