@@ -92,9 +92,10 @@ class Fair_API(object):
                 client_task_info = self.LQM_client_sampling(client_bids, self.cal_estimate_quality())
 
             # 分配训练样本
+            print(client_task_info)
             self.allocate_sample(client_task_info)
             for task_id in range(self.args.num_tasks):  # 显示当前轮次每个任务获胜的客户索引及其支付和样本量
-                print("task_id：{}, (client_indexes, payment) = {} "
+                print("task_id：{}, (client_indexes, payment, sample) = {} "
                       .format(task_id, str(client_task_info[task_id])))
 
             for tid, win_bids in client_task_info.items():  # 遍历每个任务的获胜投标
@@ -107,12 +108,15 @@ class Fair_API(object):
 
             # 聚合每个任务的全局模型
             for t_id, w_locals in enumerate(w_locals_tasks):
-                print("task_id：{}, 开始聚合".format(t_id))
-                w_global_tasks[t_id], weights = self.auto_weights_aggreate(w_locals, t_id, client_task_info[t_id],
-                                                                           round_idx)
-                print(weights)  # 打印自动聚合权重
-                print("task_id：{}, 结束聚合".format(t_id))
-                self.model_trainers[t_id].set_model_params(copy.deepcopy(w_global_tasks[t_id]))
+                if len(w_locals) == 0: # 如果该模型没有得到更新
+                    print("task_id：{}, 由于无选中客户，不聚合".format(t_id))
+                else:
+                    print("task_id：{}, 开始聚合".format(t_id))
+                    w_global_tasks[t_id], weights = self.auto_weights_aggreate(w_locals, t_id, client_task_info[t_id],
+                                                                               round_idx)
+                    print(weights)  # 打印自动聚合权重
+                    print("task_id：{}, 结束聚合".format(t_id))
+                    self.model_trainers[t_id].set_model_params(copy.deepcopy(w_global_tasks[t_id]))
             print(self.client_his_quality)
 
             # 全局验证每个任务
@@ -130,7 +134,7 @@ class Fair_API(object):
         np.random.seed(42)
         # 初始化投标数据矩阵
         bid_prices = np.random.uniform(1, 3, (self.args.num_clients, self.args.num_tasks))
-        data_volumes = np.random.randint(100, 10001, (self.args.num_clients, self.args.num_tasks))
+        data_volumes = np.random.randint(100, 1001, (self.args.num_clients, self.args.num_tasks))
         client_task_bids = {client_id: {task_id: (bid_prices[client_id, task_id], data_volumes[client_id, task_id])
                                         for task_id in range(self.args.num_tasks)} for client_id in
                             range(self.args.num_clients)}
@@ -241,13 +245,13 @@ class Fair_API(object):
             # 更新客户的任务分配状态和可用性
             for client_id in selected_clients_per_task[max_k]:
                 if client_available[client_id] == 1:  # 如果客户当前是可用的
-                    client_task_info[max_k].append(((client_id, payments[max_k][client_id]), client_bids[client_id][max_k][1]))  # 记录客户分配情况，包括支付和样本量
+                    client_task_info[max_k].append((client_id, payments[max_k][client_id], client_bids[client_id][max_k][1]))  # 记录客户分配情况，包括支付和样本量
                     client_available[client_id] = 0  # 客户现在被分配，不再可用
 
         return client_task_info  # 返回每个任务分配的用户及其支付
 
     # 自定义权重的模型参数聚合
-    def auto_weights_aggreate(self, w_locals, tid, cids, round_idx):  # 需要当前任务id，参与聚合的客户id
+    def auto_weights_aggreate(self, w_locals, tid, cInfos, round_idx):  # 需要当前任务id，参与聚合的客户id
         # 传入本地模型的参数，先将其打包成模型，再传给AggregrateModel类
         model = copy.deepcopy(self.task_models[tid])
         model_locals = []
@@ -259,8 +263,9 @@ class Fair_API(object):
         optimal_agg = AggregateModel(model_locals, self.args.output_channels)  # 创建聚合模型记得指定设备
         optimal_agg.train_model(self.v_global, self.args.num_epochs, self.device)
         optim_weights, reverse_quality = optimal_agg.get_aggregation_weights_quality()  # 得到自动聚合权重、反向实际质量
-        for id, cid in enumerate(cids):  # 给参与的客户更新对应任务的实际质量
-            self.client_his_quality[cid][tid].append((round_idx, reverse_quality[id]))
+        for id, (cid, _, _) in enumerate(cInfos):  # 给参与的客户更新对应任务的实际质量, 支付和样本量全部过滤
+            # print(cid)
+            self.client_his_quality[cid][tid].append((round_idx, reverse_quality[id])) # id表示客户本地模型的聚合顺序，从0开始
 
         return average_weights_self(w_locals, optim_weights), optim_weights
 

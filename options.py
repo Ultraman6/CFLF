@@ -87,7 +87,7 @@ def args_parser():
     parser.add_argument(
         '--num_communication',
         type=int,
-        default=30,
+        default=5,
         help='number of communication rounds with the cloud server'
     )
     parser.add_argument(
@@ -99,7 +99,7 @@ def args_parser():
     parser.add_argument(
         '--num_epochs',
         type=int,
-        default=5,
+        default=3,
         help='number of auto weights update'
     )
 
@@ -125,7 +125,7 @@ def args_parser():
     parser.add_argument(
         '--iid',
         type=int,
-        default=1,
+        default=0,
         help='distribution of the data, 1 iid, 0 non-iid'
     )
     parser.add_argument(
