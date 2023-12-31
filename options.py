@@ -24,7 +24,7 @@ def args_parser():
     parser.add_argument(
         '--num_tasks',
         type=int,
-        default=3,
+        default=1,
         help='name of model. mnist: logistic, lenet, cnn; cifar10: resnet18, cnn_complex; femnist: logistic, lenet, cnn'
     )
     parser.add_argument(
@@ -87,7 +87,7 @@ def args_parser():
     parser.add_argument(
         '--num_communication',
         type=int,
-        default=5,
+        default=30,
         help='number of communication rounds with the cloud server'
     )
     parser.add_argument(
@@ -99,7 +99,7 @@ def args_parser():
     parser.add_argument(
         '--num_epochs',
         type=int,
-        default=3,
+        default=1,
         help='number of auto weights update'
     )
 
@@ -107,20 +107,20 @@ def args_parser():
     parser.add_argument(
         '--num_clients',
         type=int,
-        default=5,
+        default=30,
         help='number of all available clients'
     )
     parser.add_argument(
         '--num_selected_clients',
         type=float,
-        default=5,
+        default=30,
         help='selection of participated clients'
     )
     parser.add_argument(
         '--self_train',
         type=str,
         default= 1,
-        help='是否自己划分训练数据集, 1：是, 0：否'
+        help='fair 是否自己划分训练数据集, 1：是, 0：否'
     )
     parser.add_argument(
         '--iid',
@@ -131,7 +131,7 @@ def args_parser():
     parser.add_argument(
         '--strategy',
         type=str,
-        default='custom_class',
+        default='dirichlet',
         help='strategy (str): NIID划分的策略。例如："category-based", "dirichlet", "custom_class"等。'
     )
     parser.add_argument(

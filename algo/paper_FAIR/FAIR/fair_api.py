@@ -29,7 +29,7 @@ class Fair_API(object):
 
         # 多任务参数
         self.task_models = []  # 存放多个任务的模型
-        self.task_budgets = [6, 6, 6]  # 存放每个任务的总预算，不能太大，否则出现某些任务垄断所有客户
+        self.task_budgets = [20]  # 存放每个任务的总预算，不能太大，否则出现某些任务垄断所有客户
         # self.task_bids = {client_id: [] for client_id in range(args.num_clients)}  # 存放每个客户的投标
 
         # 质量激励参数,客户历史质量,存放格式：(轮次，质量
@@ -127,7 +127,7 @@ class Fair_API(object):
                 self.global_losses[t_id].append(test_loss)
                 self.global_accs[t_id].append(test_acc)
 
-        return self.global_accs, self.global_losses
+        return self.calculate_round_average_metrics()
 
     # 产生拍卖数据
     def generate_bids(self):  # 投标数据结构：{客户id:{任务id:(出价,量)...}...}
@@ -277,3 +277,30 @@ class Fair_API(object):
         stats = {"test_acc": test_acc, "test_loss": test_loss}
         logging.info(stats)
         return test_acc, test_loss
+
+    def calculate_round_average_metrics(self):
+        num_rounds = max(len(accs) for accs in self.global_accs.values())
+
+        # Initialize sums and counts for accuracies and losses
+        sum_accs = [0] * num_rounds
+        sum_losses = [0] * num_rounds
+        count_accs = [0] * num_rounds
+        count_losses = [0] * num_rounds
+
+        # Accumulate sums and counts for each round
+        for tid in self.global_accs:
+            for i, acc in enumerate(self.global_accs[tid]):
+                sum_accs[i] += acc
+                count_accs[i] += 1
+
+        for tid in self.global_losses:
+            for i, loss in enumerate(self.global_losses[tid]):
+                sum_losses[i] += loss
+                count_losses[i] += 1
+
+        # Calculate averages for each round
+        average_accs_per_round = [sum_accs[i] / count_accs[i] if count_accs[i] > 0 else None for i in range(num_rounds)]
+        average_losses_per_round = [sum_losses[i] / count_losses[i] if count_losses[i] > 0 else None for i in
+                                    range(num_rounds)]
+
+        return average_accs_per_round, average_losses_per_round

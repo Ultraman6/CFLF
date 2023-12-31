@@ -118,6 +118,7 @@ python main.py --args
 ## 📓 复现记录
 ### Paper: Improving_Federated_Learning_With_Quality-Aware_User_Incentive_and_Auto-Weighted_Model_Aggregation
 <details>
+
 #### 实验设置
 
 - [x] 模型:
@@ -128,22 +129,26 @@ python main.py --args
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
-#### 学习质量估计模块
+#### 自动权重的模型聚合
 - [x] FedQD:
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
-#### 学习质量估计模块
+#### 在线客户本地学习质量的估计
 - [x] FedQD:
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
-#### 学习质量估计模块
+#### 多任务场景下质量敏感的客户激励选择
 - [x] FedQD:
   - **Approach**: 
   - **Challenges**: 
   - **Outcome**:
+
+**FAIR全配置在niid场景下：客户数30；样本量[100,1000]；报价[1,3]；预算20**
+![img_1.png](img_1.png)
 </details>
+
 ## License
 该项目基于[Apache-2.0 License](LICENSE)许可证开源<br/>
 This project is released under the [Apache-2.0 License](LICENSE).<br/>
