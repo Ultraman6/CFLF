@@ -1,7 +1,7 @@
 class Client:
-    def __init__(self, client_idx, train_dataloaders, test_dataloader, args, device, model_trainers):
+    def __init__(self, client_idx, test_dataloader, args, device, model_trainers):
         self.client_idx = client_idx  # 存放每个任务的训练loader
-        self.train_dataloaders = train_dataloaders
+        self.train_dataloaders = {}
         self.test_dataloader = test_dataloader
         self.device = device
         self.model_trainers = model_trainers
@@ -10,12 +10,12 @@ class Client:
         self.args = args
 
     # 更新本地数据集（训练、测试）
-    def update_dataset(self, train_data, test_data):
-        # self.client_idx = client_idx
-        self.train_dataloader = train_data
-        self.test_dataloader = test_data
-        for model_trainer in self.model_trainers:
-            model_trainer.cid = self.client_idx
+    # def update_dataset(self, train_data, test_data):
+    #     # self.client_idx = client_idx
+    #     self.train_dataloader = train_data
+    #     self.test_dataloader = test_data
+    #     for model_trainer in self.model_trainers:
+    #         model_trainer.cid = self.client_idx
 
 
     # 本地训练 调用trainer，传入args、device、训练数据集

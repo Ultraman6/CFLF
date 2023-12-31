@@ -117,6 +117,12 @@ def args_parser():
         help='selection of participated clients'
     )
     parser.add_argument(
+        '--self_train',
+        type=str,
+        default= 1,
+        help='是否自己划分训练数据集, 1：是, 0：否'
+    )
+    parser.add_argument(
         '--iid',
         type=int,
         default=1,
@@ -172,7 +178,7 @@ def args_parser():
     # 定义clients及其分配样本量的关系
     parser.add_argument(
         '--self_sample',
-        default=0,
+        default=-1,
         type=int,
         help='>=0: set， -1: auto'
     )

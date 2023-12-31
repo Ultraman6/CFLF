@@ -3,8 +3,11 @@ import logging
 import numpy as np
 import torch
 from fedml import mlops
+from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
+from data.data_loader import show_distribution
+from data.partition import DatasetSplit
 from model.mnist_cnn import AggregateModel
 from utils.model_trainer import ModelTrainer
 from .client import Client
@@ -21,7 +24,8 @@ class Fair_API(object):
         [train_loaders, test_loaders, v_global, v_local] = dataset
         self.v_global = v_global  # 全局验证和本地验证数据集
         self.v_local = v_local
-        self.sample_num = [len(loader.dataset) for loader in train_loaders]
+
+        # self.sample_num = [len(loader.dataset) for loader in train_loaders]
 
         # 多任务参数
         self.task_models = []  # 存放多个任务的模型
@@ -35,9 +39,12 @@ class Fair_API(object):
 
         # 客户集合
         self.client_list = []
+
         # 客户训练数据参数
+        # self.train_data = train
         self.train_data_local_dict = train_loaders
         self.test_data_local_dict = test_loaders
+
         # 任务的模型配置集合
         self.model_trainers = []
         for id, model in enumerate(task_models):
@@ -47,18 +54,17 @@ class Fair_API(object):
             print("self.model_trainer = {}".format(self.model_trainers[id]))
 
         self.task_models = task_models
-        self._setup(self.train_data_local_dict, self.test_data_local_dict, self.model_trainers)
+        self._setup(self.test_data_local_dict, self.model_trainers)
 
         # 存放历史全局轮次的验证精度与损失
         self.global_accs = {tid: [] for tid in range(self.args.num_tasks)}
         self.global_losses = {tid: [] for tid in range(self.args.num_tasks)}
 
-    def _setup(self, train_data_local_dict, test_data_local_dict, model_trainers):
+    def _setup(self, test_data_local_dict, model_trainers):
         print("############setup_clients (START)#############")
         for client_idx in range(self.args.num_clients):  # 创建用户对象
             c = Client(
                 client_idx,
-                train_data_local_dict[client_idx],
                 test_data_local_dict[client_idx],
                 self.args,
                 self.device,  # 一定要深复制，不然所有客户及服务器共用一个trainer！
@@ -76,25 +82,28 @@ class Fair_API(object):
             w_locals_tasks = [[] for _ in range(self.args.num_tasks)]  # 存放每个任务的本地权重，将产生的投标数据、计算的估计质量传入
             # 产生投标信息
             client_bids = self.generate_bids()
+            # 得到任务分配信息（tid-(cid,payment)）
             client_task_info = {task_id: [] for task_id in range(self.args.num_tasks)}
             if round_idx == 0:  # 初始轮选择全部投标
                 for client_idx, bids in client_bids.items():
                     for tid, bid in bids.items():
-                        client_task_info[tid].append(client_idx)
-            else: # 接收客户分配请款及其支付
+                        client_task_info[tid].append((client_idx, 0, bid[1]))  # 第一轮全部没有支付,加上样本量
+            else:  # 接收客户分配请款及其支付
                 client_task_info = self.LQM_client_sampling(client_bids, self.cal_estimate_quality())
 
-            for task_id in range(self.args.num_tasks):   # 显示当前轮次每个任务获胜的客户索引及其支付
-                print("task_id：{},  client_indexes = {},  payment = {} "
-                      .format(task_id, str(client_task_info[task_id][0]), client_task_info[task_id][1]))
+            # 分配训练样本
+            self.allocate_sample(client_task_info)
+            for task_id in range(self.args.num_tasks):  # 显示当前轮次每个任务获胜的客户索引及其支付和样本量
+                print("task_id：{}, (client_indexes, payment) = {} "
+                      .format(task_id, str(client_task_info[task_id])))
 
-            for task_id, win_bids in client_task_info.items():  # 遍历每个任务的获胜投标
-                print("task_id：{}, 开始训练".format(task_id))
-                for client_idx, _ in win_bids:
+            for tid, win_bids in client_task_info.items():  # 遍历每个任务的获胜投标
+                print("task_id：{}, 开始训练".format(tid))
+                for cid, _, _ in win_bids:
                     # 本地迭代训练
-                    w = self.client_list[client_idx].local_train(copy.deepcopy(w_global_tasks[task_id]), task_id)
-                    w_locals_tasks[task_id].append(copy.deepcopy(w))
-                print("task_id：{}, 结束训练".format(task_id))
+                    w = self.client_list[cid].local_train(copy.deepcopy(w_global_tasks[tid]), tid)
+                    w_locals_tasks[tid].append(copy.deepcopy(w))
+                print("task_id：{}, 结束训练".format(tid))
 
             # 聚合每个任务的全局模型
             for t_id, w_locals in enumerate(w_locals_tasks):
@@ -121,19 +130,36 @@ class Fair_API(object):
         np.random.seed(42)
         # 初始化投标数据矩阵
         bid_prices = np.random.uniform(1, 3, (self.args.num_clients, self.args.num_tasks))
-        data_volumes = np.random.uniform(100, 10000, (self.args.num_clients, self.args.num_tasks))
+        data_volumes = np.random.randint(100, 10001, (self.args.num_clients, self.args.num_tasks))
         client_task_bids = {client_id: {task_id: (bid_prices[client_id, task_id], data_volumes[client_id, task_id])
                                         for task_id in range(self.args.num_tasks)} for client_id in
                             range(self.args.num_clients)}
         return client_task_bids
 
-    def allocate_sample(self,client_task_infoms):
-        # 分配样本
-        client_samples = {client_id: [] for client_id in range(self.args.num_clients)}  # 每个客户分配的样本
-        for task_id, clients in client_task_infoms.items():
-            for client_id in clients:
-                client_samples[client_id].append((task_id, self.train_data_local[client_id][task_id]))
-        return client_samples
+    # 按需分配客户投标时指定的样本量
+    def allocate_sample(self, client_task_info):
+        for task_id, wins in client_task_info.items():
+            for client_id, _, num_samples in wins:
+                # Retrieve the DataLoader for the specific client
+                client_dataSplit = copy.deepcopy(self.train_data_local_dict[client_id].dataset)
+
+                client_indices = client_dataSplit.idxs  # 得到原始索引
+                print(len(client_indices))
+                num_samples = min(num_samples, len(client_indices))
+                chosen_indices = np.random.choice(client_indices, num_samples, replace=False)
+                # Update the client's train_dataloader with the new subset of data
+                print(len(chosen_indices))
+                client_dataSplit.idxs = chosen_indices
+                self.client_list[client_id].train_dataloaders[task_id] = DataLoader(
+                    client_dataSplit,
+                    batch_size=self.args.batch_size,
+                    shuffle=True
+                )
+                if self.args.show_dis == 1:
+                    distribution = show_distribution(self.client_list[client_id].train_dataloaders[task_id], self.args)
+                    print("client {} for task {} train dataloader distribution".format(client_id, task_id))
+                    print(len(self.client_list[client_id].train_dataloaders[task_id].dataset))
+                    print(distribution)
 
     # 计算估计质量
     def cal_estimate_quality(self):  # 估计质量数据结构：{客户id:[估计质量...]...}, 因为每个任务的估计质量是一定要计算的，所以不区分客户投标意愿
@@ -215,7 +241,7 @@ class Fair_API(object):
             # 更新客户的任务分配状态和可用性
             for client_id in selected_clients_per_task[max_k]:
                 if client_available[client_id] == 1:  # 如果客户当前是可用的
-                    client_task_info[max_k].append((client_id, payments[max_k][client_id], client_bids[client_id][max_k][0]))  # 记录客户分配情况，包括支付
+                    client_task_info[max_k].append(((client_id, payments[max_k][client_id]), client_bids[client_id][max_k][1]))  # 记录客户分配情况，包括支付和样本量
                     client_available[client_id] = 0  # 客户现在被分配，不再可用
 
         return client_task_info  # 返回每个任务分配的用户及其支付

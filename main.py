@@ -59,6 +59,7 @@ def show_data_distribution(dataloaders, args):
     [train_loaders, test_loaders, v_global, v_local] = dataloaders
     if args.show_dis:
         # 训练集加载器划分
+        # if args.self_train == 0:
         for i in range(args.num_clients):
             train_loader = train_loaders[i]
             distribution = show_distribution(train_loader, args)
@@ -68,15 +69,10 @@ def show_data_distribution(dataloaders, args):
         # 测试集加载器划分
         for i in range(args.num_clients):
             test_loader = test_loaders[i]
-            test_size = len(test_loaders[i].dataset)
-            # print(len(test_loader.dataset))
-            # if args.test_on_all_samples != 1:
             distribution = show_distribution(test_loader, args)
             print("test dataloader {} distribution".format(i))
             print(len(test_loader.dataset))
             print(distribution)
-            # print("test dataloader {} distribution".format(i))
-            # print(f"test dataloader size {test_size}")
         # 全局验证集加载器划分
         distribution = show_distribution(v_global, args)
         print("global valid dataloader distribution")

@@ -21,7 +21,6 @@ from torch.utils.data import DataLoader, Subset
 from options import args_parser
 
 
-
 def iid_split(dataset, args, kwargs, is_shuffle=True):
     """ 独立同分布且样本量可调节的数据划分方法。
     Args:
@@ -103,7 +102,6 @@ def custom_class_split(dataset, class_distribution_json):
     return client_datasets
 
 
-
 def add_noise_to_labels(dataset, noise_ratio):
     noisy_dataset = copy.deepcopy(dataset)
     num_noisy_labels = int(len(dataset) * noise_ratio)
@@ -147,32 +145,36 @@ def get_dataset(dataset_root, dataset, args):
     print("数据集{}划分完毕，准备进入联邦学习进程".format(str(args.dataset)))
     return train_loaders, test_loaders, val_loader_on_global, val_loader_on_local
 
+
 def load_data(train, test, args):
     is_cuda = args.cuda
     kwargs = {'num_workers': 1, 'pin_memory': True} if is_cuda else {}
 
     # 分割训练数据
+    # if args.self_train == 0:
     train_loaders = split_data(train, args, kwargs, is_shuffle=True)
 
     # 为训练数据添加噪声
-    if args.self_noise == 1:
-        noise_ratios = json.loads(args.noise_mapping)
-        for i, loader in enumerate(train_loaders):
-            noisy_dataset = add_noise_to_labels(loader.dataset.dataset, noise_ratios[i])
-            train_loaders[i] = DataLoader(DatasetSplit(noisy_dataset), batch_size=args.batch_size, shuffle=True, **kwargs)
-    
+    # if args.self_noise == 1:
+    #     noise_ratios = json.loads(args.noise_mapping)
+    #     for i, loader in enumerate(train_loaders):
+    #         noisy_dataset = add_noise_to_labels(loader.dataset.dataset, noise_ratios[i])
+    #         train_loaders[i] = DataLoader(DatasetSplit(noisy_dataset), batch_size=args.batch_size, shuffle=True,
+    #                                       **kwargs)
+
     # 分割测试数据
     test_loaders = split_data(test, args, kwargs, is_shuffle=False) if args.test_on_all_samples != 1 \
-        else [DataLoader(DatasetSplit(test), batch_size=args.batch_size, shuffle=False, **kwargs) for _ in range(args.num_clients)]
+        else [DataLoader(DatasetSplit(test), batch_size=args.batch_size, shuffle=False, **kwargs) for _ in
+              range(args.num_clients)]
 
     # 创建验证集加载器
-    val_loader_on_global = DataLoader(DatasetSplit(test), batch_size=args.batch_size * args.num_clients, shuffle=True, **kwargs)
-    val_loader_on_local = DataLoader(Subset(train, np.random.choice(len(train), int(args.valid_local_radio * len(train)), replace=False)),
-                                     batch_size=args.batch_size, shuffle=True, **kwargs)
+    val_loader_on_global = DataLoader(DatasetSplit(test), batch_size=args.batch_size * args.num_clients, shuffle=True,
+                                      **kwargs)
+    val_loader_on_local = DataLoader(
+        Subset(train, np.random.choice(len(train), int(args.valid_local_radio * len(train)), replace=False)),
+        batch_size=args.batch_size, shuffle=True, **kwargs)
 
     return train_loaders, test_loaders, val_loader_on_global, val_loader_on_local
-
-
 
 
 def get_dataloaders(args):
@@ -181,8 +183,8 @@ def get_dataloaders(args):
     :return: A list of trainloaders, a list of testloaders, a concatenated trainloader and a concatenated testloader
     """
     if args.dataset in ['mnist', 'cifar10', "femnist"]:
-        train_loaders, test_loaders, v_global, v_local = get_dataset(dataset_root=args.dataset_root,                                                                         dataset=args.dataset,
-                                                                                       args = args)
+        train_loaders, test_loaders, v_global, v_local = get_dataset(dataset_root=args.dataset_root, dataset=args.dataset,
+                                                             args=args)
     else:
         raise ValueError("This dataset is not implemented yet")
     return train_loaders, test_loaders, v_global, v_local
