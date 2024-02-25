@@ -3,15 +3,15 @@ import copy
 import numpy as np
 import torch
 
-from algo.integrity.FairAvg import FairAvg_API
-from algo.FedAvg.fedavg_api import BaseServer
-from algo.FedFAIM_1.fedfaim_api import FedFAIM_API
-from algo.integrity.FedQD import FedQD_API
+from algorithm.integrity.FairAvg import FairAvg_API
+from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.FedFAIM_1.fedfaim_api import FedFAIM_API
+from algorithm.integrity.FedQD import FedQD_API
 from data.utils.distribution import show_distribution
 from data.utils.distribution import get_dataloaders
 from model.Initialization import model_creator
 from options import args_parser
-from utils.drawing import create_result, plot_results
+from util.drawing import create_result, plot_results
 
 def main():
     args = args_parser()

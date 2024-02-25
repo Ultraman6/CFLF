@@ -1,5 +1,5 @@
 from experiment.fusion_mask.options import args_parser
-from utils.manager import ExperimentManager, visual_results
+from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -27,7 +27,7 @@ def main():
     manager = ExperimentManager("fusion_mask_exp", args, same_seed=False)
     results = manager.judge_running(exp_params, 'serial')
     visual_results(results)
-    manager.save_results(results, "../.././logs")
+    manager.save_results(results, "../.././log")
 
 
 # 主入口

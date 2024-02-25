@@ -8,7 +8,7 @@ from torch.autograd import grad
 
 from model.base.model_dict import _modeldict_zeroslike, _modeldict_clone, _modeldict_add, _modeldict_tuple, \
     _modeldict_sub, _modeldict_norm, _modeldict_to_cpu, _modeldict_to_np, _modeldict_scale, _modeldict_to_device
-from utils.running import create_optimizer, create_loss_function, schedule_lr, js_divergence, direct_kl_sum
+from util.running import create_optimizer, create_loss_function, schedule_lr, js_divergence, direct_kl_sum
 
 
 class ModelTrainer:

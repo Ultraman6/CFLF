@@ -1,6 +1,6 @@
 import os
 from experiment.cosine_sim_reward.options import args_parser
-from utils.manager import ExperimentManager, visual_results
+from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -16,7 +16,7 @@ def main():
     }
     manager = ExperimentManager("margin_cos_rep_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././logs")
+    manager.save_results(results, "../.././log")
     visual_results(results)
 
 

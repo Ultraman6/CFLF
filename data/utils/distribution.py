@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 from data.utils.partition import (dirichlet_partition, imbalance_sample, DatasetSplit,
                                   shards_partition, noise_feature_partition, noise_label_partition, homo_partition,
                                   custom_class_partition)
-from utils.logging import json_str_to_int_key_dict
+from util.logging import json_str_to_int_key_dict
 
 cudnn.banchmark = True
 from torch.utils.data import DataLoader

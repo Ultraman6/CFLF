@@ -9,7 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 from model.base.attention import Attention
 from model.base.model_dict import aggregate_att_weights
-from utils.running import create_loss_function
+from util.running import create_loss_function
 
 
 class FusionLayerModel(nn.Module):

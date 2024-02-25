@@ -15,7 +15,7 @@ from data.utils.partition import balance_sample, special_sample
 from experiment.options import args_parser
 from model.Initialization import model_creator
 from model.base.model_trainer import ModelTrainer
-from utils.generator import Data_Generator
+from util.generator import Data_Generator
 
 
 def setup_device(args):
@@ -52,7 +52,7 @@ def file_save(args, sim_results):
     df = pd.DataFrame(data)
 
     # 保存DataFrame到Excel文件
-    file_name = f"score_function_experiment_{args.dataset}_R{args.round}_Samples{sample_num}.xlsx"
+    file_name = f"score_function_experiment_D{args.dataset}_S{args.model}_R{args.round}_S{sample_num}.xlsx"
     save_path = f"./simulation_results/{file_name}"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 

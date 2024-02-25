@@ -1,6 +1,6 @@
 import os
 from experiment.margin_KL.options import args_parser
-from utils.manager import ExperimentManager, visual_results
+from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -9,7 +9,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 # def main():
 #     # 设置实验名和创建相应目录
 #     experiment_name = "margin_KL_vs_Loss_exp_mnist_tahn"  # 举例，可以根据需要修改
-#     root_save_path = os.path.join("../.././logs", experiment_name)
+#     root_save_path = os.path.join("../.././log", experiment_name)
 #     if not os.path.exists(root_save_path):
 #         os.makedirs(root_save_path)
 #     args = args_parser()
@@ -41,7 +41,7 @@ def main():
     }
     manager = ExperimentManager("margin_kl_former_total_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././logs")
+    manager.save_results(results, "../.././log")
     visual_results(results)
 
 

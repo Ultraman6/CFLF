@@ -4,7 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="" />
+    <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/Visualization Interactive System/configuration/configurator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Visualization Interactive System/configuration/constants.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Visualization Interactive System/configuration/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Visualization Interactive System/configuration/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/experiment/Score Function Construction/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/Score Function Construction/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/experiment/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/options.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -381,7 +388,8 @@
       <workItem from="1708783647520" duration="5015000" />
       <workItem from="1708791625431" duration="4728000" />
       <workItem from="1708828038662" duration="11138000" />
-      <workItem from="1708854253526" duration="300000" />
+      <workItem from="1708854253526" duration="388000" />
+      <workItem from="1708859956562" duration="9263000" />
     </task>
     <servers />
   </component>

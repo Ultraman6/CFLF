@@ -3,13 +3,13 @@ import os
 
 import numpy as np
 import torch
-from algo.FedAvg.fedavg_api import BaseServer
+from algorithm.FedAvg.fedavg_api import BaseServer
 from data.get_data import get_dataloaders
 from model.Initialization import model_creator
 from experiment.data_distribution.options import args_parser
-from utils.drawing import plot_results
-from utils.running import control_seed
-from utils.task import Task
+from util.drawing import plot_results
+from util.running import control_seed
+from util.task import Task
 
 init_mode=['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -17,7 +17,7 @@ init_mode=['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     # 设置实验名和创建相应目录
     experiment_name = "margin_loss_exp_mnist"  # 举例，可以根据需要修改
-    root_save_path = os.path.join("D:/logs for CFLF", experiment_name)
+    root_save_path = os.path.join("D:/log for CFLF", experiment_name)
     if not os.path.exists(root_save_path):
         os.makedirs(root_save_path)
     args = args_parser()
