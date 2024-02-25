@@ -1,136 +1,111 @@
 import copy
-import logging
+from concurrent.futures import ThreadPoolExecutor
+import time
 import numpy as np
-from fedml import mlops
 from tqdm import tqdm
-from utils.model_trainer import ModelTrainer
-from .client import Client
-from ..aggregrate import average_weights_on_sample
 
-# 设置时间间隔（以秒为单位）
-interval = 5
+from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device
+from model.base.model_trainer import ModelTrainer
+from .client import BaseClient
 
-class FedAvgAPI(object):
+
+class BaseServer(object):
     def __init__(self, args, device, dataset, model):
         self.device = device
         self.args = args
-        [train_loaders, test_loaders, v_global, v_local] = dataset
-        self.v_global = v_global
-        self.v_local = v_local
+        [train_loaders, valid_global] = dataset
+        self.train_loaders = train_loaders
+        # self.test_loaders = test_loaders
+        self.valid_global = valid_global
         self.sample_num = [len(loader.dataset) for loader in train_loaders]
-        # 参数1
+        self.all_sample_num = sum(self.sample_num)
+        self.model_trainer = ModelTrainer(model, device, args)
+        self.global_params = self.model_trainer.get_model_params(self.device)
+        _modeldict_to_device(self.global_params, self.device)
         self.client_list = []
-        # 客户训练数据参数
-        self.train_data_local_dict = train_loaders
-        self.test_data_local_dict = test_loaders
+        self.setup_clients()
 
-        print("model = {}".format(model))
-        self.model_trainer = ModelTrainer(model, args)
-        self.model = model
-        print("self.model_trainer = {}".format(self.model_trainer))
-
-        self._setup_clients(self.train_data_local_dict, self.test_data_local_dict, self.model_trainer)
-
-    def _setup_clients(self, train_data_local_dict, test_data_local_dict, model_trainer):
-        print("############setup_clients (START)#############")
+    def setup_clients(self):
         for client_idx in range(self.args.num_clients):
-            c = Client(
+            self.model_trainer.cid = client_idx
+            c = BaseClient(
                 client_idx,
-                train_data_local_dict[client_idx],
-                test_data_local_dict[client_idx],
+                self.train_loaders[client_idx],
+                self.device,
                 self.args,
-                self.device,  # 一定要深复制，不然所有客户及服务器共用一个trainer！
-                copy.deepcopy(model_trainer),
+                copy.deepcopy(self.model_trainer)
             )
             self.client_list.append(c)
-            # self.client_train_prob.append(0.5) # 设置客户训练概成功率列表
-        print("############setup_clients (END)#############")
 
-    def train(self):
-        w_global = self.model_trainer.get_model_params()
-        mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
-        mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
-        mlops.log_round_info(self.args.num_communication, -1)
-
-        global_acc=[]
-        global_loss=[]
-        for round_idx in range(self.args.num_communication):
-
-            print("################Communication round : {}".format(round_idx))
-
+    def train(self, task_name, position):
+        global_info = {}
+        client_info = {}
+        start_time = time.time()
+        test_acc, test_loss = self.model_trainer.test(self.valid_global)
+        global_info[0] = {
+            "Loss": test_loss,
+            "Accuracy": test_acc,
+            "Relative Time": time.time() - start_time,
+        }
+        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, position=position, leave=False):
+            # print("################Communication round : {}".format(round_idx))
             w_locals = []
+            client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)
+            # print("client_indexes = " + str(client_indexes))
+            # 使用 ThreadPoolExecutor 管理线程
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = []
+                for cid in client_indexes:
+                    # 提交任务到线程池
+                    future = executor.submit(self.thread_train, self.client_list[cid], round_idx, self.global_params)
+                    futures.append(future)
+                # 等待所有任务完成
+                for future in futures:
+                    w_locals.append(future.result())
 
-            client_indexes = self._client_sampling(self.args.num_clients, self.args.num_selected_clients)
-            print("client_indexes = " + str(client_indexes))
+            # 更新权重并聚合
+            weights = np.array([self.sample_num[cid] / self.all_sample_num for cid in client_indexes])
+            self.global_params = _modeldict_weighted_average(w_locals, weights)
 
-            for idx, client in enumerate(self.client_list):
-                # update dataset
-                # 判断如果idx是client_indexes中的某一client的下标，那么就更新这个client的数据集
-                if client.client_idx in client_indexes:
-                    client.update_dataset(
-                        client.client_idx,
-                        self.train_data_local_dict[client.client_idx],
-                        self.test_data_local_dict[client.client_idx],
-                    )
-                    # 本地迭代训练
-                    print("train_start   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
-                    w = client.local_train(copy.deepcopy(w_global))
-                    print("train_end   round: {}   client_idx: {}".format(str(round_idx), str(client.client_idx)))
-                    # if self.judge_model(self.client_train_prob[client.client_idx]) == 1: # 判断是否成功返回模型
-                    w_locals.append(copy.deepcopy(w))
-                    logging.info("client: " + str(client.client_idx)+" successfully return model")
+            # 全局测试
+            self.model_trainer.set_model_params(self.global_params)
+            test_acc, test_loss = self.model_trainer.test(self.valid_global)
+            # print( "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(
+            # round_idx), str(test_acc), str(test_loss))) 计算时间, 存储全局日志
+            global_info[round_idx] = {
+                "Loss": test_loss,
+                "Accuracy": test_acc,
+                "Relative Time": time.time() - start_time,
+            }
+        # 收集客户端信息
+        for client in self.client_list:
+            cid, client_losses = client.model_trainer.get_all_epoch_losses()
+            client_info[cid] = client_losses
 
-            # 借助client_selected_times统计global_client_num_in_total个客户每个人的被选择次数
-            # for i in client_indexes:
-            #     client_selected_times[i] += 1
+        # 使用示例
+        info_metrics = {
+            'global_info': global_info,
+            'client_info': client_info,
+        }
+        return info_metrics
 
-            # update global weights
-            mlops.event("agg", event_started=True, event_value=str(round_idx))
-
-            w_global = average_weights_on_sample(w_locals, self.sample_num)
-
-            self.model_trainer.set_model_params(copy.deepcopy(w_global))
-            mlops.event("agg", event_started=False, event_value=str(round_idx))
-
-            # global test
-            test_acc, test_loss = self._global_test_on_validation_set()
-            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx), str(test_acc), str(test_loss)))
-            global_loss.append(test_loss)
-            global_acc.append(test_acc)
-            # # 休眠一段时间，以便下一个循环开始前有一些时间
-            # time.sleep(interval)
-        return global_acc, global_loss
-
-    # def judge_model(self,prob): # 基于随机数结合概率判断是否成功返回模型
-    #     random_number = random.random()  # 生成0到1之间的随机数
-    #     if random_number < prob:
-    #         return 1  # 成功返回模型
-    #     else:
-    #         return 0
-
-    # 随机选取客户（random）
-    def _client_sampling(self, client_num_in_total, client_num_per_round):
-        if client_num_in_total == client_num_per_round:
-            client_indexes = [client_index for client_index in range(client_num_in_total)]
+    @staticmethod
+    def client_sampling(cid_list, num_to_selected, scores=None):
+        if len(cid_list) <= num_to_selected:
+            return cid_list
+        elif scores is None:
+            return np.random.choice(cid_list, num_to_selected, replace=False)
         else:
-            num_clients = min(client_num_per_round, client_num_in_total)
-            # np.random.seed(round_idx)  # make sure for each comparison, we are selecting the same clients each round
-            client_indexes = np.random.choice(range(client_num_in_total), num_clients, replace=False)
-        return client_indexes
+            cid_scores = list(zip(cid_list, scores))
+            sorted_cid_scores = sorted(cid_scores, key=lambda item: item[1], reverse=True)
+            selected_cid = [item[0] for item in sorted_cid_scores[:num_to_selected]]
+            return selected_cid
 
-    # def _generate_validation_set(self, num_samples=10000):
-    #     test_data_num = len(self.test_global.dataset)
-    #     sample_indices = random.sample(range(test_data_num), min(num_samples, test_data_num))
-    #     subset = torch.utils.data.Subset(self.test_global.dataset, sample_indices)
-    #     sample_testset = torch.utils.data.DataLoader(subset, batch_size=self.args.batch_size)
-    #     self.val_global = sample_testset
-    #
+    @staticmethod
+    def thread_train(client, round_idx, info_global):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
+        # 确保info_global是一个元组
+        if not isinstance(info_global, tuple):
+            info_global = (info_global,)
+        info_local = client.local_train(round_idx, *info_global)
+        return info_local
 
-    def _global_test_on_validation_set(self):
-        # test data
-        test_metrics = self.model_trainer.test(self.v_global, self.device)
-        test_acc = test_metrics["test_correct"] / test_metrics["test_total"]
-        test_loss = test_metrics["test_loss"] / test_metrics["test_total"]
-        stats = {"test_acc": test_acc, "test_loss": test_loss}
-        logging.info(stats)
-        return test_acc, test_loss

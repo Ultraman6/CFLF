@@ -2,6 +2,7 @@
 <project version="4">
   <component name="Black">
     <option name="pathToExecutable" value="E:\ProgramData\anaconda3\Scripts\black.exe" />
+    <option name="sdkName" value="xyztorch1" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="xyztorch1" project-jdk-type="Python SDK" />
 </project>

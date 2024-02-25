@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 
+
 def plot_results(results):
     """
     在同一张图中绘制所有算法的精度和损失曲线。
@@ -48,6 +49,7 @@ def plot_results(results):
     plt.tight_layout()
     plt.show()
 
+
 def create_result(algorithm_name, accuracies, rounds, losses, times=None):
     """
     根据给定的参数创建一个表示算法运行结果的字典。
@@ -67,8 +69,6 @@ def create_result(algorithm_name, accuracies, rounds, losses, times=None):
         'losses': losses
     }
     return result
-
-
 
 # # 示例使用
 # results = [

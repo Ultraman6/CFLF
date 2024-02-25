@@ -142,7 +142,7 @@ def args_parser():
         '--test_on_all_samples',
         type=int,
         default=1,
-        help='1 means test on all samples, 0 means test samples will be split averagely to each client, '
+        help='1 means gradnorm_coffee on all samples, 0 means gradnorm_coffee samples will be split averagely to each client, '
     )
     parser.add_argument(
         '--valid_local_radio',
@@ -219,7 +219,6 @@ def args_parser():
         default=1,
         help='random seed (defaul: 1)'
     )
-
     parser.add_argument(
         '--dataset_root',
         type=str,
@@ -237,11 +236,6 @@ def args_parser():
         type=int,
         default=0,
         help='GPU to be selected, 0, 1, 2, 3'
-    )
-    parser.add_argument(
-        '--mtl_model',
-        default=0,
-        type=int
     )
     parser.add_argument(
         '--global_model',

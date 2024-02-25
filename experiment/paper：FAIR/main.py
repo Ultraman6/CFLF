@@ -3,13 +3,13 @@ import copy
 import numpy as np
 import torch
 
-from algo.FairAvg.fairavg_api import FairAvg_API
-from algo.FedAvg.fedavg_api import FedAvgAPI
-from algo.FedFAIM.fedfaim_api import FedFAIM_API
-from algo.FedQD.fedqd_api import FedQD_API
-from data.data_loader import show_distribution
-from data.data_loader import get_dataloaders
-from model.initialize_model import initialize_model
+from algo.integrity.FairAvg import FairAvg_API
+from algo.FedAvg.fedavg_api import BaseServer
+from algo.FedFAIM_1.fedfaim_api import FedFAIM_API
+from algo.integrity.FedQD import FedQD_API
+from data.utils.distribution import show_distribution
+from data.utils.distribution import get_dataloaders
+from model.Initialization import model_creator
 from options import args_parser
 from utils.drawing import create_result, plot_results
 
@@ -23,15 +23,15 @@ def main():
     show_data_distribution(dataloaders, args)
 
     # 运行和比较算法
-    compare_algorithms([FedFAIM_API, FedAvgAPI, FairAvg_API, FedQD_API], args, device, dataloaders)
+    compare_algorithms([FedFAIM_API, BaseServer, FairAvg_API, FedQD_API], args, device, dataloaders)
 
 
 def compare_algorithms(algo_classes, args, device, dataloaders):
     results = []
-    model = initialize_model(args, device)
+    model = model_creator(args, device)
     for algo_class in algo_classes:
         global_acc, global_loss = run_federated_learning(algo_class, args, device, dataloaders, model)
-        results.append(create_result(algo_class.__name__.lower(), global_acc, list(range(args.num_communication)), global_loss))
+        results.append(create_result(algo_class.__name__.lower(), global_acc, list(range(args.round)), global_loss))
     plot_results(results)
 
 def run_federated_learning(algo_class, args, device, dataloaders, model):
@@ -71,11 +71,11 @@ def show_data_distribution(dataloaders, args):
             # print(len(test_loader.dataset))
             # if args.test_on_all_samples != 1:
             distribution = show_distribution(test_loader, args)
-            print("test dataloader {} distribution".format(i))
+            print("gradnorm_coffee dataloader {} distribution".format(i))
             print(len(test_loader.dataset))
             print(distribution)
-            # print("test dataloader {} distribution".format(i))
-            # print(f"test dataloader size {test_size}")
+            # print("gradnorm_coffee dataloader {} distribution".format(i))
+            # print(f"gradnorm_coffee dataloader size {test_size}")
         # 全局验证集加载器划分
         distribution = show_distribution(v_global, args)
         print("global valid dataloader distribution")

@@ -4,7 +4,7 @@ from torch.utils.data import Subset
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
-from model.mnist_cnn import mnist_cnn, AggregateModel
+from model.mnist.cnn import CNN_mnist, AggregateModel
 
 # MNIST Dataset transformation
 transform = transforms.Compose([
@@ -17,7 +17,7 @@ train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, d
 train_loader = torch.utils.data.DataLoader(dataset=Subset(train_dataset,range(1000)), batch_size=64, shuffle=True)
 
 num_local_models = 3
-local_models = [mnist_cnn(1, 10) for _ in range(num_local_models)]
+local_models = [CNN_mnist(1, 10) for _ in range(num_local_models)]
 
 aggregate_model = AggregateModel(local_models, output_channels=10)
 

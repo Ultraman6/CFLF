@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="76c61cee-71d6-45d5-bd3d-8046031ddb2e" name="open_bayes_FL_EXP">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="ssh.openbayes.com" port="31262" sshConfigId="c38e10a9-dcaa-4c8d-9866-86f1613e1022" sshConfig="root@ssh.openbayes.com:31262 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" isUseRsync="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="1dcdac4d-33ea-4cf6-b6bc-667f90bf5b02" name="lj">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="connect.westc.gpuhub.com" port="50341" sshConfigId="7f2c3d1a-f7ad-43a1-bb12-ebae59821ec7" sshConfig="root@connect.westc.gpuhub.com:50341 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" isUseRsync="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="8e196c28-b23b-42ca-a3dd-8fde0e096c87" name="jb">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="connect.westc.gpuhub.com" port="54704" sshConfigId="91008f02-83de-4dd9-845b-cd3c53dfb8a9" sshConfig="root@connect.westc.gpuhub.com:54704 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="e8acb750-8f8a-4ecc-bfb0-4fe54fc14021" name="北京超算">
+        <fileTransfer rootFolder="/HOME/scw6amc" accessType="SFTP" host="ssh.cn-zhongwei-1.paracloud.com" port="22" sshConfigId="ebc2bcb3-a0cd-4539-8c59-680727b597cb" sshConfig="scw6amc@NC-N40@ssh.cn-zhongwei-1.paracloud.com:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" isUseRsync="true" isUseSudo="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

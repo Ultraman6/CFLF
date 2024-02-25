@@ -1,31 +1,49 @@
-class Client:
-    def __init__(self, client_idx, train_dataloader, test_dataloader, args, device, model_trainer):
-        self.client_idx = client_idx
+import copy
+
+import torch
+
+from model.base.model_dict import _modeldict_to_np, _modeldict_sub, _modeldict_norm, _modeldict_scale, _modeldict_add, \
+    _modeldict_to_device
+
+
+class BaseClient:
+    def __init__(self, client_idx, train_dataloader, device, args, model_trainer):
+        self.id = client_idx
         self.train_dataloader = train_dataloader
-        self.test_dataloader = test_dataloader
-        self.device = device
         self.model_trainer = model_trainer
-        # 存放其他参数，如本地epoch、本地batch_size等
+        self.local_params = None  # 存放上一轮的模型
         self.args = args
-    # 更新本地数据集（训练、测试）
-    def update_dataset(self, client_idx, train_data, test_data):
-        self.client_idx = client_idx
-        self.train_dataloader = train_data
-        self.test_dataloader = test_data
-        self.model_trainer.client_idx = client_idx
-
-    # 本地训练 调用trainer，传入args、device、训练数据集
-    def local_train(self, w_global):
-        self.model_trainer.set_model_params(w_global)
-        self.model_trainer.train(self.train_dataloader, self.device, self.args)
-        weights = self.model_trainer.get_model_params()
-        return weights
-
-    # 本地测试 调用trainer，传入args、device、训练数据集
-    def local_test(self, use_test_dataset):
-        if use_test_dataset:
-            test_data = self.test_dataloader
+        self.device = device
+        if args.standalone:
+            self.standalone_trainer = copy.deepcopy(model_trainer)
         else:
-            test_data = self.train_dataloader
-        metrics = self.model_trainer.local_test(test_data, self.device)
-        return metrics
+            self.standalone_trainer = None
+    # 本地训练 调用trainer，传入args、device、训练数据集
+    def local_train(self, round_idx, w_global):
+        self.local_params = copy.deepcopy(w_global)
+        self.model_trainer.set_model_params(w_global)
+        self.model_trainer.train(self.train_dataloader, round_idx)
+        upgrade_params = self.model_trainer.get_model_params(self.device)
+        if self.args.grad_clip > 0:  # 梯度裁剪
+            upgrade_params = self.grad_clip(upgrade_params)
+        if self.args.grad_norm > 0:  # 梯度标准化
+            upgrade_params = self.grad_norm(upgrade_params)
+        if self.args.standalone:  # 如果开启standalone模式，使用standalone_trainer进行训练
+            self.standalone_trainer.train(self.train_dataloader, round_idx)
+        return upgrade_params
+
+    def grad_norm(self, upgrade_params):
+        params_updates = _modeldict_sub(upgrade_params, self.local_params)
+        params_norm = _modeldict_norm(params_updates)
+        params_norm_updates = _modeldict_scale(params_updates, self.args.grad_norm / params_norm)
+        return _modeldict_add(self.local_params, params_norm_updates)
+
+    def grad_clip(self, upgrade_params):
+        """
+        对upgrade_params中的每个参数进行梯度裁剪。
+        upgrade_params: 从模型训练后获取的参数字典。
+        """
+        clip_value = self.args.grad_clip
+        for param_key in upgrade_params:
+            upgrade_params[param_key] = torch.clamp(upgrade_params[param_key], -clip_value, clip_value)
+        return upgrade_params

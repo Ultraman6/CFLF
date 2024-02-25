@@ -3,13 +3,10 @@ import copy
 import numpy as np
 import torch
 
-from algo.Paper_FedFAIM.FairAvg.fairavg_api import FairAvg_API
-from algo.FedAvg.fedavg_api import FedAvgAPI
-from algo.paper_FAIR.FAIR.fair_api import Fair_API
-from algo.Paper_FedFAIM.FedQD.fedqd_api import FedQD_API
-from data.data_loader import show_distribution
-from data.data_loader import get_dataloaders
-from model.initialize_model import initialize_model
+from algo.integrity.FAIR_2022 import Fair_API
+from data.get_data import show_distribution
+from data.get_data import get_dataloaders
+from model.Initialization import model_creator
 from options import args_parser
 from utils.drawing import create_result, plot_results
 
@@ -28,10 +25,10 @@ def main():
 
 def compare_algorithms(algo_classes, args, device, dataloaders):
     results = []
-    models = [initialize_model(args, device) for _ in range(args.num_tasks)]
+    models = [model_creator(args, device) for _ in range(args.num_tasks)]
     for algo_class in algo_classes:
         global_acc, global_loss = run_federated_learning(algo_class, args, device, dataloaders, models)
-        results.append(create_result(algo_class.__name__.lower(), global_acc, list(range(args.num_communication)), global_loss))
+        results.append(create_result(algo_class.__name__.lower(), global_acc, list(range(args.round)), global_loss))
     plot_results(results)
 
 def run_federated_learning(algo_class, args, device, dataloaders, model):
@@ -70,7 +67,7 @@ def show_data_distribution(dataloaders, args):
         for i in range(args.num_clients):
             test_loader = test_loaders[i]
             distribution = show_distribution(test_loader, args)
-            print("test dataloader {} distribution".format(i))
+            print("gradnorm_coffee dataloader {} distribution".format(i))
             print(len(test_loader.dataset))
             print(distribution)
         # 全局验证集加载器划分

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="ssh.openbayes.com" id="c38e10a9-dcaa-4c8d-9866-86f1613e1022" port="31262" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="connect.westc.gpuhub.com" id="7f2c3d1a-f7ad-43a1-bb12-ebae59821ec7" port="50341" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="connect.westc.gpuhub.com" id="91008f02-83de-4dd9-845b-cd3c53dfb8a9" port="54704" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
+    </configs>
+  </component>
+</project>

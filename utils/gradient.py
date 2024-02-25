@@ -76,7 +76,3 @@ def reconstruct_gradients(flat_gradient, original_shapes, parameter_names):
 
     return reconstructed_gradients
 
-# Example usage:
-# flat_gradient is your flattened gradient tensor
-# original_shapes is the list of original shapes of the gradient tensors
-# reconstructed = reconstruct_gradients(flat_gradient, original_shapes)

@@ -4,12 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/img_1.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/paper_FAIR/FAIR/fair_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/paper_FAIR/FAIR/fair_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/options.py" afterDir="false" />
-    </list>
+    <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -36,8 +31,14 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/.conda/envs/xyztorch1/Lib/site-packages/gradient_descent_the_ultimate_optimizer/gdtuo.py" root0="SKIP_INSPECTION" />
+  </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
@@ -50,48 +51,162 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;Python.generator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main (2).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main (3).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main (4).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main (5).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.numerical.executor&quot;: &quot;Run&quot;,
+    &quot;Python.real.executor&quot;: &quot;Run&quot;,
+    &quot;Python.real_updated.executor&quot;: &quot;Run&quot;,
+    &quot;Python.visualization.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;ToolWindowPlots.ShowToolbar&quot;: &quot;false&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;WebServerToolWindowPanel.toolwindow.highlight.mappings&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowPanel.toolwindow.highlight.symlinks&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowPanel.toolwindow.show.date&quot;: &quot;false&quot;,
+    &quot;WebServerToolWindowPanel.toolwindow.show.permissions&quot;: &quot;false&quot;,
+    &quot;WebServerToolWindowPanel.toolwindow.show.size&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/DELL/Downloads/v231-comate-intellij-latest.zip&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/GitHub/CFLF/experiment&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="D:\CFLF\experiment\paper：FAIR" />
-      <recent name="D:\CFLF\experiment\paper：FedFAIM" />
-      <recent name="D:\CFLF\algo\paper：FAIR 2022" />
-      <recent name="D:\CFLF\algo\FedFAIM_改进" />
-      <recent name="C:\Users\30235\Documents\GitHub\CFLF" />
+      <recent name="E:\GitHub\CFLF\experiment" />
+      <recent name="E:\GitHub\CFLF\experiment\fusion_mask" />
+      <recent name="E:\GitHub\CFLF\experiment\auto_fusion" />
+      <recent name="E:\GitHub\CFLF\algo\method\auto_fusion" />
+      <recent name="E:\GitHub\CFLF\experiment\loss_hessian" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="D:\CFLF\algo\Paper：FedFAIM" />
-      <recent name="C:\Users\30235\Documents\GitHub\CFLF\experiment\simulation" />
+      <recent name="E:\GitHub\CFLF\utils" />
+      <recent name="E:\GitHub\CFLF\algo\method\up_metric" />
+      <recent name="E:\GitHub\CFLF\model\base" />
+      <recent name="E:\GitHub\CFLF\algo\integrity" />
+      <recent name="E:\GitHub\CFLF\algo" />
     </key>
   </component>
-  <component name="RunManager">
-    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.generator">
+    <configuration name="generator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/utils" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/utils/generator.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main (5)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiment/fusion_mask" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiment/fusion_mask/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiment/Score Function Construction" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiment/Score Function Construction/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="numerical" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/simulation" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/simulation/numerical.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="real_updated" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/simulation" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/simulation/real_updated.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -102,11 +217,25 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.generator" />
+        <item itemvalue="Python.main (5)" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.real_updated" />
+        <item itemvalue="Python.numerical" />
       </list>
     </recent_temporary>
   </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
+      </set>
+    </attachedChunks>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">
       <changelist id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="" />
@@ -136,6 +265,123 @@
       <workItem from="1703812723228" duration="9390000" />
       <workItem from="1704021948794" duration="4241000" />
       <workItem from="1704035336973" duration="6538000" />
+      <workItem from="1704478266611" duration="612000" />
+      <workItem from="1704481665153" duration="35000" />
+      <workItem from="1704553731746" duration="611000" />
+      <workItem from="1704945510642" duration="636000" />
+      <workItem from="1705025671837" duration="3807000" />
+      <workItem from="1705038576790" duration="323000" />
+      <workItem from="1705154597969" duration="525000" />
+      <workItem from="1705156626253" duration="285000" />
+      <workItem from="1705157274830" duration="3000" />
+      <workItem from="1705160797559" duration="854000" />
+      <workItem from="1705200382079" duration="1295000" />
+      <workItem from="1705206811201" duration="734000" />
+      <workItem from="1705228900103" duration="1227000" />
+      <workItem from="1705285708837" duration="1047000" />
+      <workItem from="1705458522552" duration="1441000" />
+      <workItem from="1705460704459" duration="1049000" />
+      <workItem from="1706003412333" duration="4701000" />
+      <workItem from="1706017493867" duration="375000" />
+      <workItem from="1706018005290" duration="829000" />
+      <workItem from="1706018970280" duration="3815000" />
+      <workItem from="1706066524289" duration="14227000" />
+      <workItem from="1706145929557" duration="220000" />
+      <workItem from="1706146190917" duration="3327000" />
+      <workItem from="1706179851115" duration="5581000" />
+      <workItem from="1706189268870" duration="9689000" />
+      <workItem from="1706236459132" duration="8056000" />
+      <workItem from="1706254482823" duration="11410000" />
+      <workItem from="1706275692336" duration="11587000" />
+      <workItem from="1706319507656" duration="9721000" />
+      <workItem from="1706334564995" duration="24000" />
+      <workItem from="1706335635106" duration="25604000" />
+      <workItem from="1706372361426" duration="572000" />
+      <workItem from="1706404592136" duration="12155000" />
+      <workItem from="1706425886671" duration="9010000" />
+      <workItem from="1706435181011" duration="6512000" />
+      <workItem from="1706451964171" duration="727000" />
+      <workItem from="1706495434056" duration="4440000" />
+      <workItem from="1706510173003" duration="3215000" />
+      <workItem from="1706513407408" duration="27598000" />
+      <workItem from="1706578373484" duration="15500000" />
+      <workItem from="1706601494629" duration="12859000" />
+      <workItem from="1706621459714" duration="11665000" />
+      <workItem from="1706664856997" duration="20467000" />
+      <workItem from="1706691325861" duration="5881000" />
+      <workItem from="1706697304069" duration="13964000" />
+      <workItem from="1706718217485" duration="4474000" />
+      <workItem from="1706751054359" duration="7831000" />
+      <workItem from="1706770350884" duration="32056000" />
+      <workItem from="1706837701801" duration="16187000" />
+      <workItem from="1706857807182" duration="27817000" />
+      <workItem from="1706923089918" duration="9289000" />
+      <workItem from="1706950221203" duration="23646000" />
+      <workItem from="1707008784057" duration="8548000" />
+      <workItem from="1707021693749" duration="9815000" />
+      <workItem from="1707034729471" duration="8794000" />
+      <workItem from="1707046822823" duration="2995000" />
+      <workItem from="1707059513885" duration="4813000" />
+      <workItem from="1707096768819" duration="5932000" />
+      <workItem from="1707102738978" duration="18288000" />
+      <workItem from="1707137625034" duration="13036000" />
+      <workItem from="1707154657506" duration="706000" />
+      <workItem from="1707186233236" duration="24953000" />
+      <workItem from="1707222460499" duration="7289000" />
+      <workItem from="1707232717936" duration="7960000" />
+      <workItem from="1707269299108" duration="5968000" />
+      <workItem from="1707290305986" duration="29350000" />
+      <workItem from="1707358770419" duration="2767000" />
+      <workItem from="1707361714384" duration="17346000" />
+      <workItem from="1707391412763" duration="7928000" />
+      <workItem from="1707446586150" duration="8691000" />
+      <workItem from="1707463264681" duration="5638000" />
+      <workItem from="1707477105529" duration="13517000" />
+      <workItem from="1707529548615" duration="519000" />
+      <workItem from="1707544161461" duration="7735000" />
+      <workItem from="1707552265122" duration="1069000" />
+      <workItem from="1707556936377" duration="4554000" />
+      <workItem from="1707572802826" duration="181000" />
+      <workItem from="1707572993903" duration="10740000" />
+      <workItem from="1707585968968" duration="1044000" />
+      <workItem from="1707613155428" duration="7053000" />
+      <workItem from="1707623313221" duration="25254000" />
+      <workItem from="1707663486498" duration="7211000" />
+      <workItem from="1707698907796" duration="7206000" />
+      <workItem from="1707722444731" duration="27680000" />
+      <workItem from="1707788533609" duration="13096000" />
+      <workItem from="1707808600670" duration="14548000" />
+      <workItem from="1707833068261" duration="15603000" />
+      <workItem from="1707872967980" duration="1132000" />
+      <workItem from="1707897762596" duration="33693000" />
+      <workItem from="1707975782300" duration="22532000" />
+      <workItem from="1708012853457" duration="4823000" />
+      <workItem from="1708046182167" duration="10342000" />
+      <workItem from="1708060467019" duration="1515000" />
+      <workItem from="1708067092695" duration="13231000" />
+      <workItem from="1708136737946" duration="593000" />
+      <workItem from="1708176020926" duration="10483000" />
+      <workItem from="1708245620983" duration="23528000" />
+      <workItem from="1708317720440" duration="21166000" />
+      <workItem from="1708390756439" duration="12105000" />
+      <workItem from="1708407685901" duration="429000" />
+      <workItem from="1708414772028" duration="2094000" />
+      <workItem from="1708417011144" duration="25756000" />
+      <workItem from="1708480683605" duration="12402000" />
+      <workItem from="1708502239914" duration="31172000" />
+      <workItem from="1708569973604" duration="43723000" />
+      <workItem from="1708652730298" duration="16477000" />
+      <workItem from="1708674972465" duration="6560000" />
+      <workItem from="1708687703737" duration="12877000" />
+      <workItem from="1708707230581" duration="683000" />
+      <workItem from="1708747884048" duration="7550000" />
+      <workItem from="1708759868043" duration="13509000" />
+      <workItem from="1708777363217" duration="5243000" />
+      <workItem from="1708782917549" duration="718000" />
+      <workItem from="1708783647520" duration="5015000" />
+      <workItem from="1708791625431" duration="4728000" />
+      <workItem from="1708828038662" duration="11138000" />
+      <workItem from="1708854253526" duration="300000" />
     </task>
     <servers />
   </component>
@@ -153,7 +399,21 @@
       </map>
     </option>
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="更新了初步实验结果" />
+    <option name="LAST_COMMIT_MESSAGE" value="" />
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main 覆盖结果" MODIFIED="1704043490162" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/CFLF$visualization.coverage" NAME="visualization 覆盖结果" MODIFIED="1706422246292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/data/utils" />
+    <SUITE FILE_PATH="coverage/CFLF$main__2_.coverage" NAME="main (2) 覆盖结果" MODIFIED="1708351540763" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/auto_fusion" />
+    <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main 覆盖结果" MODIFIED="1708788146595" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/Score Function Construction" />
+    <SUITE FILE_PATH="coverage/CFLF$main__1_.coverage" NAME="main (1) 覆盖结果" MODIFIED="1707717360922" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/loss_hessian" />
+    <SUITE FILE_PATH="coverage/CFLF$generator.coverage" NAME="generator 覆盖结果" MODIFIED="1708847781736" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
+    <SUITE FILE_PATH="coverage/CFLF$main__4_.coverage" NAME="main (4) 覆盖结果" MODIFIED="1708326933958" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/margin_dot" />
+    <SUITE FILE_PATH="coverage/CFLF$real_updated.coverage" NAME="real_updated 覆盖结果" MODIFIED="1708753641725" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
+    <SUITE FILE_PATH="coverage/CFLF$main__5_.coverage" NAME="main (5) 覆盖结果" MODIFIED="1708830449697" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/fusion_mask" />
+    <SUITE FILE_PATH="coverage/CFLF$numerical.coverage" NAME="numerical 覆盖结果" MODIFIED="1708752082434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
+    <SUITE FILE_PATH="coverage/CFLF$real.coverage" NAME="real 覆盖结果" MODIFIED="1706087167563" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
+    <SUITE FILE_PATH="coverage/CFLF$main__3_.coverage" NAME="main (3) 覆盖结果" MODIFIED="1707619973311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/up_cluster" />
   </component>
 </project>

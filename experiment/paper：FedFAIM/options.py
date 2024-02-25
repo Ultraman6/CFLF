@@ -142,7 +142,7 @@ def args_parser():
         '--test_on_all_samples',
         type=int,
         default=1,
-        help='1 means test on all samples, 0 means test samples will be split averagely to each client, '
+        help='1 means gradnorm_coffee on all samples, 0 means gradnorm_coffee samples will be split averagely to each client, '
     )
     parser.add_argument(
         '--valid_local_radio',
