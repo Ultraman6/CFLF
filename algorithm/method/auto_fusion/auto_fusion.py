@@ -11,7 +11,7 @@ from tqdm import tqdm
 from algorithm.FedAvg.fedavg_api import BaseServer
 from model.base.model_dict import _modeldict_weighted_average, _modellayer_cossim
 from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self
-from model.mnist.cnn import  FusionModel
+from model.base.fusion import FusionModel
 
 # 设置时间间隔（以秒为单位）
 interval = 5

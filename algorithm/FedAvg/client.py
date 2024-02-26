@@ -24,9 +24,9 @@ class BaseClient:
         self.model_trainer.set_model_params(w_global)
         self.model_trainer.train(self.train_dataloader, round_idx)
         upgrade_params = self.model_trainer.get_model_params(self.device)
-        if self.args.grad_clip > 0:  # 梯度裁剪
+        if self.args.grad_clip:  # 梯度裁剪
             upgrade_params = self.grad_clip(upgrade_params)
-        if self.args.grad_norm > 0:  # 梯度标准化
+        if self.args.grad_norm:  # 梯度标准化
             upgrade_params = self.grad_norm(upgrade_params)
         if self.args.standalone:  # 如果开启standalone模式，使用standalone_trainer进行训练
             self.standalone_trainer.train(self.train_dataloader, round_idx)

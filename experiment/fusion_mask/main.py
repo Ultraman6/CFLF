@@ -1,4 +1,4 @@
-from experiment.fusion_mask.options import args_parser
+from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',

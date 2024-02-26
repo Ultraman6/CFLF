@@ -25,24 +25,24 @@ def split_data(dataset, args, kwargs, is_shuffle=True):
     dataset_size = int(len(dataset))  # 删除train_ratio，使用sample_per代替
     samples_per_client = imbalance_sample(dataset_size, args)
     # print(samples_per_client)
-    if args.distribution == 'homo':
+    if args.data_type == 'homo':
         data_mapping = homo_partition(dataset_size, num_clients, samples_per_client)
-    elif args.distribution == 'dirichlet':
-        data_mapping = dirichlet_partition(dataset_size, dataset, num_clients,
-                                           args.alpha, samples_per_client)
-    elif args.distribution == 'shards':
+    elif args.data_type == 'dirichlet':
+        data_mapping = dirichlet_partition(dataset, num_clients,
+                                           args.dir_alpha, samples_per_client)
+    elif args.data_type == 'shards':
         dataset_size = sum(samples_per_client)
         print(args.class_per_client)
         data_mapping = shards_partition(dataset_size, dataset,
                                         num_clients, args.class_per_client, samples_per_client)
-    elif args.distribution == 'custom_class':
+    elif args.data_type == 'custom_class':
         class_distribution = json_str_to_int_key_dict(args.class_mapping)
         data_mapping = custom_class_partition(dataset, class_distribution, samples_per_client)
-    elif args.distribution == 'noise_feature':
+    elif args.data_type == 'noise_feature':
         noise_params = json_str_to_int_key_dict(args.noise_mapping)
         data_mapping, noise_mapping = noise_feature_partition(dataset_size, dataset,
                                                               num_clients, noise_params, samples_per_client)
-    elif args.distribution == 'noise_label':
+    elif args.data_type == 'noise_label':
         noise_params = json_str_to_int_key_dict(args.noise_mapping)
         data_mapping, noise_mapping = noise_label_partition(dataset_size, dataset,
                                                             num_clients, noise_params, samples_per_client)

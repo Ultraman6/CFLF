@@ -121,7 +121,7 @@ def args_parser():
     parser.add_argument(
         '--num_clients',
         type=int,
-        default=20,
+        default=10,
         help='number of all available clients'
     )
     parser.add_argument(

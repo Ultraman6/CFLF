@@ -6,7 +6,7 @@ from model.cifar10.resnet18 import ResNet18_cifar10
 from model.fashion_mnist.cnn import CNN_fashionmnist
 from model.fashion_mnist.logistic import LR_fashionmnist
 from model.femnist.cnn import CNN_femnist
-from model.mnist.cnn import CNN_mnist
+from model.mnist.cnn import CNN_mnist, LeNet_mnist
 from model.mnist.logistic import LR_mnist
 from model.femnist.resnet18gn import ResNet18_femnist
 from model.shakespeare.lstm import LSTM_shakespeare
@@ -33,6 +33,8 @@ def model_creator(args):
             model = LR_mnist(mode=args.init_mode)
         elif args.model == 'cnn':
             model = CNN_mnist(mode=args.init_mode)
+        elif args.model == 'lenet':
+            model = LeNet_mnist(mode=args.init_mode)
         else:
             raise ValueError('Model not implemented for MNIST')
     elif args.dataset == 'synthetic':

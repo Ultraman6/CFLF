@@ -289,12 +289,12 @@ class Data_Generator:
             error_real = [(e1, e2) for _, _, _, e1, e2 in results_new]
             self.dis_generator.visualize_errors(error_real)
 
-            # 计算两组样本之间的相关性系数
-            des_samples = np.array(samples_grid)
-            real_samples = np.array([(e1, e2) for e1, _, e2, _, _ in results_new])
-            correlation_x = np.corrcoef(des_samples[:, 0], real_samples[:, 0])[0, 1]
-            correlation_y = np.corrcoef(des_samples[:, 1], real_samples[:, 1])[0, 1]
-            print(correlation_x, correlation_y)
+        # 计算两组样本之间的相关性系数
+        des_samples = np.array(samples_grid)
+        real_samples = np.array([(e1, e2) for e1, _, e2, _, _ in results_new])
+        correlation_x = np.corrcoef(des_samples[:, 0], real_samples[:, 0])[0, 1]
+        correlation_y = np.corrcoef(des_samples[:, 1], real_samples[:, 1])[0, 1]
+        print(correlation_x, correlation_y)
 
         results_final = [(s, d, e) for s, d, e, _, _ in results_new]
         return results_final

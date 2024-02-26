@@ -101,19 +101,19 @@ def balance_sample(test, valid_ratio):
 
 def imbalance_sample(datasize, args):
     num_clients = args.num_clients
-    if args.imbalance == 0:  # 当imbalance参数为0时，每个客户端的样本量相同
+    if args.num_type == 'average':  # 当imbalance参数为0时，每个客户端的样本量相同
         samples_per_client = [int(datasize / num_clients) for _ in range(num_clients)]
         for _ in range(datasize % num_clients):
             samples_per_client[_] += 1
-    elif args.imbalance == -1:  # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
+    elif args.num_type == 'random':  # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
         samples_per_client = random_sample(datasize, args.num_clients)
-    elif args.imbalance == -2:  # 自定义单个客户样本量
-        samples_per_client = [args.sample_per for _ in range(num_clients)]
-    elif args.imbalance == -3:  # 自定义样本量开启，提取映射关系参数并将其解析为JSON对象
+    elif args.num_type == 'customised single':  # 自定义单个客户样本量
+        samples_per_client = [args.sample_per_client for _ in range(num_clients)]
+    elif args.num_type == 'customised each':  # 自定义样本量开启，提取映射关系参数并将其解析为JSON对象
         sample_mapping_json = args.sample_mapping
         samples_per_client = list(json.loads(sample_mapping_json).values())
     else:
-        imbalance = max(0.1, args.imbalance)
+        imbalance = max(0.1, args.imbalance_alpha)
         sigma = imbalance
         mean_datasize = datasize / num_clients
         mu = np.log(mean_datasize) - sigma ** 2 / 2.0
@@ -176,7 +176,7 @@ def homo_partition(dataset_size, num_clients, samples_per_client):
     return net_dataidx_map
 
 
-def dirichlet_partition(dataset_size, dataset, num_clients, alpha, samples_per_client):
+def dirichlet_partition(dataset, num_clients, alpha, samples_per_client):
     global alter_norms
     attrs = index_func(dataset)
     lb_counter = collections.Counter(attrs)

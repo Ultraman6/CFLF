@@ -8,7 +8,7 @@ import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from algorithm.FedAvg.fedavg_api import BaseServer
-from model.base.fusion import FusionLayerModel, train_fusion
+from model.base.fusion import FusionLayerModel
 from model.base.model_dict import _modeldict_cossim, _modeldict_eucdis, _modeldict_sub, _modeldict_dot_layer, \
     _modeldict_sum, _modeldict_norm, merge_layer_params, pad_grad_by_order, _modeldict_weighted_average, _modeldict_add, \
     aggregate_att, pad_grad_by_cvx_order, pad_grad_by_mult_order, aggregate_att_weights, _modeldict_scale
@@ -49,6 +49,8 @@ class Fusion_Mask_API(BaseServer):
         self.cum_contrib = [0.0 for _ in range(self.args.num_clients)]
         self.local_params = [copy.deepcopy(self.global_params) for _ in range(self.args.num_clients)]
         self.contrib_info = {cid: {} for cid in range(self.args.num_clients)}
+        for name, param in model.state_dict().items():
+            print(f"{name}: {param.dtype}")
 
     def train(self, task_name, position):
         global_info = {}

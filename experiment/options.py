@@ -18,14 +18,14 @@ def args_parser():
         '--model',
         type=str,
         default='cnn',
-        choices=["cnn", "logistic", "resnet18", "lstm"],
+        choices=["cnn", "logistic", "lenet", "resnet18", "lstm"],
         help="Model architecture of dataset to use."
     )
     deep_learning.add_argument(
         '--init_mode',
         type=str,
-        default="xavier_uniform",
-        choices=["xaiver_uniform", "kaiming_uniform", "kaiming_normal", "xavier_normal", "xavier_uniform"],
+        default="default",
+        choices=["default", "xaiver_uniform", "kaiming_uniform", "kaiming_normal", "xavier_normal", "xavier_uniform"],
         help="Initialization mode for model weights."
     )
     deep_learning.add_argument(
@@ -67,19 +67,13 @@ def args_parser():
         help="Weight decay for optimizers."
     )
     parser.add_argument(
-        '--beta1',
-        type=float,
-        default=0.9,
-        help="Beta1 for Adam."
+        '--beta',
+        type=tuple,
+        default=(0.9, 0.999),
+        help="Beta for Adam."
     )
     parser.add_argument(
-        '--beta2',
-        type=float,
-        default=0.999,
-        help="Beta2 for Adam."
-    )
-    parser.add_argument(
-        '--epsilon',
+        '--eps',
         type=float,
         default=1e-8,
         help="Epsilon for Adam."
@@ -111,14 +105,14 @@ def args_parser():
     )
     parser.add_argument(
         '--grad_norm',
-        type=bool,
-        default=False,
+        type=float,
+        default=0,
         help='gradient normalization coefficient >0 means open gradient normalization'
     )
     parser.add_argument(
         '--grad_clip',
-        type=bool,
-        default=False,
+        type=float,
+        default=0,
         help='gradient clipping coefficient >0 means open gradient clipping, clipping range [-grad_clip, grad_clip]'
     )
     parser.add_argument(
@@ -132,7 +126,7 @@ def args_parser():
     federated_learning.add_argument(
         '--round',
         type=int,
-        default=20,
+        default=10,
         help='number of communication rounds with the cloud server'
     )
     federated_learning.add_argument(
@@ -169,12 +163,19 @@ def args_parser():
     federated_learning.add_argument(
         '--num_type',
         type=str,
-        default='average',
+        default='customised single',
         choices=['average', 'random', 'customised single', 'customised each'],
         help='Data volume division method'
     )
     federated_learning.add_argument(
         '--imbalance_alpha',
+        type=float,
+        default=0.1,
+        help='Heterogeneity coefficient, 1 indicates homogeneity, '
+             'to 0 the more heterogeneous for both num and data'
+    )
+    federated_learning.add_argument(
+        '--dir_alpha',
         type=float,
         default=0.1,
         help='Heterogeneity coefficient, 1 indicates homogeneity, '

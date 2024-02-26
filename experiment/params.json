@@ -1,0 +1,6 @@
+{
+    "learning_rate": 0.01,
+    "batch_size": 32,
+    "num_workers": 4,
+    "device": "cuda"
+}

@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from torch._C._cudnn import is_cuda
 from torch.utils.data import DataLoader, default_collate, Subset
 
 from data.dataset import get_mnist, get_cifar10, get_femnist, get_cinic10, get_synthetic
@@ -30,7 +29,7 @@ def get_data(args):
 
 
 def get_dataloaders(args):
-    kwargs = {'num_workers': 0, 'pin_memory': True} if is_cuda else {}
+    kwargs = {'num_workers': 0, 'pin_memory': True} if torch.cuda.is_available() else {}
     params = get_data(args)
     if args.dataset != 'synthetic':
         train, test = params

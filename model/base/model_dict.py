@@ -352,16 +352,20 @@ def pad_grad_by_order(grad, mask_order=None, mask_percentile=None, mode='all'):
     grad_update = copy.deepcopy(grad)  # 深拷贝以避免修改原始数据
     if mode == 'all':
         try:
-            all_update_mod = torch.cat([grad_update[key].view(-1).abs() for key in grad_update])
+            all_update_mod = torch.cat([grad_update[key].view(-1).abs() for key in grad_update if grad_update[key].nelement() > 0])
+            if not all_update_mod.nelement():
+                return grad_update  # 如果所有层都没有元素，直接返回
+
             if not mask_order and mask_percentile is not None:
                 mask_order = int(len(all_update_mod) * mask_percentile)
             if mask_order == 0:
                 threshold = float('inf')
             else:
                 topk, _ = torch.topk(all_update_mod, mask_order)
-                threshold = topk[-1]
+                threshold = topk[-1] if topk.nelement() > 0 else float('inf')
             for key in grad_update:
-                grad_update[key][grad_update[key].abs() < threshold] = 0
+                if grad_update[key].nelement() > 0:
+                    grad_update[key][grad_update[key].abs() < threshold] = 0
         except RuntimeError as e:
             print(f"RuntimeError occurred: {e}")
             print(f"Problematic mask_order: {mask_order}")
@@ -369,13 +373,15 @@ def pad_grad_by_order(grad, mask_order=None, mask_percentile=None, mode='all'):
         mask_percentile = max(0, mask_percentile)
         for key in grad_update:
             layer_mod = grad_update[key].view(-1).abs()
+            if grad_update[key].nelement() == 0 or grad_update[key].nelement() == 1:  # 如果该层没有元素，则跳过
+                continue
             if mask_percentile is not None:
                 mask_order = math.ceil(len(layer_mod) * mask_percentile)
-            if mask_order == 0:
+            if mask_order == 0 or layer_mod.nelement() == 0:
                 grad_update[key] = torch.zeros_like(grad_update[key])
             else:
-                topk, _ = torch.topk(layer_mod, min(mask_order, len(layer_mod) - 1))
-                threshold = topk[-1]
+                topk, _ = torch.topk(layer_mod, min(mask_order, len(layer_mod)))
+                threshold = topk[-1] if topk.nelement() > 0 else float('inf')
                 grad_update[key][grad_update[key].abs() < threshold] = 0
     return grad_update
 

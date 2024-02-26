@@ -100,7 +100,7 @@ def process_seed(args, si, samples, train, test, device, kwargs):
     with ThreadPoolExecutor(max_workers=args.max_threads) as executor:
         futures = {executor.submit(process_sample, args, train, test_loader, device, kwargs, d):
                    i for i, (_, d, _) in enumerate(samples)}
-        for future in tqdm(as_completed(futures), total=len(futures), desc=f"Processing Seed {si}"):
+        for future in as_completed(futures):
             i = futures[future]
             s, _, e = samples[i]
             sim_results[i] = (s, e, future.result())
@@ -115,7 +115,7 @@ def main():
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
 
     generator = Data_Generator(10, (500, 5000))
-    samples = generator.get_real_samples(10, 'grid', True)
+    samples = generator.get_real_samples(2000, 'grid', False)
 
     all_sim_results = []
     for si in range(args.seed_num):  # 使用for循环代替多线程，以保证随机数的串行处理
@@ -124,7 +124,7 @@ def main():
 
     # 处理和可视化最终结果
     df = file_save(args, all_sim_results)
-    visualize_results(df)
+    # visualize_results(df)
 
 
 if __name__ == "__main__":

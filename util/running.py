@@ -26,7 +26,7 @@ def create_optimizer(model, args):
                               momentum=args.momentum, weight_decay=args.weight_decay)
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(params=model.parameters(), lr=args.learning_rate,
-                               weight_decay=args.weight_decay, amsgrad=args.amsgrad)
+                               betas=args.beta, eps=args.eps, weight_decay=args.weight_decay, amsgrad=args.amsgrad)
     elif args.optimizer == 'adamw':
         optimizer = optim.AdamW(params=model.parameters(), lr=args.learning_rate,
                                 weight_decay=args.weight_decay, amsgrad=args.amsgrad)

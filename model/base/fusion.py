@@ -1,10 +1,6 @@
 import copy
 import math
-import swats
 import torch
-import torch_optimizer
-import torchcontrib
-from gradient_descent_the_ultimate_optimizer import gdtuo
 from torch import nn
 import torch.nn.functional as F
 from model.base.attention import Attention
@@ -122,7 +118,7 @@ class FusionLayerModel(nn.Module):
                 agg_weights = F.softmax(self.fusion_weights[layer_name], dim=0).detach()  # 获取聚合权重，并从计算图中分离
                 for param_key in layer_info['layers'][0].state_dict().keys():
                     # 初始化聚合后的参数为零张量，并确保从计算图中分离
-                    aggregated_param = torch.zeros_like(layer_info['layers'][0].state_dict()[param_key]).detach()
+                    aggregated_param = torch.zeros_like(layer_info['layers'][0].state_dict()[param_key]).detach().float()
                     # 对每个客户模型的相应参数进行加权聚合
                     for model_idx, model_layer in enumerate(layer_info['layers']):
                         model_param = model_layer.state_dict()[param_key].detach()  # 确保参数从计算图中分离
@@ -138,28 +134,28 @@ class FusionLayerModel(nn.Module):
         return fused_params, client_agg_weights
 
 
-def train_fusion(model, data_loader, num_epochs, device, learning_rate=0.01, loss_function='ce'):
-    criterion = nn.CrossEntropyLoss() if loss_function == 'ce' else create_loss_function(loss_function)
-    base_optim = gdtuo.SGD(learning_rate)  # Assuming you want to use SGD as the base optimizer in gdtuo
-    optim = gdtuo.Adam(optimizer=base_optim)  # Wrapping SGD with Adam-like behavior in gdtuo
-    mw = gdtuo.ModuleWrapper(model, optimizer=optim)
-    mw.initialize()
-    model.to(device)
-    model.train()
-    model.dis_seq_grad()
-    for epoch in range(num_epochs):
-        for inputs, targets in data_loader:
-            mw.begin()  # Prepare for the training step
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = mw.forward(inputs)
-            loss = criterion(outputs, targets)
-            mw.zero_grad()
-            loss.backward(create_graph=True)  # important! use create_graph=True
-            mw.step()
-            # 断开所有参数的梯度引用
-            for param in model.parameters():
-                if param.grad is not None:
-                    param.grad = None
+# def train_fusion(model, data_loader, num_epochs, device, learning_rate=0.01, loss_function='ce'):
+#     criterion = nn.CrossEntropyLoss() if loss_function == 'ce' else create_loss_function(loss_function)
+#     base_optim = gdtuo.SGD(learning_rate)  # Assuming you want to use SGD as the base optimizer in gdtuo
+#     optim = gdtuo.Adam(optimizer=base_optim)  # Wrapping SGD with Adam-like behavior in gdtuo
+#     mw = gdtuo.ModuleWrapper(model, optimizer=optim)
+#     mw.initialize()
+#     model.to(device)
+#     model.train()
+#     model.dis_seq_grad()
+#     for epoch in range(num_epochs):
+#         for inputs, targets in data_loader:
+#             mw.begin()  # Prepare for the training step
+#             inputs, targets = inputs.to(device), targets.to(device)
+#             outputs = mw.forward(inputs)
+#             loss = criterion(outputs, targets)
+#             mw.zero_grad()
+#             loss.backward(create_graph=True)  # important! use create_graph=True
+#             mw.step()
+#             # 断开所有参数的梯度引用
+#             for param in model.parameters():
+#                 if param.grad is not None:
+#                     param.grad = None
 
 
 class FusionLayerAttModel(nn.Module):
@@ -359,3 +355,76 @@ class FusionLayerAttModel(nn.Module):
 
         # 注意：这里不再将参数转移到CPU，而是保留在它们原来的设备上
         return fused_params, client_agg_weights
+
+
+
+class FusionModel(nn.Module):
+    def __init__(self, local_models, output_channels):
+        super().__init__()
+        # Aggregation weights for each type of layer
+        self.aggregation_weights = nn.Parameter(torch.ones(len(local_models)))
+
+        # Shared layers
+        self.ReLU = nn.ReLU()
+        self.pool = nn.MaxPool2d(2, 2)
+        # Layer lists for local models' layers
+        self.local_conv1 = nn.ModuleList([model.conv1 for model in local_models])
+        self.local_conv2 = nn.ModuleList([model.conv2 for model in local_models])
+        self.local_out = nn.ModuleList([model.out for model in local_models])
+
+        # 设置类别和参数冻结
+        self.num_classes = output_channels
+        self.freeze_parameters()
+
+    def freeze_parameters(self):
+        for name, param in self.named_parameters():
+            if 'aggregation_weights' not in name:
+                param.requires_grad = False
+
+    def forward(self, x):
+        x = x.reshape(-1, 1, 28, 28)
+        x = self.aggregate_and_apply(self.local_conv1, x, apply_func=lambda y: self.pool(self.ReLU(y)),
+                                     agg_weights=self.aggregation_weights)
+        x = self.aggregate_and_apply(self.local_conv2, x, apply_func=lambda y: self.pool(self.ReLU(y)),
+                                     agg_weights=self.aggregation_weights)
+        x = x.flatten(1)
+        x = self.aggregate_and_apply(self.local_out, x, apply_func=None, agg_weights=self.aggregation_weights)
+        return x
+
+    def aggregate_and_apply(self, layer_list, x, apply_func=None, agg_weights=None):
+        local_outputs = [layer(x) for layer in layer_list]
+        agg_output = torch.stack(local_outputs, dim=1)
+        # Apply softmax to the aggregation weights for the current forward pass
+        softmax_weights = F.softmax(agg_weights, dim=0)
+        if local_outputs[0].dim() == 4:
+            agg_weights = softmax_weights.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        else:
+            agg_weights = softmax_weights.unsqueeze(0).unsqueeze(-1)
+        agg_output = (agg_output * agg_weights).sum(dim=1)
+        if apply_func:
+            agg_output = apply_func(agg_output)
+        return agg_output
+
+    def train_model(self, data_loader, num_epochs, device, learning_rate=0.001):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+        # Move the entire model to the specified device，并设置为训练模式
+        self.to(device)
+        self.train()
+
+        for epoch in range(num_epochs):
+            for inputs, targets in data_loader:
+                # Move data to the correct device
+                inputs, targets = inputs.to(device), targets.to(device)
+                optimizer.zero_grad()
+                outputs = self(inputs)
+                loss = criterion(outputs, targets)
+                loss.backward()
+                optimizer.step()
+
+    def get_aggregation_weights_quality(self):
+        # Normalized aggregation weights after softmax
+        normalized_weights = F.softmax(self.aggregation_weights, dim=0).detach().cpu().numpy()
+        # Original raw quality (aggregation weights before softmax)
+        raw_quality = self.aggregation_weights.detach().cpu().numpy()
+        return normalized_weights, raw_quality
