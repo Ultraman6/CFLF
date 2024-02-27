@@ -10,14 +10,14 @@ def args_parser():
     deep_learning.add_argument(
         '--dataset',
         type=str,
-        default='cifar10',
+        default='mnist',
         choices=['mnist', 'cifar10', 'femnist', 'fashionmnist', 'synthetic', 'shakespare'],
         help="The name of the dataset to use."
     )
     deep_learning.add_argument(
         '--model',
         type=str,
-        default='resnet18',
+        default='cnn',
         choices=["cnn", "logistic", "lenet", "resnet18", "lstm"],
         help="Model architecture of dataset to use."
     )
@@ -79,12 +79,6 @@ def args_parser():
         help="Epsilon for Adam."
     )
     parser.add_argument(
-        '--amsgrad',
-        type=bool,
-        default=False,
-        help="Whether to use the AMSGrad variant of Adam."
-    )
-    parser.add_argument(
         '--scheduler',
         type=str,
         default='step',
@@ -100,7 +94,7 @@ def args_parser():
     parser.add_argument(
         '--lr_decay_rate',
         type=float,
-        default=0.5,
+        default=0.1,
         help='decay rate for step scheduler'
     )
     parser.add_argument(
@@ -132,7 +126,7 @@ def args_parser():
     federated_learning.add_argument(
         '--round',
         type=int,
-        default=500,
+        default=10,
         help='number of communication rounds with the cloud server'
     )
     federated_learning.add_argument(
@@ -162,7 +156,7 @@ def args_parser():
     federated_learning.add_argument(
         '--data_type',
         type=str,
-        default='homo',
+        default='custom_class',
         choices=['homo', 'dirichlet', 'shards', 'custom_class', 'noise_feature', 'noise_label'],
         help='type of data distribution'
     )

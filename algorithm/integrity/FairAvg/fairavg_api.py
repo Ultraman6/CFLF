@@ -1,6 +1,7 @@
 import copy
 import logging
 import numpy as np
+from fedml import mlops
 from model.base.model_trainer import ModelTrainer
 from .client import Client
 from algorithm.aggregrate import average_weights
@@ -46,6 +47,9 @@ class FairAvg_API(object):
 
     def train(self):
         w_global = self.model_trainer.get_model_params()
+        mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
+        mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
+        mlops.log_round_info(self.args.round, -1)
 
         global_acc=[]
         global_loss=[]
@@ -79,9 +83,13 @@ class FairAvg_API(object):
             # for i in client_indexes:
             #     client_selected_times[i] += 1
 
+            # update global weights
+            mlops.event("agg", event_started=True, event_value=str(round_idx))
+
             w_global = average_weights(w_locals)
 
             self.model_trainer.set_model_params(w_global)
+            mlops.event("agg", event_started=False, event_value=str(round_idx))
 
             # global gradnorm_coffee
             test_acc, test_loss = self._global_test_on_validation_set()

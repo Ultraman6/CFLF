@@ -3,7 +3,9 @@ import random
 import torch.nn.functional as F
 import numpy as np
 import torch
-from torch.nn.utils import clip_grad_norm_
+from torch import nn
+from torch.autograd import grad
+
 from model.base.model_dict import _modeldict_zeroslike, _modeldict_clone, _modeldict_add, _modeldict_tuple, \
     _modeldict_sub, _modeldict_norm, _modeldict_to_cpu, _modeldict_to_np, _modeldict_scale, _modeldict_to_device
 from util.running import create_optimizer, create_loss_function, schedule_lr, js_divergence, direct_kl_sum
@@ -36,9 +38,9 @@ class ModelTrainer:
         self.model.zero_grad()
         self.optimizer.zero_grad()
 
-    def upgrade_lr(self, round_idx):
+    def upgrate_lr(self, roundidx):
         lr = self.optimizer.param_groups[0]['lr']
-        new_lr = schedule_lr(round_idx, lr, self.args)
+        new_lr = schedule_lr(roundidx, lr, self.args)
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = new_lr
 
@@ -54,7 +56,6 @@ class ModelTrainer:
                 self.zero_grad()
                 loss = self.criterion(log_probs, labels)
                 loss.backward()
-                # 在这里加入梯度裁剪
                 self.optimizer.step()
                 batch_loss.append(loss.item())
             epoch_losses.append(sum(batch_loss) / len(batch_loss) if batch_loss else 0.0)
@@ -66,7 +67,7 @@ class ModelTrainer:
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
         }
-        self.upgrade_lr(global_round - 1)  # 更新学习率
+        self.upgrate_lr(global_round - 1)  # 更新学习率
 
     def train_hessian(self, train_data, device, global_round):
         self.model.to(device)
@@ -114,7 +115,7 @@ class ModelTrainer:
             "epoch_losses": epoch_losses,
             "current_learning_rate": self.optimizer.param_groups[0]['lr']
         })
-        self.upgrade_lr(global_round)  # 更新学习率
+        self.upgrate_lr(global_round)  # 更新学习率
         return average_hessian_estimation
 
     def get_all_epoch_losses(self):
