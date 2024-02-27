@@ -54,6 +54,8 @@ def schedule_lr(round_idx, current_lr, args):
         eta_min = args.lr_min
         new_lr = eta_min + (current_lr - eta_min) * (1 + math.cos(math.pi * (round_idx + 1) / T_max)) / 2
         return new_lr
+    elif args.scheduler == 'none':
+        return current_lr
     else:
         raise ValueError("Unsupported scheduler")
 

@@ -118,7 +118,8 @@ class FusionLayerModel(nn.Module):
                 agg_weights = F.softmax(self.fusion_weights[layer_name], dim=0).detach()  # 获取聚合权重，并从计算图中分离
                 for param_key in layer_info['layers'][0].state_dict().keys():
                     # 初始化聚合后的参数为零张量，并确保从计算图中分离
-                    aggregated_param = torch.zeros_like(layer_info['layers'][0].state_dict()[param_key]).detach().float()
+                    aggregated_param = torch.zeros_like(
+                        layer_info['layers'][0].state_dict()[param_key]).detach().float()
                     # 对每个客户模型的相应参数进行加权聚合
                     for model_idx, model_layer in enumerate(layer_info['layers']):
                         model_param = model_layer.state_dict()[param_key].detach()  # 确保参数从计算图中分离
@@ -272,8 +273,8 @@ class FusionLayerAttModel(nn.Module):
         self.dis_seq_grad()  # 必须冻结梯度,才能加入优化器
         # self.check_gradients()  # 检查梯度是否冻结
         criterion = nn.CrossEntropyLoss() if loss_function == 'ce' else create_loss_function(loss_function)
-        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()),
-                                      lr=learning_rate)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
+                                     lr=learning_rate)
 
         for epoch in range(num_epochs):
             # 初始化用于累计平均权重的字典
@@ -355,7 +356,6 @@ class FusionLayerAttModel(nn.Module):
 
         # 注意：这里不再将参数转移到CPU，而是保留在它们原来的设备上
         return fused_params, client_agg_weights
-
 
 
 class FusionModel(nn.Module):

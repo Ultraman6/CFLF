@@ -5,25 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c1084a47-f781-42bc-a553-56a239e048af" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/experiment/params.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/CFLF.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/CFLF.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deployment.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/other.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algorithm/FedAvg/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/FedAvg/client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algorithm/method/stage_two/fusion_mask.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/method/stage_two/fusion_mask.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/get_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/get_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/utils/distribution.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/utils/distribution.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/utils/partition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/utils/partition.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/experiment/Score Function Construction/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/Score Function Construction/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm/integrity/FairAvg/fairavg_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/integrity/FairAvg/fairavg_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm/integrity/FedAB/fedab_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/integrity/FedAB/fedab_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm/integrity/FedETF/fedetf_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/integrity/FedETF/fedetf_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm/integrity/FedFAIM/fedfaim_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/integrity/FedFAIM/fedfaim_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm/integrity/qFFL/qffl_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm/integrity/qFFL/qffl_api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/experiment/fusion_mask/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/fusion_mask/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/experiment/fusion_mask/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/fusion_mask/options.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/experiment/options.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment/options.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/log/fusion_mask_exp/fusion_mask__results.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/log/fusion_mask_exp/fusion_mask__results.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model/base/fusion.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/base/fusion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model/base/model_dict.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/base/model_dict.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model/mnist/cnn.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/mnist/cnn.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/util/generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model/base/model_trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/base/model_trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model/cifar10/resnet18.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/cifar10/resnet18.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/util/running.py" beforeDir="false" afterPath="$PROJECT_DIR$/util/running.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -123,6 +119,7 @@
   <component name="RunManager" selected="Python.main (5)">
     <configuration name="generator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -145,6 +142,7 @@
     </configuration>
     <configuration name="main (5)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -167,6 +165,7 @@
     </configuration>
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -189,6 +188,7 @@
     </configuration>
     <configuration name="numerical" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -211,6 +211,7 @@
     </configuration>
     <configuration name="real_updated" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="CFLF" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -402,6 +403,9 @@
       <workItem from="1708911072223" duration="3354000" />
       <workItem from="1708917454319" duration="1370000" />
       <workItem from="1708936534051" duration="4392000" />
+      <workItem from="1708960382772" duration="5479000" />
+      <workItem from="1708999560697" duration="7366000" />
+      <workItem from="1709007379599" duration="778000" />
     </task>
     <servers />
   </component>
@@ -424,16 +428,16 @@
     <option name="LAST_COMMIT_MESSAGE" value="" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/CFLF$main__2_.coverage" NAME="main (2) 覆盖结果" MODIFIED="1708351540763" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/auto_fusion" />
-    <SUITE FILE_PATH="coverage/CFLF$main__1_.coverage" NAME="main (1) 覆盖结果" MODIFIED="1707717360922" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/loss_hessian" />
     <SUITE FILE_PATH="coverage/CFLF$visualization.coverage" NAME="visualization 覆盖结果" MODIFIED="1706422246292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/data/utils" />
-    <SUITE FILE_PATH="coverage/CFLF$main__5_.coverage" NAME="main (5) Coverage Results" MODIFIED="1708941024703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/fusion_mask" />
-    <SUITE FILE_PATH="coverage/CFLF$main__3_.coverage" NAME="main (3) 覆盖结果" MODIFIED="1707619973311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/up_cluster" />
+    <SUITE FILE_PATH="coverage/CFLF$main__2_.coverage" NAME="main (2) 覆盖结果" MODIFIED="1708351540763" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/auto_fusion" />
     <SUITE FILE_PATH="coverage/CFLF$main.coverage" NAME="main Coverage Results" MODIFIED="1708912132495" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/Score Function Construction" />
+    <SUITE FILE_PATH="coverage/CFLF$main__1_.coverage" NAME="main (1) 覆盖结果" MODIFIED="1707717360922" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/loss_hessian" />
+    <SUITE FILE_PATH="coverage/CFLF$generator.coverage" NAME="generator 覆盖结果" MODIFIED="1708847781736" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
     <SUITE FILE_PATH="coverage/CFLF$real_updated.coverage" NAME="real_updated 覆盖结果" MODIFIED="1708753641725" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
     <SUITE FILE_PATH="coverage/CFLF$main__4_.coverage" NAME="main (4) 覆盖结果" MODIFIED="1708326933958" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/margin_dot" />
+    <SUITE FILE_PATH="coverage/CFLF$main__5_.coverage" NAME="main (5) 覆盖结果" MODIFIED="1709004226759" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/fusion_mask" />
     <SUITE FILE_PATH="coverage/CFLF$numerical.coverage" NAME="numerical 覆盖结果" MODIFIED="1708752082434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
-    <SUITE FILE_PATH="coverage/CFLF$generator.coverage" NAME="generator 覆盖结果" MODIFIED="1708847781736" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
     <SUITE FILE_PATH="coverage/CFLF$real.coverage" NAME="real 覆盖结果" MODIFIED="1706087167563" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/simulation" />
+    <SUITE FILE_PATH="coverage/CFLF$main__3_.coverage" NAME="main (3) 覆盖结果" MODIFIED="1707619973311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/experiment/up_cluster" />
   </component>
 </project>

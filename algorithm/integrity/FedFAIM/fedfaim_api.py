@@ -4,7 +4,6 @@ from math import exp
 
 import numpy as np
 import torch
-from fedml import mlops
 
 from util.gradient import getGradient, gradient_flatten, gradient_flatten_and_shapes, reconstruct_gradients, \
     calGradientNorm, calGradientDot
@@ -66,9 +65,6 @@ class FedFAIM_API(object):
         print("############setup_clients (END)#############")
 
     def train(self):
-        mlops.log_training_status(mlops.ClientConstants.MSG_MLOPS_CLIENT_STATUS_TRAINING)
-        mlops.log_aggregation_status(mlops.ServerConstants.MSG_MLOPS_SERVER_STATUS_RUNNING)
-        mlops.log_round_info(self.args.round, -1)
 
         global_acc=[]
         global_loss=[]

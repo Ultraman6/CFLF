@@ -20,7 +20,7 @@ def main():
         # 'layer_att': {},
         'fusion_mask': {},
         # 'auto_fusion': {},
-        # 'FedAvg': {},
+        'FedAvg': {},
         # 'cross_up_att': {},
         # 'Stage_two': {},
     }
