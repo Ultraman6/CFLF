@@ -253,18 +253,18 @@ def args_parser():
         '--seed',
         type=int,
         default=1,
-        help='random seed'
+        help='random seed for init run'
     )
     running_environment.add_argument(
         '--seed_num',
         type=int,
         default=1,
-        help='num of random seed'
+        help='num of random seed for multiple runs'
     )
     running_environment.add_argument(
         '--dataset_root',
         type=str,
-        default='D:/datasets for CFLF',
+        default='../datasets',
         help='dataset root folder'
     )
     running_environment.add_argument(
