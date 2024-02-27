@@ -1,5 +1,7 @@
+import sys
 from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
+sys.path.append("..")
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']

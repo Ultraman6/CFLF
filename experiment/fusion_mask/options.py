@@ -260,7 +260,7 @@ def args_parser():
     )
     parser.add_argument(  # 时间系数
         '--rho',
-        default=0.9,
+        default=0.95,
         type=float
     )
     parser.add_argument(
