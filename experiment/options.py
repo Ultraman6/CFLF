@@ -10,7 +10,7 @@ def args_parser():
     deep_learning.add_argument(
         '--dataset',
         type=str,
-        default='mnist',
+        default='cifar10',
         choices=['mnist', 'cifar10', 'femnist', 'fashionmnist', 'synthetic', 'shakespare'],
         help="The name of the dataset to use."
     )
@@ -264,7 +264,7 @@ def args_parser():
     running_environment.add_argument(
         '--dataset_root',
         type=str,
-        default='../datasets',
+        default='../../datasets',
         help='dataset root folder'
     )
     running_environment.add_argument(

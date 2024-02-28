@@ -7,21 +7,21 @@ from model.base.attention import ReshapeLayer
 class CNN_cifar10(BaseModel):
     """CNN."""
 
-    def __init__(self, mode, in_channels=3, n_kernels=16, out_dim=10):
+    def __init__(self, mode):
         """CNN Builder."""
         super().__init__(mode)
-        self.conv1 = nn.Conv2d(in_channels, n_kernels, 5)
+        self.conv1 = nn.Conv2d(3, 16, 5)
         self.act1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(n_kernels, 2 * n_kernels, 5)
+        self.conv2 = nn.Conv2d(16, 2 * 16, 5)
         self.act2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(2, 2)
         self.reshape1 = ReshapeLayer((-1,))
-        self.fc1 = nn.Linear(2 * n_kernels * 5 * 5, 120)
+        self.fc1 = nn.Linear(2 * 16 * 5 * 5, 120)
         self.act3 = nn.ReLU()
         self.fc2 = nn.Linear(120, 84)
         self.act4 = nn.ReLU()
-        self.fc3 = nn.Linear(84, out_dim)
+        self.fc3 = nn.Linear(84, 10)
         self.softmax = nn.LogSoftmax(dim=1)
         self.initialize_weights()
 
