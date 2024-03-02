@@ -2,7 +2,7 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
-    <orderEntry type="jdk" jdkName="xyztorch1" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="C:\ProgramData\anaconda3" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
@@ -12,7 +12,6 @@
   <component name="PyNamespacePackagesService">
     <option name="namespacePackageFolders">
       <list>
-        <option value="$MODULE_DIR$/experiment/paper：FedFAIM" />
         <option value="$MODULE_DIR$/model/femnist" />
         <option value="$MODULE_DIR$/model/synthetic" />
         <option value="$MODULE_DIR$/model/fashion_mnist" />
@@ -21,20 +20,9 @@
         <option value="$MODULE_DIR$/algorithm/method/margin_Loss" />
         <option value="$MODULE_DIR$/algorithm/method/gradient_influence" />
         <option value="$MODULE_DIR$/algorithm/method" />
-        <option value="$MODULE_DIR$/experiment/loss_hessian" />
-        <option value="$MODULE_DIR$/experiment/margin_loss" />
         <option value="$MODULE_DIR$/algorithm" />
         <option value="$MODULE_DIR$/data" />
-        <option value="$MODULE_DIR$/experiment/data_distribution" />
-        <option value="$MODULE_DIR$/experiment/margin_KL" />
         <option value="$MODULE_DIR$/log" />
-        <option value="$MODULE_DIR$/experiment/Margin_JSD" />
-        <option value="$MODULE_DIR$/experiment/margin_gradnorm" />
-        <option value="$MODULE_DIR$/experiment/margin_dot" />
-        <option value="$MODULE_DIR$/experiment/up_cluster" />
-        <option value="$MODULE_DIR$/experiment/auto_fusion" />
-        <option value="$MODULE_DIR$/experiment/fusion_mask" />
-        <option value="$MODULE_DIR$/experiment/Score Function Construction" />
       </list>
     </option>
   </component>

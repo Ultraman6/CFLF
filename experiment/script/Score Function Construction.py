@@ -1,22 +1,19 @@
-import copy
 import os
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
-
+import sys
 import numpy as np
 import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
-from tqdm import tqdm
-
-from data.get_data import custom_collate_fn, get_data, show_distribution
+from data.get_data import custom_collate_fn, get_data
 from data.utils.partition import balance_sample, special_sample
 from experiment.options import args_parser
 from model.Initialization import model_creator
 from model.base.model_trainer import ModelTrainer
 from util.generator import Data_Generator
-
+sys.path.append("..")
 
 def setup_device(args):
     # 检查是否有可用的 GPU
@@ -115,7 +112,7 @@ def main():
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
 
     generator = Data_Generator(10, (500, 5000))
-    samples = generator.get_real_samples(2000, 'grid', False)
+    samples = generator.get_real_samples(5000, 'grid', False)
 
     all_sim_results = []
     for si in range(args.seed_num):  # 使用for循环代替多线程，以保证随机数的串行处理

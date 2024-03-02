@@ -1,5 +1,4 @@
-import os
-from experiment.auto_fusion.options import args_parser
+from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -19,13 +18,12 @@ def main():
         # 'cross_up_num': {},
         # 'cross_up': {'gamma': [1]},
         # 'layer_att': {},
-        # 'auto_layer_fusion': {'detect_mode': ['att']},
-        # 'auto_fusion': {},
         # 'FedAvg': {},
         # 'cross_up_att': {},
+        'grad_inf': {}
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("auto_fusion_exp3", args, same_data=True)
+    manager = ExperimentManager("grad_inf_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
     manager.save_results(results, "../.././log")
     visual_results(results)

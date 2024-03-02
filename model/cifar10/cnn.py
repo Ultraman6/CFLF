@@ -10,10 +10,10 @@ class CNN_cifar10(BaseModel):
     def __init__(self, mode):
         """CNN Builder."""
         super().__init__(mode)
-        self.conv1 = nn.Conv2d(3, 16, 5)
+        self.conv1 = nn.Conv2d(3, 16, 6, padding=3)
         self.act1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(16, 2 * 16, 5)
+        self.conv2 = nn.Conv2d(16, 2 * 16, 7, padding=3)
         self.act2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(2, 2)
         self.reshape1 = ReshapeLayer((-1,))

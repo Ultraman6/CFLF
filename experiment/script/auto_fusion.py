@@ -1,5 +1,4 @@
-import os
-from experiment.up_cluster.options import args_parser
+from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -14,16 +13,18 @@ def main():
         # 'grad_norm_up': {'gamma': [1]},
         # 'Margin_Loss': {'gamma': [1]},
         # 'MarginKL_sub_exp': {'gamma': [1]},
-        # 'loss_up': {'gamma': [0.1]},
-        # 'cross_up_select': {'eta': [1]},
+        # 'loss_up': {},
+        # 'cross_up_select': {'eta': [1.5]},
         # 'cross_up_num': {},
-        'up_cluster': {},
-        'cross_up': {},
+        # 'cross_up': {'gamma': [1]},
+        # 'layer_att': {},
+        # 'auto_layer_fusion': {'detect_mode': ['att']},
+        # 'auto_fusion': {},
         # 'FedAvg': {},
-
+        # 'cross_up_att': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("up_cluster_exp1", args, same_data=True)
+    manager = ExperimentManager("auto_fusion_exp3", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
     manager.save_results(results, "../.././log")
     visual_results(results)

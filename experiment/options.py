@@ -18,7 +18,7 @@ def args_parser():
         '--model',
         type=str,
         default='cnn',
-        choices=["cnn", "logistic", "lenet", "resnet18", "lstm"],
+        choices=["cnn", "logistic", "lenet", "resnet18", "lstm", 'alexnet'],
         help="Model architecture of dataset to use."
     )
     deep_learning.add_argument(

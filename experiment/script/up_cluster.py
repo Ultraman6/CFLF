@@ -1,5 +1,4 @@
-import os
-from experiment.margin_gradnorm.options import args_parser
+from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -9,13 +8,21 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        'FedAvg': {},
-        'MarginKL_sub_exp': {},
-        'Margin_GradNorm': {},
-        'Margin_Loss': {},
+        # 'FedAvg': {},
+        # 'margin_dot': {'gamma': [1]},
+        # 'grad_norm_up': {'gamma': [1]},
+        # 'Margin_Loss': {'gamma': [1]},
+        # 'MarginKL_sub_exp': {'gamma': [1]},
+        # 'loss_up': {'gamma': [0.1]},
+        # 'cross_up_select': {'eta': [1]},
+        # 'cross_up_num': {},
+        'up_cluster': {},
+        'cross_up': {},
+        # 'FedAvg': {},
+
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("margin_gradnorm_exp1", args, same_data=True)
+    manager = ExperimentManager("up_cluster_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
     manager.save_results(results, "../.././log")
     visual_results(results)

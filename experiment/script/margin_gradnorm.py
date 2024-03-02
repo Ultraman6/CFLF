@@ -1,5 +1,4 @@
-import os
-from experiment.cosine_sim_reward.options import args_parser
+from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -9,12 +8,13 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
-        # 'Cosine_Similiarity_Out_Reward': {'rho': [0.9, 1]},
-        'CS_Reward_Reputation': {'fair': [0.7]},
+        'FedAvg': {},
+        'MarginKL_sub_exp': {},
+        'Margin_GradNorm': {},
+        'Margin_Loss': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("margin_cos_rep_exp1", args, same_data=True)
+    manager = ExperimentManager("margin_gradnorm_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
     manager.save_results(results, "../.././log")
     visual_results(results)
