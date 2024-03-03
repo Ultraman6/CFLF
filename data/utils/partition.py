@@ -87,8 +87,7 @@ def balance_sample(test, valid_ratio):
     samples_per_class = total_samples_for_valid // num_classes
 
     # 准备每个类别的样本索引
-    selected_indices_per_class = {label: random.sample(indices, samples_per_class) for label, indices in
-                                  label_to_indices.items()}
+    selected_indices_per_class = {label: random.sample(indices, samples_per_class) for label, indices in label_to_indices.items()}
 
     # 按类别数为单位进行样本排列
     subset_indices = []
@@ -96,7 +95,7 @@ def balance_sample(test, valid_ratio):
         for label in range(num_classes):
             subset_indices.append(selected_indices_per_class[label].pop())
 
-    return Subset(test, subset_indices)
+    return DatasetSplit(test, subset_indices)
 
 
 def imbalance_sample(datasize, args):

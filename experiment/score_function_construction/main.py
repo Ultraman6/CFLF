@@ -2,6 +2,7 @@ import os
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
 import sys
+sys.path.append("../../")
 import numpy as np
 import pandas as pd
 import torch
@@ -13,7 +14,6 @@ from experiment.options import args_parser
 from model.Initialization import model_creator
 from model.base.model_trainer import ModelTrainer
 from util.generator import Data_Generator
-sys.path.append("..")
 
 def setup_device(args):
     # 检查是否有可用的 GPU
@@ -49,8 +49,8 @@ def file_save(args, sim_results):
     df = pd.DataFrame(data)
 
     # 保存DataFrame到Excel文件
-    file_name = f"score_function_experiment_D{args.dataset}_S{args.model}_R{args.round}_S{sample_num}.xlsx"
-    save_path = f"./simulation_results/{file_name}"
+    file_name = f"score_function_experiment_D{args.dataset}_M{args.model}_R{args.round}_S{sample_num}_N{args.seed_num}.xlsx"
+    save_path = args.result_root+f'/score_function_construction/{file_name}'
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     df.to_excel(save_path, index=False)
@@ -62,9 +62,9 @@ def visualize_results(df):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     # 数据准备
-    sample_sizes = df['Sample Size']
-    emds = df['Target EMD']
-    accuracies = df['Average Test Accuracy']
+    sample_sizes = df['Size']
+    emds = df['EMD']
+    accuracies = df['Accuracy']
     # 绘制三维散点图
     ax.scatter(sample_sizes, emds, accuracies, c='r', marker='o')
     # 设置图表标题和轴标签
@@ -112,8 +112,9 @@ def main():
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
 
     generator = Data_Generator(10, (500, 5000))
-    samples = generator.get_real_samples(5000, 'grid', False)
-
+    samples = generator.get_real_samples(10, 'grid', False)
+    generator.save_results_pickle(samples, args.result_root)
+    samples = generator.load_results_pickle(args.result_root)
     all_sim_results = []
     for si in range(args.seed_num):  # 使用for循环代替多线程，以保证随机数的串行处理
         sim_results = process_seed(args, si, samples, train, test, device, kwargs)
@@ -121,7 +122,7 @@ def main():
 
     # 处理和可视化最终结果
     df = file_save(args, all_sim_results)
-    # visualize_results(df)
+    visualize_results(df)
 
 
 if __name__ == "__main__":

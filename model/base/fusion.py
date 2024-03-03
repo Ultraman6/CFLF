@@ -1,7 +1,7 @@
 import copy
 import math
 import torch
-from torch import nn
+from torch import nn, optim
 import torch.nn.functional as F
 from model.base.attention import Attention
 from model.base.model_dict import aggregate_att_weights
@@ -21,7 +21,7 @@ class FusionLayerModel(nn.Module):
         self.layer_sequence = []
         model_reference = local_models[0]
         for name, module in model_reference.named_children():
-            if isinstance(module, (nn.Conv2d, nn.Linear, nn.BatchNorm2d)):  # 私有层
+            if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Linear, nn.BatchNorm1d, nn.BatchNorm2d)):  # 私有层
                 self.layer_sequence.append({'type': 'private', 'name': name, 'layers': []})
                 # 根据私有层的名称创建聚合权重，并将其添加到self.fusion_weights字典中
                 uniform_weight = nn.Parameter(
@@ -111,20 +111,19 @@ class FusionLayerModel(nn.Module):
     def get_fused_model_params(self):
         fused_params = {}
         client_agg_weights = [{} for _ in range(self.num_clients)]  # 初始化列表，用于保存每个客户的聚合权重字典
-        # modified_params = [{} for _ in range(self.num_clients)]
         for layer_info in self.layer_sequence:
             if layer_info['type'] == 'private':
                 layer_name = layer_info['name']
                 agg_weights = F.softmax(self.fusion_weights[layer_name], dim=0).detach()  # 获取聚合权重，并从计算图中分离
                 for param_key in layer_info['layers'][0].state_dict().keys():
                     # 初始化聚合后的参数为零张量，并确保从计算图中分离
-                    aggregated_param = torch.zeros_like(layer_info['layers'][0].state_dict()[param_key]).detach().float()
+                    aggregated_param = torch.zeros_like(
+                        layer_info['layers'][0].state_dict()[param_key]).detach().float()
                     # 对每个客户模型的相应参数进行加权聚合
                     for model_idx, model_layer in enumerate(layer_info['layers']):
                         model_param = model_layer.state_dict()[param_key].detach()  # 确保参数从计算图中分离
                         weighted_param = agg_weights[model_idx] * model_param
                         aggregated_param += weighted_param
-                        # modified_params[model_idx][f"{layer_name}.{param_key}"] = weighted_param
                         # 更新每个客户模型,在每层上的聚合权重
                         client_agg_weights[model_idx][f"{layer_name}.{param_key}"] = agg_weights[model_idx]
                     # 保存聚合后的参数
@@ -355,7 +354,6 @@ class FusionLayerAttModel(nn.Module):
 
         # 注意：这里不再将参数转移到CPU，而是保留在它们原来的设备上
         return fused_params, client_agg_weights
-
 
 
 class FusionModel(nn.Module):

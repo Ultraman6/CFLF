@@ -1,7 +1,8 @@
 # Interface between models and the clients
 # Include intialization, training for one iteration and gradnorm_coffee function
-
+from model.cifar10.alexnet import AlexNet_cifar10
 from model.cifar10.cnn import CNN_cifar10
+from model.cifar10.cnn_complex import CNN_V3_V4_cifar10
 from model.cifar10.resnet18 import ResNet18_cifar10
 from model.fashion_mnist.cnn import CNN_fashionmnist
 from model.fashion_mnist.logistic import LR_fashionmnist
@@ -19,6 +20,10 @@ def model_creator(args):
             model = CNN_cifar10(mode=args.init_mode)
         elif args.model == 'resnet18':
             model = ResNet18_cifar10(mode=args.init_mode)
+        elif args.model == 'alexnet':
+            model = AlexNet_cifar10(mode=args.init_mode)
+        elif args.model == 'cnn_complex':
+            model = CNN_V3_V4_cifar10(mode=args.init_mode)
         else:
             raise ValueError('Model not implemented for CIFAR-10')
     elif args.dataset == 'femnist':

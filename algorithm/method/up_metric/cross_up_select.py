@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import numpy as np
 from tqdm import tqdm
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim
 from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 

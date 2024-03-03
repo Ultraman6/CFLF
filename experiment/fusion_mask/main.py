@@ -1,5 +1,7 @@
+import sys
 from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
+sys.path.append("")
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -8,24 +10,26 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
+        # 'base': {},
         # 'margin_dot': {'gamma': [1]},
         # 'grad_norm_up': {'gamma': [1]},
         # 'Margin_Loss': {'gamma': [1]},
         # 'MarginKL_sub_exp': {'gamma': [1]},
-        # 'loss_up': {'gamma': [0.1]},
-        # 'cross_up_select': {'eta': [1]},
+        # 'loss_up': {},
+        # 'cross_up_select': {'eta': [1.5]},
         # 'cross_up_num': {},
-        'up_cluster': {},
-        'cross_up': {},
-        # 'FedAvg': {},
-
+        # 'cross_up': {'gamma': [1]},
+        # 'layer_att': {},
+        'fusion_mask': {},
+        # 'auto_fusion': {},
+        # 'base': {},
+        # 'cross_up_att': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("up_cluster_exp1", args, same_data=True)
+    manager = ExperimentManager("fusion_mask_exp", args, same_seed=False)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
     visual_results(results)
+    manager.save_results(results, args.result_root)
 
 
 # 主入口

@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExec
 import os
 
 import torch
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from algorithm.method.auto_fusion.auto_fusion import Auto_Fusion_API
 from algorithm.method.auto_fusion.auto_fusion_layer import Auto_Fusion_Layer_API
 from algorithm.method.cosine_similarity_reward.common import CS_Reward_API
@@ -78,7 +78,7 @@ class ExperimentManager:
         self.args_template = args_template
         self.exp_name = exp_name
         self.algorithm_mapping = {
-            'FedAvg': BaseServer,
+            'base': BaseServer,
             'Margin_Loss': MarginLossAPI,
             'margin_dot': Margin_Dot_API,
             'loss_up': Loss_Up_API,

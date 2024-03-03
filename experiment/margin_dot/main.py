@@ -1,7 +1,5 @@
-import sys
 from experiment.options import args_parser
 from util.manager import ExperimentManager, visual_results
-sys.path.append("")
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
              'xavier_uniform', 'normal', 'uniform', 'orthogonal', 'sparse', 'zeros', 'ones', 'eye', 'dirac']
@@ -10,7 +8,8 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
+        # 'base': {},
+        # 'Margin_GradNorm': {'gamma': [1]},
         # 'margin_dot': {'gamma': [1]},
         # 'grad_norm_up': {'gamma': [1]},
         # 'Margin_Loss': {'gamma': [1]},
@@ -19,17 +18,15 @@ def main():
         # 'cross_up_select': {'eta': [1.5]},
         # 'cross_up_num': {},
         # 'cross_up': {'gamma': [1]},
-        # 'layer_att': {},
-        'fusion_mask': {},
-        # 'auto_fusion': {},
-        # 'FedAvg': {},
+        'layer_att': {},
+        # 'base': {},
         # 'cross_up_att': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("fusion_mask_exp", args, same_seed=False)
+    manager = ExperimentManager("att_up_exp3", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
+    manager.save_results(results, "../.././result")
     visual_results(results)
-    manager.save_results(results, "../.././log")
 
 
 # 主入口

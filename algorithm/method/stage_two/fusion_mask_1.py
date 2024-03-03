@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 import torch.nn.functional as F
 from model.base.fusion import FusionLayerModel
 from model.base.model_dict import _modeldict_cossim, _modeldict_eucdis, _modeldict_sub, _modeldict_dot_layer, \

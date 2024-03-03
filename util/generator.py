@@ -1,5 +1,7 @@
 import concurrent
 import copy
+import os
+import pickle
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
 
@@ -299,6 +301,18 @@ class Data_Generator:
         results_final = [(s, d, e) for s, d, e, _, _ in results_new]
         return results_final
 
+    def save_results_pickle(self, results, file_root):
+        # 检查文件路径是否存在，如果不存在，则创建
+        file_path = os.path.join(file_root, 'EMD_Sample_Results', f'class_{self.dis_generator.num_classes}_num_range_{self.sam_generator.x_range}.pkl')
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'wb') as file:
+            pickle.dump(results, file)
+
+    def load_results_pickle(self, file_root):
+        file_path = os.path.join(file_root, 'EMD_Sample_Results', f'class_{self.dis_generator.num_classes}_num_range_{self.sam_generator.x_range}.pkl')
+        with open(file_path, 'rb') as file:
+            results = pickle.load(file)
+        return results
 
 if __name__ == '__main__':
     generator = Data_Generator(1000, (10000, 50000))

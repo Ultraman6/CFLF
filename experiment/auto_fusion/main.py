@@ -8,8 +8,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
-        # 'Margin_GradNorm': {'gamma': [1]},
+        # 'base': {},
         # 'margin_dot': {'gamma': [1]},
         # 'grad_norm_up': {'gamma': [1]},
         # 'Margin_Loss': {'gamma': [1]},
@@ -18,14 +17,16 @@ def main():
         # 'cross_up_select': {'eta': [1.5]},
         # 'cross_up_num': {},
         # 'cross_up': {'gamma': [1]},
-        'layer_att': {},
-        # 'FedAvg': {},
+        # 'layer_att': {},
+        # 'auto_layer_fusion': {'detect_mode': ['att']},
+        # 'auto_fusion': {},
+        # 'base': {},
         # 'cross_up_att': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("att_up_exp3", args, same_data=True)
+    manager = ExperimentManager("auto_fusion_exp3", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
+    manager.save_results(results, "../.././result")
     visual_results(results)
 
 

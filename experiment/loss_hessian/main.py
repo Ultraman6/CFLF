@@ -8,7 +8,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
+        # 'base': {},
         # 'margin_dot': {'gamma': [1]},
         # 'grad_norm_up': {'gamma': [1]},
         # 'Margin_Loss': {'gamma': [1]},
@@ -18,14 +18,14 @@ def main():
         # 'cross_up_num': {},
         # 'cross_up': {'gamma': [1]},
         # 'layer_att': {},
-        # 'FedAvg': {},
+        # 'base': {},
         # 'cross_up_att': {},
         'grad_inf': {}
         # 'Stage_two': {},
     }
     manager = ExperimentManager("grad_inf_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
+    manager.save_results(results, "../.././result")
     visual_results(results)
 
 

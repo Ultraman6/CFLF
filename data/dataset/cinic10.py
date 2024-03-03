@@ -1,14 +1,10 @@
-import random
 import sys
-
 import requests
-import torch
-from torch.utils.data.dataset import Subset
 from torchvision import datasets, transforms
 from tqdm import tqdm
 import tarfile
 import os
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 
 from data.utils.distribution import split_data

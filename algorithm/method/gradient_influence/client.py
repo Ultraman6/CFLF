@@ -1,6 +1,6 @@
 import copy
 from typing import override
-from algorithm.FedAvg.client import BaseClient
+from algorithm.base.client import BaseClient
 from model.base.model_dict import _modeldict_zeroslike, _modeldict_multiply, _modeldict_scale, _modeldict_sub, \
     _modeldict_to_device
 

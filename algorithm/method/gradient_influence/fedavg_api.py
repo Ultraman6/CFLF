@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from model.base.model_dict import _modeldict_dot, _modeldict_weighted_average, _modeldict_add, _modeldict_to_device, \
     _modeldict_sub
-from ...FedAvg.fedavg_api import BaseServer
+from ...base.server import BaseServer
 
 # 设置时间间隔（以秒为单位）
 interval = 5

@@ -7,7 +7,7 @@ import scipy
 import torch
 from tqdm import tqdm
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_dot, _modeldict_add, _modeldict_sub
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 import model.base.model_dict
 
 # 设置时间间隔（以秒为单位）

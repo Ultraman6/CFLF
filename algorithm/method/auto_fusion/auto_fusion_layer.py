@@ -4,7 +4,7 @@ import copy
 
 import numpy as np
 from tqdm import tqdm
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from algorithm.method.dot_attention.dot_layer_att import aggregate_att
 from model.base import model_trainer
 from model.base.fusion import FusionLayerModel

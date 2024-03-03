@@ -229,11 +229,18 @@ def _modeldict_cossim(md1, md2):
     l1 = torch.tensor(0.).to(md1[list(md1)[0]].device)
     l2 = torch.tensor(0.).to(md1[list(md1)[0]].device)
     for layer in md1.keys():
-        if md1[layer] is None:
-            continue
-        res += (md1[layer].view(-1).dot(md2[layer].view(-1)))
-        l1 += torch.sum(torch.pow(md1[layer], 2))
-        l2 += torch.sum(torch.pow(md2[layer], 2))
+        try:
+            # Ensure both tensors are of the same dtype before dot operation
+            if md1[layer] is None or md2[layer] is None:
+                continue
+            md1_layer = md1[layer].view(-1).to(torch.float32)
+            md2_layer = md2[layer].view(-1).to(torch.float32)
+            res += (md1_layer.dot(md2_layer))
+            l1 += torch.sum(torch.pow(md1_layer, 2))
+            l2 += torch.sum(torch.pow(md2_layer, 2))
+        except RuntimeError as e:
+            print(f"Error occurred at layer: {layer}")
+            raise e
     return res / (torch.pow(l1, 0.5) * torch.pow(l2, 0.5))
 
 

@@ -24,6 +24,8 @@ def get_data(args):
             return get_femnist(dataset_root)
         elif dataset == 'fashionmnist':
             return get_fashionmnist(dataset_root)
+        elif dataset == 'SVHN':
+            return get_svhn(dataset_root)
         else:
             raise ValueError('Dataset `{}` not found'.format(dataset))
 
@@ -65,7 +67,7 @@ def show_data_distribution(dataloaders, args):
         # 训练集加载器划分
         for i in range(args.num_clients):
             train_loader = train_loaders[i]
-            distribution = show_distribution(train_loader)
+            distribution = show_distribution(train_loader, args)
             print("train dataloader {} distribution".format(i))
             print(len(train_loader.dataset))
             print(distribution)
@@ -78,24 +80,48 @@ def show_data_distribution(dataloaders, args):
         #     print(len(test_loader.dataset))
         #     print(distribution)
         # 全局验证集加载器划分
-        distribution = show_distribution(v_global)
+        distribution = show_distribution(v_global, args)
         print("global valid dataloader distribution")
         print(len(v_global.dataset))
         print(distribution)
 
 
-def show_distribution(dataloader):
-    labels_list = []
-    for _, labels in dataloader:
-        if isinstance(labels, list):
-            labels_list.extend(labels)
-        else:  # Assuming labels are torch.Tensor or similar
-            labels_list.extend(labels.numpy())  # Convert to numpy if not already
+def show_distribution(dataloader, args):
+    """
+    Show the distribution of the data on certain client with dataloader
+    Return:
+        percentage of each class of the label
+    """
+    dataset = dataloader.dataset
 
-    labels = np.array(labels_list)
-    unique_labels, counts = np.unique(labels, return_counts=True)
-    num_samples = len(labels)
-    distribution = [count / num_samples for count in counts]
+    if hasattr(dataset, 'dataset'):  # Access the underlying dataset if DatasetSplit is wrapping another dataset
+        underlying_dataset = dataset.dataset
+        # Handling different dataset types
+        if args.dataset in ['femnist', 'cifar10', 'cinic10']:  # CIFAR-10 and CINIC-10 have similar structure
+            labels = underlying_dataset.targets
+        elif args.dataset == 'mnist' or args.dataset == 'fashionmnist':
+            # MNIST and FashionMNIST
+            labels = underlying_dataset.targets.numpy() if hasattr(underlying_dataset.targets,
+                                                                   'numpy') else underlying_dataset.targets
+        elif args.dataset == 'svhn':
+            # SVHN labels are stored in 'labels' attribute
+            labels = underlying_dataset.labels
+        elif args.dataset == 'fsdd':
+            labels = dataset.labels  # Assuming DatasetSplit directly manages labels for FSDD
+        else:
+            raise ValueError(f"`{args.dataset}` dataset not included")
+    else:
+        raise ValueError("Dataset does not have an underlying dataset attribute.")
 
+    num_samples = len(dataloader.dataset)
+    idxs = [i for i in range(num_samples)]
+    labels = np.array(labels)
+    unique_labels = np.unique(labels)
+    distribution = [0] * len(unique_labels)
+    for idx in idxs:
+        img, label = dataloader.dataset[idx]
+        distribution[label] += 1
+    distribution = np.array(distribution)
+    distribution = distribution / num_samples
     return distribution
 

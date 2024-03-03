@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from model.base.fusion import FusionLayerModel
 from model.base.model_dict import _modeldict_cossim, _modeldict_eucdis, _modeldict_sub, _modeldict_dot_layer, \
     _modeldict_sum, _modeldict_norm, merge_layer_params, pad_grad_by_order, _modeldict_weighted_average, _modeldict_add, \
@@ -135,17 +135,30 @@ class Fusion_Mask_API(BaseServer):
         contrib = []
         imp = []
         weights = []
+        norms = []
+        norm1s = []
+        cossims = []
+        cossim1s = []
         for cid, (mg, g) in enumerate(zip(modified_g_locals, g_locals)):
             cossim = float(_modeldict_cossim(g_global, mg).cpu())
+            cossim1 = float(_modeldict_cossim(g_global, g).cpu())
             norm = float(_modeldict_norm(mg).cpu())  # 记录每个客户每轮的贡献值
             norm1 = float(_modeldict_norm(g).cpu())
             weights.append(norm / norm1)
             ctb = cossim * norm
             contrib.append(ctb)
+            norms.append(norm)
+            norm1s.append(norm1)
+            cossims.append(cossim)
+            cossim1s.append(cossim1)
             imp.append(norm / float(_modeldict_norm(g).cpu()))
             self.his_contrib[cid][round_idx] = ctb
         # print(self.his_contrib)
         print(weights)
+        print(norm1s)
+        print(norms)
+        print(cossims)
+        print(cossim1s)
         return np.array(imp)
 
     def fusion_weights(self, w_locals, g_locals):
@@ -157,7 +170,7 @@ class Fusion_Mask_API(BaseServer):
             model_locals.append(copy.deepcopy(model))
         att = aggregate_att_weights(w_locals, self.global_params)
         fm = FusionLayerModel(model_locals)
-        fm.set_fusion_weights(att)
+        # fm.set_fusion_weights(att)
         fm.train_fusion(self.valid_global, self.e, self.device, 0.01, self.args.loss_function)
         w_global, agg_layer_params = fm.get_fused_model_params()  # 得到融合模型学习后的聚合权重和质量
         modified_g_locals = [_modeldict_dot_layer(g, w)

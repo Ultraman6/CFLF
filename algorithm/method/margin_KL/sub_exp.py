@@ -6,7 +6,7 @@ import numpy as np
 import scipy
 from tqdm import tqdm
 from model.base.model_dict import _modeldict_weighted_average
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 import model.base.model_dict
 
 # 设置时间间隔（以秒为单位）

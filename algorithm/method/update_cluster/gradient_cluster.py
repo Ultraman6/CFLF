@@ -10,7 +10,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering, SpectralClustering
 from sklearn.manifold import MDS
 from sklearn.metrics import silhouette_score
 from tqdm import tqdm
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_sub, _modeldict_cossim, _modeldict_add
 from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 # 2024-02-08 尝试加入fair2021的质量检测，求每个本地梯度与高质量全局梯度的余弦相似性

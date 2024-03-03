@@ -10,7 +10,7 @@ def args_parser():
     deep_learning.add_argument(
         '--dataset',
         type=str,
-        default='cifar10',
+        default='mnist',
         choices=['mnist', 'cifar10', 'femnist', 'fashionmnist', 'synthetic', 'shakespare'],
         help="The name of the dataset to use."
     )
@@ -18,7 +18,7 @@ def args_parser():
         '--model',
         type=str,
         default='cnn',
-        choices=["cnn", "logistic", "lenet", "resnet18", "lstm", 'alexnet'],
+        choices=["cnn", "cnn_complex", "logistic", "lenet", "resnet18", "lstm", 'alexnet'],
         help="Model architecture of dataset to use."
     )
     deep_learning.add_argument(
@@ -126,7 +126,7 @@ def args_parser():
     federated_learning.add_argument(
         '--round',
         type=int,
-        default=10,
+        default=1,
         help='number of communication rounds with the cloud server'
     )
     federated_learning.add_argument(
@@ -258,7 +258,7 @@ def args_parser():
     running_environment.add_argument(
         '--seed_num',
         type=int,
-        default=1,
+        default=5,
         help='num of random seed for multiple runs'
     )
     running_environment.add_argument(
@@ -266,6 +266,12 @@ def args_parser():
         type=str,
         default='../../datasets',
         help='dataset root folder'
+    )
+    running_environment.add_argument(
+        '--result_root',
+        type=str,
+        default='../../result',
+        help='result root folder'
     )
     running_environment.add_argument(
         '--show_dis',

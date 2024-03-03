@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim, _modeldict_sub, \
     _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
-from ...FedAvg.fedavg_api import BaseServer
+from ...base.server import BaseServer
 
 
 # 基于余弦相似性的贡献评估与梯度奖励定制

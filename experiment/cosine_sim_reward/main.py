@@ -8,14 +8,14 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
+        # 'base': {},
         # 'Cosine_Similiarity_Out_Reward': {'rho': [0.9, 1]},
         'CS_Reward_Reputation': {'fair': [0.7]},
         # 'Stage_two': {},
     }
     manager = ExperimentManager("margin_cos_rep_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
+    manager.save_results(results, "../.././result")
     visual_results(results)
 
 

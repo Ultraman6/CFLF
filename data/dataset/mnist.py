@@ -1,11 +1,5 @@
 import os
-import random
-
-import torch
-from torch.utils.data import Subset, DataLoader
 from torchvision import datasets, transforms
-
-from data.utils.distribution import split_data
 
 
 def get_mnist(dataset_root):

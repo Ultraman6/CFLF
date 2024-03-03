@@ -8,7 +8,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        # 'FedAvg': {},
+        # 'base': {},
         # 'MarginJSD': {'gamma': [1]},
         # 'MarginJSD_direct_sum': {'gamma': [1]},
         # 'MarginLoss': {'gamma': [10]},
@@ -18,7 +18,7 @@ def main():
     }
     manager = ExperimentManager("margin_jsd_exp10_cross_info", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
+    manager.save_results(results, "../.././result")
     visual_results(results)
 
 

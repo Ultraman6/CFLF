@@ -8,7 +8,7 @@ from scipy import linalg
 import numpy as np
 from tqdm import tqdm
 
-from algorithm.FedAvg.fedavg_api import BaseServer
+from algorithm.base.server import BaseServer
 from model.base.model_dict import _modellayer_cossim, _modeldict_dot_layer, \
     _modeldict_norm, _modeldict_eucdis, _modeldict_weighted_average
 from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self

@@ -7,8 +7,8 @@ from tqdm import tqdm
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device, _modeldict_cossim, _modeldict_sub, \
     _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
 from model.base.model_trainer import ModelTrainer
-from algorithm.FedAvg.client import BaseClient
-from ...FedAvg.fedavg_api import BaseServer
+from algorithm.base.client import BaseClient
+from ...base.server import BaseServer
 
 
 # 2024-02-07 由于v1版本的综合价值过拟合现象严重，现在采用v2版本的综合价值

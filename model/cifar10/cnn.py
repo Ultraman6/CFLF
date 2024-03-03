@@ -1,28 +1,27 @@
 import torch.nn as nn
-import torch.nn.functional as F
-from model.base.base_model import BaseModel
+
 from model.base.attention import ReshapeLayer
+from model.base.base_model import BaseModel
 
 
 class CNN_cifar10(BaseModel):
     """CNN."""
 
-    def __init__(self, mode):
+    def __init__(self, mode, n_kernels=64, out_dim=10):
         """CNN Builder."""
         super().__init__(mode)
-        self.conv1 = nn.Conv2d(3, 16, 6, padding=3)
+        self.conv1 = nn.Conv2d(3, n_kernels, 4)
         self.act1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(16, 2 * 16, 7, padding=3)
+        self.conv2 = nn.Conv2d(n_kernels, n_kernels, 5)
         self.act2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(2, 2)
-        self.reshape1 = ReshapeLayer((-1,))
-        self.fc1 = nn.Linear(2 * 16 * 5 * 5, 120)
+        self.reshape1 = nn.Flatten(1)
+        self.fc1 = nn.Linear(n_kernels * 5 * 5, 384)
         self.act3 = nn.ReLU()
-        self.fc2 = nn.Linear(120, 84)
+        self.fc2 = nn.Linear(384, 192)
         self.act4 = nn.ReLU()
-        self.fc3 = nn.Linear(84, 10)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.fc3 = nn.Linear(192, out_dim)
         self.initialize_weights()
 
     def forward(self, x):
@@ -32,5 +31,4 @@ class CNN_cifar10(BaseModel):
         x = self.act3(self.fc1(x))
         x = self.act4(self.fc2(x))
         x = self.fc3(x)
-        x = self.softmax(x)
         return x

@@ -7,8 +7,8 @@ from tqdm import tqdm
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device, _modeldict_cossim, _modeldict_sub, \
     _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
 from model.base.model_trainer import ModelTrainer
-from algorithm.FedAvg.client import BaseClient
-from ...FedAvg.fedavg_api import BaseServer
+from algorithm.base.client import BaseClient
+from ...base.server import BaseServer
 
 
 # 基于余弦相似性的贡献评估与梯度奖励定制

@@ -17,7 +17,7 @@ def exp(m):
     """模型参数取指数 mi=exp(mi)"""
     return element_wise_func(m, torch.exp)
 def log(m):
-    """模型参数取对数mi=log(mi)"""
+    """模型参数取对数mi=result(mi)"""
     return element_wise_func(m, torch.log)
 def element_wise_func(m, func):
     """基于某种方法操作模型参数mi=func(mi)"""

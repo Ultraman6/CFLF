@@ -8,7 +8,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 # def main():
 #     # 设置实验名和创建相应目录
 #     experiment_name = "margin_KL_vs_Loss_exp_mnist_tahn"  # 举例，可以根据需要修改
-#     root_save_path = os.path.join("../.././log", experiment_name)
+#     root_save_path = os.path.join("../.././result", experiment_name)
 #     if not os.path.exists(root_save_path):
 #         os.makedirs(root_save_path)
 #     args = args_parser()
@@ -18,7 +18,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 #     control_seed(args.seed)
 #     # 创建并运行任务
 #     tasks = [
-#         # Task(BaseServer, args, copy.deepcopy(model), 'FedAvg', dataloaders),
+#         # Task(BaseServer, args, copy.deepcopy(model), 'base', dataloaders),
 #         #      Task(MarginLossAPI, args, copy.deepcopy(model), 'margin_Loss', dataloaders),
 #              Task(MarginKLAPI, args, copy.deepcopy(model), 'margin_KL', dataloaders)]
 #     results = [task.run(root_save_path) for task in tasks]
@@ -28,7 +28,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 def main():
     args = args_parser()
     exp_params = {
-        'FedAvg': {},
+        'base': {},
         # 'MarginLoss': {'lr': [0.01, 0.001], 'batch_size': [32, 64]},
         # 'FedProx': {'mu': [0.01, 0.001], 'lr': [0.01, 0.001], 'batch_size': [32, 64]},
         # 'FedFV': {'alpha': [0.01, 0.001], 'batch_size': [32, 64]},
@@ -40,7 +40,7 @@ def main():
     }
     manager = ExperimentManager("margin_kl_former_total_exp1", args, same_data=True)
     results = manager.judge_running(exp_params, 'serial')
-    manager.save_results(results, "../.././log")
+    manager.save_results(results, "../.././result")
     visual_results(results)
 
 

@@ -22,19 +22,49 @@ Federated Learning Experimentation and Visualization System
 ```plaintext
 CFLF/
 ├── algo/
-│   ├── FedAvg/
-│   └── FedFAIM/
+│   ├── base/
+│   │   ├── client.py
+│   │   └── server.py
+│   ├── integrity/
+│   │   ├── your integrities/
+│   │   └── ...
+│   └── method/
+│   │   ├── your methods/
+│   │   └── ...
 ├── data/
-│   ├── data_loader.py
-│   ├── dataset.py
-│   └── partition.py
+│   ├── dataset/
+│   │   ├── your datasets.py
+│   │   └── ...
+│   ├── utils/
+│   │   ├── distribution.py
+│   │   ├── parition.py
+│   │   └── visualization.py
+│   └── get_data.py
+├── datasets/
+│   ├── your dataset folders/
+│   └── ...
 ├── model/
-│   ├── cifar_cnn.py
-│   └── mnist_cnn.py
+│   ├── base/
+│   ├── your models/
+│   ├── ...
+│   └── initialization.py
+├── experiment/
+│   ├── your experiments/
+│   ├── ...
+│   └── option.py
 ├── utils/
-│   ├── gradient.py
-│   └── model_trainer.py
-└── main.py
+│   ├── drawing.py
+│   ├── generator.py
+│   ├── logging.py
+│   ├── running.py
+│   └── task.py
+├── result/
+│   ├── your results/
+│   └── ...
+├── Visual Interactive SubSystem/
+│   └── comming soon...
+│── README.py
+└── requirements.txt
 ```
 
 ## 主要路径
@@ -57,7 +87,7 @@ pip install -r requirements.txt
 ```
 3. Run the main program:
 ```bash
-python fusion_mask.py --args
+python main.py --args
 ```
 ## 📓 复现记录
 ### Paper: FedFAIM: a model performance-based fair incentive mechanism for federated learning
