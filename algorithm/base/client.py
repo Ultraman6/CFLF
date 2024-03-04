@@ -32,6 +32,21 @@ class BaseClient:
             self.standalone_trainer.train(self.train_dataloader, round_idx)
         return upgrade_params
 
+    def update_data(self, new_train_dataloader):
+        self.train_dataloader = new_train_dataloader
+
+    # def get_sample_num_per_label(self):
+    #         class_count = 0
+    #         for i, train_batch in enumerate(self.local_training_data):
+    #             # 获取每个客户端的训练数据
+    #             labels = train_batch[1]
+    #             if self.args.dataset in ["fed_shakespeare"]:
+    #                 # 统计指定类别的样本数量
+    #                 class_count += torch.sum(torch.eq(labels, j)).detach().item()
+    #             else:  # 统计指定类别的样本数量
+    #                 class_count += sum(1 for label in labels if label == j)
+    #         return class_count
+
     def grad_norm(self, upgrade_params):
         params_updates = _modeldict_sub(upgrade_params, self.local_params)
         params_norm = _modeldict_norm(params_updates)

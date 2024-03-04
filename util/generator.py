@@ -265,11 +265,13 @@ class Dis_Generator:
 
 
 class Data_Generator:
-    def __init__(self, num_classes=10, samples_range=(500, 5000)):
+    def __init__(self, num_classes=10, samples_range=(500, 5000), num_samples=1000):
         self.dis_generator = Dis_Generator(num_classes)
         self.sam_generator = Sample_Generator(samples_range, self.dis_generator.emd_range)
+        self.num_samples = num_samples
 
-    def get_real_samples(self, num_samples, mode='grid', visual=True):
+    def get_real_samples(self, mode='grid', visual=True):
+        num_samples = self.num_samples
         if mode == 'grid':
             samples_grid = self.sam_generator.generate_samples_grid(num_samples)
         elif mode == 'sobol':
@@ -302,14 +304,18 @@ class Data_Generator:
         return results_final
 
     def save_results_pickle(self, results, file_root):
-        # 检查文件路径是否存在，如果不存在，则创建
-        file_path = os.path.join(file_root, 'EMD_Sample_Results', f'class_{self.dis_generator.num_classes}_num_range_{self.sam_generator.x_range}.pkl')
+        # 检查文件路径是否存在，如果不存在，则创建x
+        num_range = self.sam_generator.x_range
+        file_name = f'class_{self.dis_generator.num_classes}_num_range_{num_range[0]}_{num_range[1]}_sample_num_{self.num_samples}.pkl'
+        file_path = os.path.join(file_root, 'EMD_Sample_Results', file_name)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'wb') as file:
             pickle.dump(results, file)
 
     def load_results_pickle(self, file_root):
-        file_path = os.path.join(file_root, 'EMD_Sample_Results', f'class_{self.dis_generator.num_classes}_num_range_{self.sam_generator.x_range}.pkl')
+        num_range = self.sam_generator.x_range
+        file_name = f'class_{self.dis_generator.num_classes}_num_range_{num_range[0]}_{num_range[1]}_sample_num_{self.num_samples}.pkl'
+        file_path = os.path.join(file_root, 'EMD_Sample_Results', file_name)
         with open(file_path, 'rb') as file:
             results = pickle.load(file)
         return results

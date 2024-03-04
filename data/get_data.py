@@ -67,7 +67,7 @@ def show_data_distribution(dataloaders, args):
         # 训练集加载器划分
         for i in range(args.num_clients):
             train_loader = train_loaders[i]
-            distribution = show_distribution(train_loader, args)
+            distribution = get_distribution(train_loader, args.dataset)
             print("train dataloader {} distribution".format(i))
             print(len(train_loader.dataset))
             print(distribution)
@@ -80,13 +80,13 @@ def show_data_distribution(dataloaders, args):
         #     print(len(test_loader.dataset))
         #     print(distribution)
         # 全局验证集加载器划分
-        distribution = show_distribution(v_global, args)
+        distribution = get_distribution(v_global, args.dataset)
         print("global valid dataloader distribution")
         print(len(v_global.dataset))
         print(distribution)
 
 
-def show_distribution(dataloader, args):
+def get_distribution(dataloader, dataset_name, mode='pro'):
     """
     Show the distribution of the data on certain client with dataloader
     Return:
@@ -97,19 +97,19 @@ def show_distribution(dataloader, args):
     if hasattr(dataset, 'dataset'):  # Access the underlying dataset if DatasetSplit is wrapping another dataset
         underlying_dataset = dataset.dataset
         # Handling different dataset types
-        if args.dataset in ['femnist', 'cifar10', 'cinic10']:  # CIFAR-10 and CINIC-10 have similar structure
+        if dataset_name in ['femnist', 'cifar10', 'cinic10']:  # CIFAR-10 and CINIC-10 have similar structure
             labels = underlying_dataset.targets
-        elif args.dataset == 'mnist' or args.dataset == 'fashionmnist':
+        elif dataset_name == 'mnist' or dataset_name == 'fashionmnist':
             # MNIST and FashionMNIST
             labels = underlying_dataset.targets.numpy() if hasattr(underlying_dataset.targets,
                                                                    'numpy') else underlying_dataset.targets
-        elif args.dataset == 'svhn':
+        elif dataset_name == 'svhn':
             # SVHN labels are stored in 'labels' attribute
             labels = underlying_dataset.labels
-        elif args.dataset == 'fsdd':
+        elif dataset_name == 'fsdd':
             labels = dataset.labels  # Assuming DatasetSplit directly manages labels for FSDD
         else:
-            raise ValueError(f"`{args.dataset}` dataset not included")
+            raise ValueError(f"`{dataset_name}` dataset not included")
     else:
         raise ValueError("Dataset does not have an underlying dataset attribute.")
 
@@ -122,6 +122,10 @@ def show_distribution(dataloader, args):
         img, label = dataloader.dataset[idx]
         distribution[label] += 1
     distribution = np.array(distribution)
-    distribution = distribution / num_samples
-    return distribution
+    if mode == 'num':    # 表示直接返回数量分布
+        return distribution
+    elif mode == 'pro':  # 表示返回概率分布
+        return distribution / num_samples
+    else:
+        raise ValueError("Mode not recognized. Please use 'num' or 'pro'.")
 

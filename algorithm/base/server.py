@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import numpy as np
 from tqdm import tqdm
-
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device
 from model.base.model_trainer import ModelTrainer
 from .client import BaseClient
@@ -24,8 +23,9 @@ class BaseServer(object):
         _modeldict_to_device(self.global_params, self.device)
         self.client_list = []
         self.setup_clients()
+        self.client_selected_times = [0 for _ in range(self.args.num_clients)]  # 历史被选中次数
 
-    def setup_clients(self):
+    def setup_clients(self):  # 开局数据按顺序分配
         for client_idx in range(self.args.num_clients):
             self.model_trainer.cid = client_idx
             c = BaseClient(
@@ -36,6 +36,9 @@ class BaseServer(object):
                 copy.deepcopy(self.model_trainer)
             )
             self.client_list.append(c)
+    def change_data_per_client(self, new_idx):  # 此方法为改变客户的数据划分
+        for client in self.client_list:  # 遍历每个客户，改变其所属的数据
+            client.update_data(self.train_loaders[new_idx])
 
     def train(self, task_name, position):
         global_info = {}
@@ -89,17 +92,19 @@ class BaseServer(object):
         }
         return info_metrics
 
-    @staticmethod
-    def client_sampling(cid_list, num_to_selected, scores=None):
+    def client_sampling(self, cid_list, num_to_selected, scores=None): # 记录客户历史选中次数，不再是静态方法
         if len(cid_list) <= num_to_selected:
-            return cid_list
+            scid_list = cid_list
         elif scores is None:
-            return np.random.choice(cid_list, num_to_selected, replace=False)
+            scid_list =np.random.choice(cid_list, num_to_selected, replace=False)
         else:
             cid_scores = list(zip(cid_list, scores))
             sorted_cid_scores = sorted(cid_scores, key=lambda item: item[1], reverse=True)
             selected_cid = [item[0] for item in sorted_cid_scores[:num_to_selected]]
-            return selected_cid
+            scid_list =selected_cid
+        for cid in scid_list:   # 更新被选中次数
+            self.client_selected_times[cid] += 1
+        return scid_list
 
     @staticmethod
     def thread_train(client, round_idx, info_global):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
@@ -108,4 +113,3 @@ class BaseServer(object):
             info_global = (info_global,)
         info_local = client.local_train(round_idx, *info_global)
         return info_local
-
