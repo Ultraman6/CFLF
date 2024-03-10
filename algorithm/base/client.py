@@ -7,9 +7,10 @@ from model.base.model_dict import _modeldict_to_np, _modeldict_sub, _modeldict_n
 
 
 class BaseClient:
-    def __init__(self, client_idx, train_dataloader, device, args, model_trainer):
+    def __init__(self, client_idx, train_dataloader, device, args, model_trainer, test_dataloader=None):
         self.id = client_idx
         self.train_dataloader = train_dataloader
+        self.test_dataloader = test_dataloader  # 测试数据集(开启才有)
         self.model_trainer = model_trainer
         self.local_params = None  # 存放上一轮的模型
         self.args = args
@@ -31,6 +32,11 @@ class BaseClient:
         if self.args.standalone:  # 如果开启standalone模式，使用standalone_trainer进行训练
             self.standalone_trainer.train(self.train_dataloader, round_idx)
         return upgrade_params
+
+    def local_test(self, w_global=None): # 本地测试(本地模型协同、全局模型共同)
+        if w_global is not None:
+            self.model_trainer.set_model_params(w_global)
+        return self.model_trainer.test(self.test_dataloader)
 
     def update_data(self, new_train_dataloader):
         self.train_dataloader = new_train_dataloader

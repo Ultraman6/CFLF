@@ -106,12 +106,11 @@ def imbalance_sample(datasize, args):
             samples_per_client[_] += 1
     elif args.num_type == 'random':  # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
         samples_per_client = random_sample(datasize, args.num_clients)
-    elif args.num_type == 'customised single':  # 自定义单个客户样本量
+    elif args.num_type == 'custom_single':  # 自定义单个客户样本量
         samples_per_client = [args.sample_per_client for _ in range(num_clients)]
-    elif args.num_type == 'customised each':  # 自定义样本量开启，提取映射关系参数并将其解析为JSON对象
-        sample_mapping_json = args.sample_mapping
-        samples_per_client = list(json.loads(sample_mapping_json).values())
-    else:
+    elif args.num_type == 'custom_each':  # 自定义样本量开启，提取映射关系参数并将其解析为JSON对象
+        samples_per_client = list(json.loads(args.sample_mapping).values())
+    elif args.num_type == 'imbalance_control':
         imbalance = max(0.1, args.imbalance_alpha)
         sigma = imbalance
         mean_datasize = datasize / num_clients

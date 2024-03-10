@@ -1,3 +1,6 @@
+import copy
+import json
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, default_collate, Subset
@@ -35,7 +38,7 @@ def get_dataloaders(args):
     params = get_data(args)
     if args.dataset != 'synthetic':
         train, test = params
-        dataloaders = load_dataset(train, test, args, kwargs)
+        dataloaders = load_dataset(train, test, copy.deepcopy(args), kwargs)
     else:
         dataloaders = params
     show_data_distribution(dataloaders, args)
@@ -44,11 +47,20 @@ def get_dataloaders(args):
 
 def load_dataset(train, test, args, kwargs):
     train_loaders = split_data(train, args, kwargs, is_shuffle=True)
+    train_len = len(train)
+    test_len = len(test)
+    if args.data_type == 'custom_single':
+        args.sample_per_client = args.sample_per_client * test_len / train_len
+    elif args.data_type == 'custom_each':
+        sample_mapping = list(json.loads(args.sample_mapping_json).values())
+        for i in range(len(args.sample_per_client)):
+            sample_mapping[i] *= (test_len / train_len)
+        args.sample_mapping = json.dumps(sample_mapping)
+    test_loaders = split_data(test, args, kwargs, is_shuffle=False)  # 再用新的去划分本地测试机
     valid_loader = DataLoader(balance_sample(test, args.valid_ratio),
-                              batch_size=args.batch_size, shuffle=False, **kwargs, collate_fn=custom_collate_fn)
-    # for batch_idx, (_, labels) in enumerate(valid_loader):
-    #     print(f"Batch {batch_idx}: Labels: {labels.tolist()}")
-    return train_loaders, valid_loader
+                              batch_size=args.batch_size, shuffle=False, collate_fn=custom_collate_fn, **kwargs)
+
+    return train_loaders, test_loaders, valid_loader
 
 
 def custom_collate_fn(batch):

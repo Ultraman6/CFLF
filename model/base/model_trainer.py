@@ -135,11 +135,7 @@ class ModelTrainer:
                 metrics["test_correct"] += correct.item()
                 metrics["test_loss"] += loss.item() * target.size(0)
                 metrics["test_total"] += target.size(0)
-        # 计算平均损失
-        average_test_loss = metrics["test_loss"] / metrics["test_total"]
-        # 计算正确率
-        accuracy = metrics["test_correct"] / metrics["test_total"]
-        return accuracy, average_test_loss
+        return metrics
 
     def test_JSD(self, test_data):
         self.model.to(self.device)

@@ -87,7 +87,7 @@ pip install -r requirements.txt
 ```
 3. Run the main program:
 ```bash
-python main.py --args
+python constant.py --args
 ```
 ## 📓 复现记录
 ### Paper: FedFAIM: a model performance-based fair incentive mechanism for federated learning

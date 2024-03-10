@@ -11,14 +11,14 @@ def args_parser():
         '--dataset',
         type=str,
         default='mnist',
-        choices=['mnist', 'cifar10', 'femnist', 'fashionmnist', 'synthetic', 'shakespare'],
+        choices=['mnist', 'cifar10', 'cifar100', 'cinic10', 'femnist', 'fmnist', 'synthetic', 'shakespare'],
         help="The name of the dataset to use."
     )
     deep_learning.add_argument(
         '--model',
         type=str,
         default='cnn',
-        choices=["cnn", "cnn_complex", "logistic", "lenet", "resnet18", "lstm", 'alexnet'],
+        choices=["cnn", "cnn_complex", "logistic", "lenet", "resnet18", "lstm", 'rnn', 'alexnet', 'vgg', 'mlp'],
         help="Model architecture of dataset to use."
     )
     deep_learning.add_argument(
@@ -67,13 +67,19 @@ def args_parser():
         help="Weight decay for optimizers."
     )
     parser.add_argument(
-        '--beta',
-        type=tuple,
-        default=(0.9, 0.999),
-        help="Beta for Adam."
+        '--beta1',
+        type=float,
+        default=0.9,
+        help="Beta1 for Adam."
     )
     parser.add_argument(
-        '--eps',
+        '--beta2',
+        type=float,
+        default=0.999,
+        help="Beta2 for Adam."
+    )
+    parser.add_argument(
+        '--epsilon',
         type=float,
         default=1e-8,
         help="Epsilon for Adam."
@@ -81,7 +87,7 @@ def args_parser():
     parser.add_argument(
         '--scheduler',
         type=str,
-        default='step',
+        default='none',
         choices=['none', 'step', 'exponential', 'cosineAnnealing'],
         help="Learning rate scheduler to use.",
     )
@@ -96,6 +102,12 @@ def args_parser():
         type=float,
         default=0.1,
         help='decay rate for step scheduler'
+    )
+    parser.add_argument(
+        '--t_max',
+        type=int,
+        default=100,
+        help='maximum number of iterations for cosineAnnealing scheduler'
     )
     parser.add_argument(
         '--lr_min',
@@ -163,8 +175,8 @@ def args_parser():
     federated_learning.add_argument(
         '--num_type',
         type=str,
-        default='customised single',
-        choices=['average', 'random', 'customised single', 'customised each'],
+        default='custom_each',
+        choices=['average', 'random', 'custom_single', 'custom_each', 'imbalance_control'],
         help='Data volume division method'
     )
     federated_learning.add_argument(
@@ -224,25 +236,25 @@ def args_parser():
         help='Noise distribution each client for noise_feature or noise_label data_type'
     )
     federated_learning.add_argument(      # 联邦学习synthetic数据集专用参数
-        '--synthetic_alpha',
+        '--mean',
         type=int,
         default=1,
         help='means the mean of distributions among clients for synthetic dataset'
     )
     federated_learning.add_argument(
-        '--synthetic_beta',
+        '--variance',
         type=float,
         default=1,
         help='means the variance  of distributions among clients for synthetic dataset'
     )
     federated_learning.add_argument(
-        '--synthetic_dimension',
+        '--dimension',
         type=int,
         default=60,
         help='1 means mapping is active, 0 means mapping is inactive for synthetic dataset'
     )
     federated_learning.add_argument(
-        '--synthetic_num_class for synthetic dataset',
+        '--num_class',
         type=int,
         default=10,
         help='1 means mapping is active, 0 means mapping is inactive for synthetic dataset'
@@ -274,16 +286,30 @@ def args_parser():
         help='result root folder'
     )
     running_environment.add_argument(
-        '--show_dis',
+        '--show_distribution',
         type=bool,
         default=True,
         help='whether to show data distribution for each client and global valid'
+    )
+    running_environment.add_argument(
+        '--device',
+        type=str,
+        default='cpu',
+        choices=['cpu', 'gpu'],
+        help='GPU to be selected, 0, 1, 2, 3, -1 means CPU'
     )
     running_environment.add_argument(
         '--gpu',
         type=int,
         default=0,
         help='GPU to be selected, 0, 1, 2, 3, -1 means CPU'
+    )
+    running_environment.add_argument(
+        '--running_mode',
+        default='serial',
+        type=str,
+        choices=['serial', 'thread', 'process'],
+        help='maximum threads for multi-processing'
     )
     running_environment.add_argument(
         '--max_threads',
@@ -297,13 +323,13 @@ def args_parser():
         type=int,
         help='maximum processes for multi-processing'
     )
+
     # 分区4：具体算法配置
     specific_task = parser.add_argument_group('Specific Task Configurations')
     specific_task.add_argument(    # 价值系数
         '--gamma',
         default=0.8,
         type=float,
-
     )
     specific_task.add_argument(  # 时间系数
         '--rho',
@@ -328,11 +354,13 @@ def args_parser():
     specific_task.add_argument(  # 分配梯度奖励的策略
         '--reward_mode',
         default='mask',
+        choices=['mask', 'grad'],
         type=str
     )
     specific_task.add_argument(  # 分配梯度奖励的策略
         '--time_mode',
         default='exp',
+        choices=['exp', 'cvx'],
         type=str
     )
     specific_task.add_argument(

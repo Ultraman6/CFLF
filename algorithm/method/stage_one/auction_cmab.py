@@ -120,7 +120,9 @@ class Auction_CMAB_API(BaseServer):
             g_global = _modeldict_sub(w_global, self.global_params)  # 先计算梯度，再计层点乘得到参与聚合的梯度
             self.model_trainer.set_model_params(w_global)
             # 全局测试
-            test_acc, test_loss = self.model_trainer.test(self.valid_global)
+            metrics = self.model_trainer.test(self.valid_global)
+            test_acc, test_loss = (metrics["test_correct"] / metrics["test_loss"],
+                                   metrics["test_loss"] / metrics["test_loss"])
             # 计算时间, 存储全局日志
             global_info[round_idx] = {
                 "Loss": test_loss,

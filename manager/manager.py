@@ -41,7 +41,7 @@ from model.Initialization import model_creator
 from util.drawing import plot_results, create_result
 from util.logging import save_results_to_excel
 from util.running import control_seed
-from util.task import Task
+from manager.task import Task
 
 
 def setup_device(args):

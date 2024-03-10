@@ -72,7 +72,9 @@ class BaseServer(object):
 
             # 全局测试
             self.model_trainer.set_model_params(self.global_params)
-            test_acc, test_loss = self.model_trainer.test(self.valid_global)
+            metrics = self.model_trainer.test(self.valid_global)
+            test_acc, test_loss = (metrics["test_correct"] / metrics["test_loss"],
+                                   metrics["test_loss"] / metrics["test_loss"])
             # print( "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(
             # round_idx), str(test_acc), str(test_loss))) 计算时间, 存储全局日志
             global_info[round_idx] = {
