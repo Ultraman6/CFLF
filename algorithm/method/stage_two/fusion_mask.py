@@ -47,7 +47,6 @@ class Fusion_Mask_API(BaseServer):
         self.p_cali = self.args.p_cali  # 奖励校准系数
         self.his_contrib = [{} for _ in range(self.args.num_clients)]
         self.cum_contrib = [0.0 for _ in range(self.args.num_clients)]
-        self.local_params = [copy.deepcopy(self.global_params) for _ in range(self.args.num_clients)]
         self.contrib_info = {cid: {} for cid in range(self.args.num_clients)}
         for name, param in model.state_dict().items():
             print(f"{name}: {param.dtype}")

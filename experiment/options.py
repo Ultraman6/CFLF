@@ -235,7 +235,7 @@ def args_parser():
         }),
         help='Noise distribution each client for noise_feature or noise_label data_type'
     )
-    federated_learning.add_argument(      # 联邦学习synthetic数据集专用参数
+    federated_learning.add_argument(  # 联邦学习synthetic数据集专用参数
         '--mean',
         type=int,
         default=1,
@@ -260,7 +260,8 @@ def args_parser():
         help='1 means mapping is active, 0 means mapping is inactive for synthetic dataset'
     )
     running_environment = parser.add_argument_group('Running Environment Configurations')
-    # 分区3：运行环境配置
+
+    # 分区3：运行环境配置(manager的配置)
     running_environment.add_argument(
         '--seed',
         type=int,
@@ -305,7 +306,7 @@ def args_parser():
         help='GPU to be selected, 0, 1, 2, 3, -1 means CPU'
     )
     running_environment.add_argument(
-        '--running_mode',
+        '--train_mode',
         default='serial',
         type=str,
         choices=['serial', 'thread', 'process'],
@@ -326,7 +327,7 @@ def args_parser():
 
     # 分区4：具体算法配置
     specific_task = parser.add_argument_group('Specific Task Configurations')
-    specific_task.add_argument(    # 价值系数
+    specific_task.add_argument(  # 价值系数
         '--gamma',
         default=0.8,
         type=float,
@@ -375,5 +376,11 @@ def args_parser():
     )
 
     args = parser.parse_args()
-    args.cuda = torch.cuda.is_available()
     return args
+
+
+# def get_dict_args(args):
+#     return vars(args)
+#
+#
+# print(get_dict_args(args_parser()))

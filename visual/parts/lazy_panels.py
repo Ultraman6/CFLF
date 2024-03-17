@@ -90,3 +90,6 @@ class lazy_tab_panel(ui.tab_panel):
 # r.set_value("a")
 #
 # ui.run()
+#
+# my_dict = {'0': 100, '1': 200, '2': 300}
+# mylist = [my_dict['0'], ]

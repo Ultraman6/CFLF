@@ -8,23 +8,30 @@ from model.base.model_trainer import ModelTrainer
 from .client import BaseClient
 
 
+# 服务端过程分为：创建记录 -> 选择客户端 -> 本地更新 -> 全局更新 -> 同步记录
 class BaseServer(object):
     def __init__(self, args, device, dataset, model):
+        [train_loaders, test_loaders, valid_global] = dataset
         self.device = device
         self.args = args
-        [train_loaders, valid_global] = dataset
         self.train_loaders = train_loaders
-        # self.test_loaders = test_loaders
+        self.test_loaders = test_loaders
         self.valid_global = valid_global
         self.sample_num = [len(loader.dataset) for loader in train_loaders]
         self.all_sample_num = sum(self.sample_num)
         self.model_trainer = ModelTrainer(model, device, args)
-        self.global_params = self.model_trainer.get_model_params(self.device)
+        self.global_params = self.model_trainer.get_model_params(self.device)  # 暂存每个客户的本地模型，提升扩展性
+        self.local_params = [copy.deepcopy(self.global_params) for _ in range(self.args.num_clients)]
         _modeldict_to_device(self.global_params, self.device)
         self.client_list = []
         self.setup_clients()
         self.client_selected_times = [0 for _ in range(self.args.num_clients)]  # 历史被选中次数
-
+        #  用于全局记录
+        self.round_idx = 0
+        self.start_time = 0
+        self.info_metrics = {}
+        self.w_locals = []
+        self.client_indexes = []
     def setup_clients(self):  # 开局数据按顺序分配
         for client_idx in range(self.args.num_clients):
             self.model_trainer.cid = client_idx
@@ -33,85 +40,83 @@ class BaseServer(object):
                 self.train_loaders[client_idx],
                 self.device,
                 self.args,
-                copy.deepcopy(self.model_trainer)
+                copy.deepcopy(self.model_trainer),
+                self.test_loaders[client_idx]
             )
             self.client_list.append(c)
+
     def change_data_per_client(self, new_idx):  # 此方法为改变客户的数据划分
         for client in self.client_list:  # 遍历每个客户，改变其所属的数据
             client.update_data(self.train_loaders[new_idx])
 
     def train(self, task_name, position):
-        global_info = {}
-        client_info = {}
-        start_time = time.time()
-        test_acc, test_loss = self.model_trainer.test(self.valid_global)
-        global_info[0] = {
-            "Loss": test_loss,
-            "Accuracy": test_acc,
-            "Relative Time": time.time() - start_time,
-        }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, position=position, leave=False):
+        self.global_initialize()
+        for self.round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, position=position, leave=False):
             # print("################Communication round : {}".format(round_idx))
-            w_locals = []
-            client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)
-            # print("client_indexes = " + str(client_indexes))
-            # 使用 ThreadPoolExecutor 管理线程
-            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = []
-                for cid in client_indexes:
-                    # 提交任务到线程池
-                    future = executor.submit(self.thread_train, self.client_list[cid], round_idx, self.global_params)
-                    futures.append(future)
-                # 等待所有任务完成
-                for future in futures:
-                    w_locals.append(future.result())
+            self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
+            self.execute_iteration()
+            self.global_update()
+            self.global_record()
 
-            # 更新权重并聚合
-            weights = np.array([self.sample_num[cid] / self.all_sample_num for cid in client_indexes])
-            self.global_params = _modeldict_weighted_average(w_locals, weights)
+        return self.info_metrics
 
-            # 全局测试
-            self.model_trainer.set_model_params(self.global_params)
-            metrics = self.model_trainer.test(self.valid_global)
-            test_acc, test_loss = (metrics["test_correct"] / metrics["test_loss"],
-                                   metrics["test_loss"] / metrics["test_loss"])
-            # print( "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(
-            # round_idx), str(test_acc), str(test_loss))) 计算时间, 存储全局日志
-            global_info[round_idx] = {
-                "Loss": test_loss,
-                "Accuracy": test_acc,
-                "Relative Time": time.time() - start_time,
-            }
-        # 收集客户端信息
-        for client in self.client_list:
-            cid, client_losses = client.model_trainer.get_all_epoch_losses()
-            client_info[cid] = client_losses
-
-        # 使用示例
-        info_metrics = {
-            'global_info': global_info,
-            'client_info': client_info,
-        }
-        return info_metrics
-
-    def client_sampling(self, cid_list, num_to_selected, scores=None): # 记录客户历史选中次数，不再是静态方法
+    def client_sampling(self, cid_list, num_to_selected, scores=None):  # 记录客户历史选中次数，不再是静态方法
+        self.client_indexes.clear()
         if len(cid_list) <= num_to_selected:
-            scid_list = cid_list
+            self.client_indexes = cid_list
         elif scores is None:
-            scid_list =np.random.choice(cid_list, num_to_selected, replace=False)
+            self.client_indexes = np.random.choice(cid_list, num_to_selected, replace=False)
         else:
             cid_scores = list(zip(cid_list, scores))
             sorted_cid_scores = sorted(cid_scores, key=lambda item: item[1], reverse=True)
             selected_cid = [item[0] for item in sorted_cid_scores[:num_to_selected]]
-            scid_list =selected_cid
-        for cid in scid_list:   # 更新被选中次数
+            self.client_indexes = selected_cid
+        for cid in self.client_indexes:  # 更新被选中次数
             self.client_selected_times[cid] += 1
-        return scid_list
 
-    @staticmethod
-    def thread_train(client, round_idx, info_global):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
-        # 确保info_global是一个元组
-        if not isinstance(info_global, tuple):
-            info_global = (info_global,)
-        info_local = client.local_train(round_idx, *info_global)
-        return info_local
+    # 创建记录(子类可以在此方法中初始化自己的记录信息)
+    def global_initialize(self):
+        # 初始化全局信息和客户信息
+        self.info_metrics = {
+            'global_info': {},
+            'client_info': {cid: {} for cid in range(self.args.num_clients)},
+        }
+        self.start_time = time.time()
+        test_acc, test_loss = self.model_trainer.test(self.valid_global)
+        self.info_metrics['global_info'][self.round_idx] = [{"Loss": test_loss, "Accuracy": test_acc, "Relative Time": 0}, ]
+
+    def execute_iteration(self):
+        self.w_locals.clear()
+        if self.args.training_mode == 'serial':
+            for cid in self.client_indexes:
+                w_local = self.thread_train(cid)
+                self.w_locals.append(w_local)
+        elif self.args.training_mode == 'thread':
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = [executor.submit(self.thread_train, cid, self.round_idx)
+                           for cid in self.client_indexes]
+                for future in futures:
+                    self.w_locals.append(future.result())
+
+    def thread_train(self, cid, round_idx):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
+        return self.client_list[cid].local_train(round_idx, self.local_params[cid])
+
+    def global_update(self):
+        weights = np.array([self.sample_num[cid] / self.all_sample_num for cid in self.client_indexes])
+        self.global_params = _modeldict_weighted_average(self.w_locals, weights)
+        # 全局测试
+        self.model_trainer.set_model_params(self.global_params)
+        metrics = self.model_trainer.test(self.valid_global)
+        test_acc, test_loss = (metrics["test_correct"] / metrics["test_loss"],
+                               metrics["test_loss"] / metrics["test_loss"])
+        self.info_metrics['global_info'][self.round_idx] = {
+            "Loss": test_loss,
+            "Accuracy": test_acc,
+            "Relative Time": time.time() - self.start_time,
+        }
+
+    def global_record(self):
+        # 收集客户端信息
+        for cid in self.client_indexes:
+            client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
+            self.info_metrics['client_info'][cid][self.round_idx] = client_losses

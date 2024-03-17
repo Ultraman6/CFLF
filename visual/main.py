@@ -1,5 +1,6 @@
 from nicegui import ui
 from visual.modules.configuration import config_ui
+from visual.pages.epxeriment import experiment_page
 from visual.parts.lazy_panels import lazy_tab_panels
 from visual.parts.lazy_tabs import lazy_tabs
 
@@ -12,7 +13,7 @@ class MainWindow:
             'AI分析': ['AI配置', 'AI结果']
         }
         self.unit_mapping = {
-            '实验模拟': config_ui, '算法配置': ui.label, '模型配置': ui.label, '数据集配置': ui.label, '机器配置': ui.label,
+            '实验模拟': experiment_page, '算法配置': ui.label, '模型配置': ui.label, '数据集配置': ui.label, '机器配置': ui.label,
             '个人信息': ui.label, '历史配置': ui.label, '历史结果': ui.label, '历史模型': ui.label,
             'AI配置': ui.label, 'AI结果': ui.label
         }
@@ -25,7 +26,6 @@ class MainWindow:
         for key in self.tab_mapping[v]:
             tab_list.append(ui.tab(key))
         self.sub_tabs.swap(tab_list)
-
 
     def create_main_window(self):
         with ui.header().classes(replace='row items-center') as header:
@@ -42,10 +42,10 @@ class MainWindow:
                     @panel.build_fn
                     def _(name: str):
                         ui.notify(f"创建页面:{name}")
-                        self.unit_mapping[name](f"page:{name}")
+                        self.unit_mapping[name]()
 
 
 # Initialize and run the main window
 main_window = MainWindow()
 main_window.create_main_window()
-ui.run(native=True, fullscreen=True)
+ui.run()

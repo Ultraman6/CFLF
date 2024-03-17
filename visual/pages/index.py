@@ -8,7 +8,7 @@ def create() -> None:
         with theme.frame('- 实验平台 -'):
             args = args_parser()
             cf_ui = config_ui()
-            cf_ui.create_config_ui(args)
+            cf_ui.create_template_config(args)
 
     @ui.page('/personal')
     def personal_page():

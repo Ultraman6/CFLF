@@ -74,8 +74,8 @@ def custom_collate_fn(batch):
 
 
 def show_data_distribution(dataloaders, args):
-    [train_loaders, v_global] = dataloaders
-    if args.show_dis:
+    [train_loaders, test_loaders, v_global] = dataloaders
+    if args.show_distribution:
         # 训练集加载器划分
         for i in range(args.num_clients):
             train_loader = train_loaders[i]

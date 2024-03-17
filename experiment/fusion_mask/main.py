@@ -1,6 +1,6 @@
 import sys
 from experiment.options import args_parser
-from manager.manager import ExperimentManager, visual_results
+from manager.manager import ExperimentManager
 sys.path.append("")
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -26,10 +26,14 @@ def main():
         # 'cross_up_att': {},
         # 'Stage_two': {},
     }
-    manager = ExperimentManager("fusion_mask_exp", args, same_seed=False)
-    results = manager.judge_running(exp_params, 'serial')
-    visual_results(results)
-    manager.save_results(results, args.result_root)
+    # 开始输入实验和算法参数
+    manager = ExperimentManager("fusion_mask_exp", exp_params, args, 'serial')
+    # 点击运行得到实验结果
+    manager.judge_running()
+    # 选择将实验结果可视化
+    manager.visual_results()
+    # 选择将实验结果信息保存
+    manager.save_results()
 
 
 # 主入口
