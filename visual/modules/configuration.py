@@ -209,7 +209,7 @@ class config_ui:
                         rxui.number(label='本地训练轮次数', value=rxui.vmodel(self.algo_ref.value['epoch']),
                                     format='%.0f')
                         rxui.number(label='客户总数', value=rxui.vmodel(self.algo_ref.value['num_clients']),
-                                    format='%.0f')
+                                    format='%.0f', step=1, min=1)
                         rxui.switch(text='开启本地测试', value=rxui.vmodel(self.algo_ref.value['local_test']))
                         rxui.number(label='验证集比例', value=rxui.vmodel(self.algo_ref.value['valid_ratio']),
                                     format='%.4f')
@@ -267,6 +267,7 @@ class config_ui:
         algo_args = copy.deepcopy(self.algo_args)
         algo_args['class_mapping'] = json.dumps(convert_to_dict(self.class_mapping_ref.value))
         algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.sample_mapping_ref.value))
+        algo_args['num_clients'] = int(algo_args['num_clients'])
         return algo_args, exp_args
 
 # if __name__ == '__main__':

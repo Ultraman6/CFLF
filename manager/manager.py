@@ -103,19 +103,24 @@ class ExperimentManager:
                 self.task_queue[task_id] = task
                 task_id += 1
 
-    # 统计公共数据划分情况
+    # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
-        global_train_infos, global_test_infos = {}, {}
+        dataloader_infos = {'train':{}, 'valid':{}, 'test':{}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
-
-        for cid, train_loader in enumerate(train_loaders):
-            global_train_infos[cid] = (train_loader.dataset.sample_info, train_loader.dataset.noise_info)
-            if self.args_template.local_test:
-                test_loader = self.dataloaders_global[2][cid]
-                global_test_infos[cid] = (test_loader.dataset.sample_info, test_loader.dataset.noise_info)
-        global_valid_info = (valid_loader.dataset.sample_info, valid_loader.dataset.noise_info)
-
-        return global_train_infos, global_valid_info, global_test_infos
+        test_loaders = self.dataloaders_global[2] if self.args_template.local_test else None
+        num_classes = train_loaders[0].dataset.num_classes
+        num_clients = len(train_loaders)
+        for label in range(num_classes):
+            train_label_dis = []
+            test_label_dis = []
+            for cid in range(num_clients):
+                train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
+                if test_loaders:
+                    test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
+            dataloader_infos['train'][label] = train_label_dis
+            dataloader_infos['test'][label] = test_label_dis
+            dataloader_infos['valid'][label] = [valid_loader.dataset.sample_info[label],]
+        return dataloader_infos  # 目前只考虑类别标签分布
 
     def run_experiment(self):
         """

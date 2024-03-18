@@ -52,13 +52,16 @@ def load_dataset(train, test, args, kwargs):
     if args.local_test:
         train_len = len(train)
         test_len = len(test)
-        if args.data_type == 'custom_single':
+        if args.num_type == 'custom_single':
             args.sample_per_client = args.sample_per_client * test_len / train_len
-        elif args.data_type == 'custom_each':
-            sample_mapping = list(json.loads(args.sample_mapping_json).values())
-            for i in range(len(args.num_clients)):
-                sample_mapping[i] *= (test_len / train_len)
+        elif args.num_type == 'custom_each':
+            sample_mapping = dict(json.loads(args.sample_mapping))
+            for k in sample_mapping:
+                sample_mapping[k] = int(sample_mapping[k] * test_len / train_len)
+
             args.sample_mapping = json.dumps(sample_mapping)
+            print(sample_mapping)
+            print(args.sample_mapping)
         test_loaders = split_data(test, args, kwargs, is_shuffle=False)  # 再用新的去划分本地测试机
         return train_loaders, valid_loader, test_loaders
     return train_loaders, valid_loader
