@@ -108,6 +108,7 @@ class experiment_page:
         ui.notify('装载实验任务')
 
     def show_distribution(self):
+        self.experiment.get_global_loader_infos()
         ui.notify('查看数据划分')
 
     def save_algo_args(self):

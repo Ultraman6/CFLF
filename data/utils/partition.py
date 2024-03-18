@@ -1,10 +1,9 @@
 import collections
-import copy
 import json
 import random
 import numpy as np
 import torch.backends.cudnn as cudnn
-from torch.utils.data import Dataset, Subset, DataLoader
+from torch.utils.data import Dataset, Subset
 from collections import defaultdict
 
 cudnn.banchmark = True
@@ -14,30 +13,58 @@ cudnn.banchmark = True
 '''
 
 # 提取标签
+feature_func = lambda x: [xi[0] for xi in x]
 index_func = lambda x: [xi[-1] for xi in x]
 
 
 class DatasetSplit(Dataset):
     # 工具类，将原始数据集解耦为可迭代的(x，y)序列，按照映射访问特定的子集
-    def __init__(self, dataset, idxs=None, noise_idxs=None):
-        super(DatasetSplit, self).__init__()
+    def __init__(self, dataset, idxs=None, noise_idxs=None, num_classes=None, length=None, noise_type='none'):
+        super().__init__()
         self.dataset = dataset
         # 如果 idxs 为 None，则映射整个数据集
         self.idxs = range(len(dataset)) if idxs is None else idxs
-        self.noise_idxs = noise_idxs
+        self.noise_idxs = noise_idxs if noise_idxs is not None else {}
+        self.noise_type = noise_type  # 默认无噪声: feature/label
+        self.len = len(self.idxs) if length is None else length
+        self.num_classes = num_classes if num_classes is not None else len(set(index_func(dataset)))
+        self.cal_infos()
 
     def __len__(self):
         return len(self.idxs)
 
     def __getitem__(self, item):
-        image, target = self.dataset[self.idxs[item]]
+        idx = self.idxs[item]
+        image, target = self.dataset[idx]
+        if self.noise_type == 'none':
+            return image, target
+        else:
+            if idx in self.noise_idxs:
+                if self.noise_type == 'feature':
+                    noise = self.noise_idxs[idx]
+                    image = np.clip(image + noise, 0, 255)
+                elif self.noise_type == 'label':
+                    target = self.noise_idxs[item][1]
+                else:
+                    raise ValueError('Unknown noise type: {}'.format(self.noise_type))
         return image, target
 
-    def get_noise_idxs(self):
-        return self.noise_idxs
 
-    def get_noise_num(self):
-        return len(self.noise_idxs)
+    # def get_noise_infos(self):
+    #     return self.noise_idxs
+
+    def cal_infos(self):
+        self.sample_info = {i: 0 for i in range(self.num_classes)}
+        for idx in self.idxs:
+            label = self.dataset[idx][1]
+            self.sample_info[label] += 1
+        self.noise_info = {i: 0 for i in range(self.num_classes)}
+        for nidx in self.noise_idxs:
+            label = self.dataset[nidx][1]
+            self.noise_info[label] += 1
+
+    # def get_noise_num(self):
+    #     return len(self.noise_idxs)
 
 
 def special_sample(dataset, distribution):
@@ -87,18 +114,21 @@ def balance_sample(test, valid_ratio):
     samples_per_class = total_samples_for_valid // num_classes
 
     # 准备每个类别的样本索引
-    selected_indices_per_class = {label: random.sample(indices, samples_per_class) for label, indices in label_to_indices.items()}
+    selected_indices_per_class = {label: random.sample(indices, samples_per_class) for label, indices in
+                                  label_to_indices.items()}
 
     # 按类别数为单位进行样本排列
     subset_indices = []
     for _ in range(samples_per_class):
         for label in range(num_classes):
             subset_indices.append(selected_indices_per_class[label].pop())
-
-    return DatasetSplit(test, subset_indices)
+    length = len(subset_indices)
+    num_classes = len(label_to_indices)
+    return DatasetSplit(test, subset_indices, {}, num_classes, length)
 
 
 def imbalance_sample(datasize, args):
+    global samples_per_client
     num_clients = args.num_clients
     if args.num_type == 'average':  # 当imbalance参数为0时，每个客户端的样本量相同
         samples_per_client = [int(datasize / num_clients) for _ in range(num_clients)]
@@ -311,54 +341,53 @@ def custom_class_partition(dataset, class_distribution, samples_per_client):
     return net_dataidx_map
 
 
-def noise_label_partition(dataset_size, dataset, num_clients, noise_params, samples_per_client):
-    d_idxs = np.random.permutation(dataset_size)
-    net_dataidx_map = {}
+def noise_label_partition(dataset, num_clients, noise_params, client_sample_indices):
     noise_indices_map = {}
-    start = 0
     for cid in range(num_clients):
-        client_id = str(cid)
-        num_samples = samples_per_client[client_id]
-        client_sample_indices = d_idxs[start:start + num_samples].tolist()
-        start += num_samples
-        noise_indices = []
-        if client_id in noise_params:
+        num_samples = len(client_sample_indices[cid])
+        noise_indices = {}
+        if cid in noise_params:
             # 为指定客户添加标签噪声
-            noise_ratio = noise_params[client_id]
+            noise_ratio = noise_params[cid][0]
             num_noisy_labels = int(num_samples * noise_ratio)
-            all_labels = set([dataset[idx][1] for idx in client_sample_indices])
+            all_labels = set([dataset[idx][1] for idx in client_sample_indices[cid]])
             for _ in range(num_noisy_labels):
-                idx = random.choice(client_sample_indices)
-                noise_indices.append(idx)
+                idx = random.choice(client_sample_indices[cid])
                 original_label = dataset[idx][1]
                 new_label = random.choice(list(all_labels - {original_label}))
-                dataset[idx] = (dataset[idx][0], new_label)
-        net_dataidx_map[client_id] = client_sample_indices
-        noise_indices_map[cid] = noise_indices
-
-    return net_dataidx_map
+                noise_indices[idx] = (original_label, new_label)
+            noise_indices_map[cid] = noise_indices  # 只加入有噪声的客户
+    return noise_indices_map
 
 
-def noise_feature_partition(dataset_size, dataset, num_clients, noise_params, samples_per_client):
-    d_idxs = np.random.permutation(dataset_size)
-    data_mapping = {}
+def noise_feature_partition(dataset, num_clients, noise_params, client_sample_indices):
     noise_indices_map = {}
-    start = 0
     for cid in range(num_clients):
-        num_samples = samples_per_client[cid]
-        client_sample_indices = d_idxs[start:start + num_samples].tolist()
-        start += num_samples
+        num_samples = len(client_sample_indices[cid])
+        noise_indices = {}  # 此处存放键为样本索引，值为其添加的噪声tensor
         if cid in noise_params:
             # 为指定客户添加特征噪声
             noise_ratio, noise_intensity = noise_params[cid]
             num_noisy_samples = int(num_samples * noise_ratio)
-            noise_samples_idxs = random.sample(client_sample_indices, num_noisy_samples)
+            noise_samples_idxs = random.sample(client_sample_indices[cid], num_noisy_samples)
             for idx in noise_samples_idxs:
                 original_sample = dataset[idx][0]
                 noise = np.random.normal(0, noise_intensity, original_sample.shape)
-                noise_sample = np.clip(original_sample + noise, 0, 255)
-                dataset[idx] = (noise_sample, dataset[idx][1])
-            noise_indices_map[cid] = noise_samples_idxs
-        data_mapping[cid] = client_sample_indices
+                noise_indices[idx] = noise
+            noise_indices_map[cid] = noise_indices  # 只加入有噪声的客户
 
-    return data_mapping, noise_indices_map
+    return noise_indices_map
+
+
+def gaussian_feature_partition(dataset, num_clients, gaussian, client_sample_indices):
+    shape = tuple(np.array(feature_func(dataset)[0].shape))
+    sigma = gaussian[0]
+    scale = gaussian[1]
+    local_perturbation_means = [np.random.normal(0, sigma, shape) for _ in range(num_clients)]
+    local_perturbation_stds = [scale * np.ones(shape) for _ in range(num_clients)]
+    noise_indices_map = {}
+    for cid in range(num_clients):
+        c_perturbation = {idx: np.random.normal(local_perturbation_means[cid], local_perturbation_stds[cid]).tolist() for
+                          idx in client_sample_indices[cid]}
+        noise_indices_map[cid] = c_perturbation
+    return noise_indices_map

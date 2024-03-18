@@ -48,4 +48,4 @@ class MainWindow:
 # Initialize and run the main window
 main_window = MainWindow()
 main_window.create_main_window()
-ui.run()
+ui.run(native=True)

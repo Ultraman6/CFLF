@@ -21,7 +21,6 @@ def my_vmodel(data, key):
 
     return to_ref_wrapper(lambda: data.value[key], setter)
 
-
 def scan_local_device():
     # 初始化设备字典
     devices = {}
@@ -35,6 +34,7 @@ def scan_local_device():
             gpus[str(i)] = torch.cuda.get_device_name(i)
     devices['gpu'] = gpus
     return devices
+
 
 
 # 此表格已经提前绑定了事件、结构

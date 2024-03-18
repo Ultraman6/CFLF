@@ -47,20 +47,21 @@ def get_dataloaders(args):
 
 def load_dataset(train, test, args, kwargs):
     train_loaders = split_data(train, args, kwargs, is_shuffle=True)
-    train_len = len(train)
-    test_len = len(test)
-    if args.data_type == 'custom_single':
-        args.sample_per_client = args.sample_per_client * test_len / train_len
-    elif args.data_type == 'custom_each':
-        sample_mapping = list(json.loads(args.sample_mapping_json).values())
-        for i in range(len(args.sample_per_client)):
-            sample_mapping[i] *= (test_len / train_len)
-        args.sample_mapping = json.dumps(sample_mapping)
-    test_loaders = split_data(test, args, kwargs, is_shuffle=False)  # 再用新的去划分本地测试机
     valid_loader = DataLoader(balance_sample(test, args.valid_ratio),
                               batch_size=args.batch_size, shuffle=False, collate_fn=custom_collate_fn, **kwargs)
-
-    return train_loaders, test_loaders, valid_loader
+    if args.local_test:
+        train_len = len(train)
+        test_len = len(test)
+        if args.data_type == 'custom_single':
+            args.sample_per_client = args.sample_per_client * test_len / train_len
+        elif args.data_type == 'custom_each':
+            sample_mapping = list(json.loads(args.sample_mapping_json).values())
+            for i in range(len(args.num_clients)):
+                sample_mapping[i] *= (test_len / train_len)
+            args.sample_mapping = json.dumps(sample_mapping)
+        test_loaders = split_data(test, args, kwargs, is_shuffle=False)  # 再用新的去划分本地测试机
+        return train_loaders, valid_loader, test_loaders
+    return train_loaders, valid_loader
 
 
 def custom_collate_fn(batch):
@@ -74,28 +75,26 @@ def custom_collate_fn(batch):
 
 
 def show_data_distribution(dataloaders, args):
-    [train_loaders, test_loaders, v_global] = dataloaders
     if args.show_distribution:
         # 训练集加载器划分
         for i in range(args.num_clients):
-            train_loader = train_loaders[i]
-            distribution = get_distribution(train_loader, args.dataset)
+            train_loader = dataloaders[0][i]
+            # distribution = get_distribution(train_loader, args.dataset)
             print("train dataloader {} distribution".format(i))
-            print(len(train_loader.dataset))
-            print(distribution)
-        # 测试集加载器划分
-        # for i in range(args.num_clients):
-        #     test_loader = test_loaders[i]
-        #     test_size = len(test_loaders[i].dataset)
-        #     distribution = show_distribution(test_loader, args)
-        #     print("gradnorm_coffee dataloader {} distribution".format(i))
-        #     print(len(test_loader.dataset))
-        #     print(distribution)
+            print(train_loader.dataset.len)
+            print(train_loader.dataset.sample_info)
+            if args.local_test:
+                test_loader = dataloaders[2][i]
+                # distribution = get_distribution(train_loader, args.dataset)
+                print("test dataloader {} distribution".format(i))
+                print(test_loader.dataset.len)
+                print(test_loader.dataset.sample_info)
         # 全局验证集加载器划分
-        distribution = get_distribution(v_global, args.dataset)
+        # distribution = get_distribution(v_global, args.dataset)
+        valid_loader = dataloaders[1]
         print("global valid dataloader distribution")
-        print(len(v_global.dataset))
-        print(distribution)
+        print(valid_loader.dataset.len)
+        print(valid_loader.dataset.sample_info)
 
 
 def get_distribution(dataloader, dataset_name, mode='pro'):

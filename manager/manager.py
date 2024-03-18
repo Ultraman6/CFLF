@@ -103,6 +103,20 @@ class ExperimentManager:
                 self.task_queue[task_id] = task
                 task_id += 1
 
+    # 统计公共数据划分情况
+    def get_global_loader_infos(self):
+        global_train_infos, global_test_infos = {}, {}
+        train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
+
+        for cid, train_loader in enumerate(train_loaders):
+            global_train_infos[cid] = (train_loader.dataset.sample_info, train_loader.dataset.noise_info)
+            if self.args_template.local_test:
+                test_loader = self.dataloaders_global[2][cid]
+                global_test_infos[cid] = (test_loader.dataset.sample_info, test_loader.dataset.noise_info)
+        global_valid_info = (valid_loader.dataset.sample_info, valid_loader.dataset.noise_info)
+
+        return global_train_infos, global_valid_info, global_test_infos
+
     def run_experiment(self):
         """
         根据提供的执行模式运行实验。

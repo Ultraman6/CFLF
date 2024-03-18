@@ -210,6 +210,7 @@ class config_ui:
                                     format='%.0f')
                         rxui.number(label='客户总数', value=rxui.vmodel(self.algo_ref.value['num_clients']),
                                     format='%.0f')
+                        rxui.switch(text='开启本地测试', value=rxui.vmodel(self.algo_ref.value['local_test']))
                         rxui.number(label='验证集比例', value=rxui.vmodel(self.algo_ref.value['valid_ratio']),
                                     format='%.4f')
                         with ui.card().tight():

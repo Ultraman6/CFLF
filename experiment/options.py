@@ -160,17 +160,16 @@ def args_parser():
         help='selection of participated clients'
     )
     federated_learning.add_argument(
+        '--local_test',
+        type=bool,
+        default=False,
+        help='whether to use local test set'
+    )
+    federated_learning.add_argument(
         '--valid_ratio',
         type=float,
         default=0.1,
         help='validation set ratio'
-    )
-    federated_learning.add_argument(
-        '--data_type',
-        type=str,
-        default='custom_class',
-        choices=['homo', 'dirichlet', 'shards', 'custom_class', 'noise_feature', 'noise_label'],
-        help='type of data distribution'
     )
     federated_learning.add_argument(
         '--num_type',
@@ -185,6 +184,30 @@ def args_parser():
         default=0.1,
         help='Heterogeneity coefficient, 1 indicates homogeneity, '
              'to 0 the more heterogeneous for both num and data'
+    )
+    federated_learning.add_argument(
+        '--sample_per_client',
+        type=int,
+        default=1000,
+        help='Volume of data per client for custom_single num_type'
+    )
+    federated_learning.add_argument(
+        '--sample_mapping',
+        type=str,
+        default=json.dumps({
+            "0": 1000, "1": 1000, "2": 1000, "3": 1000, "4": 1000,
+            "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
+            "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
+            "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
+        }),
+        help='Volume of data each client for custom_single num_type'
+    )
+    federated_learning.add_argument(
+        '--data_type',
+        type=str,
+        default='homo',
+        choices=['homo', 'dirichlet', 'shards', 'custom_class'],
+        help='type of data distribution'
     )
     federated_learning.add_argument(
         '--dir_alpha',
@@ -211,21 +234,17 @@ def args_parser():
         help='Volume of classes each client for custom_class data_type'
     )
     federated_learning.add_argument(
-        '--sample_per_client',
-        type=int,
-        default=1000,
-        help='Volume of samples per client for customised single num_type'
+        '--noise_type',
+        type=str,
+        default='custom_feature',
+        choices=['none', 'gaussian', 'custom_label', 'custom_feature'],
+        help='type of noise distribution'
     )
     federated_learning.add_argument(
-        '--sample_mapping',
-        type=str,
-        default=json.dumps({
-            "0": 1000, "1": 1000, "2": 1000, "3": 1000, "4": 1000,
-            "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
-            "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
-            "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
-        }),
-        help='Volume of samples each client for customised each num_type'
+        '--gaussian',
+        type=tuple,
+        default=(0.1, 0.1),
+        help='Gaussian noise distribution for noise_type'
     )
     federated_learning.add_argument(
         '--noise_mapping',
