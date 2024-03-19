@@ -15,7 +15,7 @@ index_func = lambda x: [xi[-1] for xi in x]
 
 # 如何调整本地训练样本数量
 
-def split_data(dataset, args, kwargs, is_shuffle=True):
+def split_data(dataset, args, kwargs, is_shuffle=True, is_test=False):
     """ 每种划分都可以自定义样本数量，内嵌imbalance方法，以下方案按照不同的类别划分区分
     return dataloaders
     """
@@ -41,18 +41,19 @@ def split_data(dataset, args, kwargs, is_shuffle=True):
         raise ValueError('Data Distribution pattern `{}` not implemented '.format(args.iid))
     # 数据噪声逻辑
     noise_type = 'none'
-    if args.noise_type == 'gaussian':
-        gaussian = args.gaussian
-        noise_type = 'feature'
-        noise_mappings = gaussian_feature_partition(dataset, num_clients, gaussian, data_mappings)
-    else:
-        noise_params = json_str_to_int_key_dict(args.noise_mapping)
-        if args.noise_type == 'custom_feature':
+    if not is_test:
+        if args.noise_type == 'gaussian':
+            gaussian = args.gaussian
             noise_type = 'feature'
-            noise_mappings = noise_feature_partition(dataset, num_clients, noise_params, data_mappings)
-        elif args.noise_type == 'custom_label':
-            noise_type = 'label'
-            noise_mappings = noise_label_partition(dataset, num_clients, noise_params, data_mappings)
+            noise_mappings = gaussian_feature_partition(dataset, num_clients, gaussian, data_mappings)
+        else:
+            noise_params = json_str_to_int_key_dict(args.noise_mapping)
+            if args.noise_type == 'custom_feature':
+                noise_type = 'feature'
+                noise_mappings = noise_feature_partition(dataset, num_clients, noise_params, data_mappings)
+            elif args.noise_type == 'custom_label':
+                noise_type = 'label'
+                noise_mappings = noise_label_partition(dataset, num_clients, noise_params, data_mappings)
 
 
     data_loaders = []
@@ -71,7 +72,6 @@ if __name__ == '__main__':
     train, test = get_mnist('../../datasets')
     args = args_parser()
     dataloaders = split_data(train, args, {'num_workers': 0, 'pin_memory': True})
-    print('有毒')
-    print(dataloaders[2].dataset.sample_info)
+    # print(dataloaders[2].dataset.sample_info)
     print(dataloaders[2].dataset.noise_idxs)
     print(dataloaders[2].dataset.noise_info)

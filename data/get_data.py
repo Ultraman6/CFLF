@@ -62,7 +62,7 @@ def load_dataset(train, test, args, kwargs):
             args.sample_mapping = json.dumps(sample_mapping)
             print(sample_mapping)
             print(args.sample_mapping)
-        test_loaders = split_data(test, args, kwargs, is_shuffle=False)  # 再用新的去划分本地测试机
+        test_loaders = split_data(test, args, kwargs, is_shuffle=False, is_test=True)  # 再用新的去划分本地测试机
         return train_loaders, valid_loader, test_loaders
     return train_loaders, valid_loader
 

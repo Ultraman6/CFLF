@@ -16,6 +16,13 @@ from visual.parts.lazy_panels import lazy_tab_panels
 from visual.parts.lazy_tabs import lazy_tabs
 
 
+name_mapping = {
+    'train': '训练集',
+    'valid': '验证集',
+    'test': '测试集',
+}
+
+
 def convert_to_list(mapping):
     mapping_list = []
     for key, value in mapping.items():
@@ -77,7 +84,7 @@ class experiment_page:
     algo_args = None
     exp_args = None
     visual_data_infos = {}
-
+    args_queue = []
     def __init__(self):  # 这里定义引用，传进去同步更新
         with lazy_stepper(keep_alive=False).props('vertical').classes('w-full') as self.stepper:
             with ui.step('参数配置'):
@@ -95,8 +102,6 @@ class experiment_page:
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=self.stepper.next)
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
-                with ui.card():
-                    rxui.label('数据划分预览')
 
             step_run = self.stepper.step('算法执行')
 
@@ -114,8 +119,8 @@ class experiment_page:
                 with ui.dialog() as dialog, ui.card():
                     for key, value in self.algo_args.items():
                         ui.label(f'{key}: {value}')
-                ui.button('show_algo_args', on_click=dialog.open)
-                ui.button('save_algo_args', on_click=self.save_algo_args)
+                ui.button('展示算法模板', on_click=dialog.open)
+                ui.button('保存算法模板', on_click=self.save_algo_args)
             with ui.row():
                 with ui.dialog() as dialog, ui.card():
                     for key, value in self.exp_args.items():
@@ -127,8 +132,8 @@ class experiment_page:
                                         ui.label(f'{k}: {v}')
                         else:
                             ui.label(f'{key}: {value}')
-                ui.button('show_exp_args', on_click=dialog.open)
-                ui.button('save_exp_args', on_click=self.save_exp_args)
+                ui.button('展示实验配置', on_click=dialog.open)
+                ui.button('保存实验配置', on_click=self.save_exp_args)
         with ui.grid(columns=3).classes('w-full'):
             ui.button('创建实验对象', on_click=self.show_experiment)
             ui.button('装载实验任务', on_click=self.show_assemble)
@@ -158,92 +163,97 @@ class experiment_page:
     def show_distribution(self):
         if self.exp_args['same']['data']:  # 直接展示全局划分数据
             self.visual_data_infos = self.experiment.get_global_loader_infos()
+            print(self.visual_data_infos)
         else:
-            self.visual_data_infos = self.experiment.get_local_loader_infos()
+            self.visual_data_infos, self.args_queue = self.experiment.get_local_loader_infos()
         self.draw_distribution.refresh()
         ui.notify('查看数据划分')
 
     @ui.refreshable_method
     def draw_distribution(self):
+        print(self.args_queue)
         if self.exp_args['same']['data']:  # 直接展示全局划分数据
             with rxui.grid(columns=1).classes('w-full'):
                 for name in self.visual_data_infos:
                     print(self.visual_data_infos[name])
                     with rxui.card().classes('w-full'):
                         rxui.label(name).classes('w-full')
-                        rxui.echarts(self.cal_dis_dict(self.visual_data_infos[name]))
+                        rxui.echarts(self.cal_dis_dict(self.visual_data_infos[name], target=name_mapping[name]))
         else:  # 展示每个算法的划分数据 (多加一层算法名称的嵌套)
             with lazy_tabs() as tabs:
                 for name in self.visual_data_infos:
                     tabs.add(ui.tab(name))
             with lazy_tab_panels(tabs).classes('w-full') as panels:
-                for name in self.visual_data_infos:
+                for tid, name in enumerate(self.visual_data_infos):
                     panel = panels.tab_panel(name)
-
                     @panel.build_fn
                     def _(name: str):
                         ui.notify(f"创建:{name}的图表")
-                        with ui.card().classes('w-full'):
-                            for item in self.visual_data_infos[name]:
-                                with ui.card().classes('w-full'):
-                                    rxui.label(item).classes('w-full')
-                                    ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item]))
+                        with ui.dialog() as dialog, ui.card():
+                            args = vars(self.args_queue[tid])
+                            with ui.card():
+                                for k, v in args.items():
+                                    ui.label(f'{k}: {v}')
+                        rxui.button('show_exp_args', on_click=dialog.open)
+                        for item in self.visual_data_infos[name]:
+                            target = name_mapping[item]
+                            rxui.label(target).classes('w-full')
+                            ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes('w-full')
 
     # @ref_computed
-    def cal_dis_dict(self, infos):
-        num_clients = 0 if len(infos) == 0 else len(infos[0])
-        num_classes = len(infos)
+    def cal_dis_dict(self, infos, target='训练集'):
+        infos_each = infos['each']
+        infos_all = infos['all']
+        num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0]) # 现在还有噪声数据，必须取元组的首元素
+        num_classes = len(infos_each)
         colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
-        return {
-            # "title": {
-            #     "text": 'sb',
-            #     'left': 'center', # 标题居中
-            #     'top': 'top',  # 标题位于顶部
-            #     'padding': [20, 0, 20, 0], # 增加上下的 padding
-            # },  # 字典中使用任意响应式变量，通过 .value 获取值
-            "xAxis": {
-                "type": "category",
-                "name": '客户ID',
-                "data": ['客户' + str(i) for i in range(num_clients)],
-                # 'axisTick': {
-                #     'alignWithLabel': True
-                # },
-                # 'axisLabel': {
-                #     'rotate': 45 # 如果类别名称很长可以考虑旋转标签
-                # }
+        legend_dict = [
+            {
+                'name': '总数',
+                'icon': 'circle',
             },
-            "yAxis": {
-                "type": "value",
-                "name": '样本分布',
-                "minInterval": 1,  # 设置Y轴的最小间隔
-                "axisLabel": {
-                    'interval': 'auto',  # 根据图表的大小自动计算步长
-                },
-            },
-            'legend': {
-                'data': [
-                    {
-                        'name': '类别' + str(label),
-                        'icon': 'circle',
-                        # 'textStyle': {'color': colors[label]}
-                    } for label in infos
-                ],
-                'type': 'scroll',  # 启用图例的滚动条
-                # 你可以根据需要设置左右箭头翻页
-                'pageButtonItemGap': 5,
-                'pageButtonGap': 20,
-                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            },
-            "series": [
+            {
+                'name': '噪声',
+                'icon': 'circle',
+            }
+        ]
+        for label in infos_each:
+            legend_dict.append(
                 {
-                    "data": distribution,
+                    'name': '类别' + str(label),
+                    'icon': 'circle',
+                }
+            )
+        series_dict = [
+                {
+                    "data": [
+                        {
+                            "value": dist,  # 总数据量
+                            "itemStyle": {
+                                "color": {
+                                    "type": "linear",
+                                    "x": 0,
+                                    "y": 0,
+                                    "x2": 0,
+                                    "y2": 1,
+                                    "colorStops": [
+                                        {"offset": 0, "color": colors[label]},  # 原始颜色
+                                        {"offset": 1 - noise / dist, "color": colors[label]},  # 与原始颜色相同，此处为噪声数据位置
+                                        {"offset": 1 - noise / dist, "color": 'grey'},  # 从噪声数据位置开始渐变
+                                        {"offset": 1, "color": 'grey'}  # 底部透明
+                                    ]
+                                }
+                            }
+                        }
+                        for dist, noise in zip(distribution, noises)
+                    ],
                     "type": "bar",
-                    "stack": 'x',
+                    "stack": 'each',
                     "name": '类别' + str(label),
                     "barWidth": '10%',  # 设置柱子的宽度
                     "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
                     'itemStyle': {
-                        'color': colors[label]
+                        'color': colors[label],
                     },
                     'emphasis': {
                         'focus': 'self',
@@ -260,7 +270,6 @@ class experiment_page:
                             'show': True,
                             'formatter': '{b}\n数量{c}',
                             'position': 'inside',
-                            # 'color': 'white',
                         }
                     },
                     # 如果您想要放大当前柱子
@@ -270,8 +279,102 @@ class experiment_page:
                     'labelLine': {
                         'show': False
                     }
-                } for label, distribution in infos.items()
-            ],
+                } for label, (distribution, noises) in infos_each.items()
+            ]
+        series_dict.append(
+            {
+                "data": [{'value': d} for d in infos_all['total']],
+                "type": "bar",
+                "name": '总数',
+                "barWidth": '10%',  # 设置柱子的宽度
+                "barCategoryGap": '0%',  # 设置类目间柱形距离（类目宽的百分比）
+                'itemStyle': {
+                    'color': 'black',
+                },
+                'emphasis': {
+                    'focus': 'self',
+                    'itemStyle': {
+                        'borderColor': 'black',
+                        'color': 'black',
+                        'borderWidth': 20,
+                        'shadowBlur': 10,
+                        'shadowOffsetX': 0,
+                        'shadowColor': 'rgba(0, 0, 0, 0)',
+                        'scale': True  # 实际放大柱状图的部分
+                    },
+                    'label': {
+                        'show': True,
+                        'formatter': '{b}\n数量{c}',
+                        'position': 'inside',
+                    }
+                },
+                # 如果您想要放大当前柱子
+                'label': {
+                    'show': False
+                },
+                'labelLine': {
+                    'show': False
+                }
+            }
+        )
+        series_dict.append(
+            {
+                "data": [{'value': d} for d in infos_all['noise']],
+                "type": "bar",
+                "name": '噪声',
+                "barWidth": '10%',  # 设置柱子的宽度
+                "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
+                'itemStyle': {
+                    'color': 'grey',
+                },
+                'emphasis': {
+                    'focus': 'self',
+                    'itemStyle': {
+                        'borderColor': 'grey',
+                        'color': 'grey',
+                        'borderWidth': 20,
+                        'shadowBlur': 10,
+                        'shadowOffsetX': 0,
+                        'shadowColor': 'rgba(0, 0, 0, 0)',
+                        'scale': True  # 实际放大柱状图的部分
+                    },
+                    'label': {
+                        'show': True,
+                        'formatter': '{b}\n噪声{c}',
+                        'position': 'inside',
+                    }
+                },
+                # 如果您想要放大当前柱子
+                'label': {
+                    'show': False
+                },
+                'labelLine': {
+                    'show': False
+                }
+            }
+        )
+        return {
+            "xAxis": {
+                "type": "category",
+                "name": target+'ID',
+                "data": [target + str(i) for i in range(num_clients)],
+            },
+            "yAxis": {
+                "type": "value",
+                "name": '样本分布',
+                "minInterval": 1,  # 设置Y轴的最小间隔
+                "axisLabel": {
+                    'interval': 'auto',  # 根据图表的大小自动计算步长
+                },
+            },
+            'legend': {
+                'data': legend_dict,
+                'type': 'scroll',  # 启用图例的滚动条
+                'pageButtonItemGap': 5,
+                'pageButtonGap': 20,
+                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+            },
+            "series": series_dict,
             'tooltip': {
                 'trigger': 'item',
                 'axisPointer': {

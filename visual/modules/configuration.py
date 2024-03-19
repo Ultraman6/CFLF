@@ -267,6 +267,7 @@ class config_ui:
         algo_args = copy.deepcopy(self.algo_args)
         algo_args['class_mapping'] = json.dumps(convert_to_dict(self.class_mapping_ref.value))
         algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.sample_mapping_ref.value))
+        print(algo_args)
         return algo_args, exp_args
 
 # if __name__ == '__main__':

@@ -25,8 +25,9 @@ class DatasetSplit(Dataset):
         # 如果 idxs 为 None，则映射整个数据集
         self.idxs = range(len(dataset)) if idxs is None else idxs
         self.noise_idxs = noise_idxs if noise_idxs is not None else {}
-        self.noise_type = noise_type  # 默认无噪声: feature/label
+        self.noise_type = noise_type        # 默认无噪声: feature/label
         self.len = len(self.idxs) if length is None else length
+        self.noise_len = len(self.noise_idxs)
         self.num_classes = num_classes if num_classes is not None else len(set(index_func(dataset)))
         self.cal_infos()
 

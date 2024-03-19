@@ -83,6 +83,7 @@ class ExperimentManager:
             args.num_clients = int(args.num_clients)
         if hasattr(args, 'seed'):
             args.seed = int(args.seed)
+
     def assemble_parameters(self):
         """
         解析并组装实验参数，形成实验任务列表。
@@ -94,17 +95,22 @@ class ExperimentManager:
         for algo in self.algo_queue:
             algo_name, variations = algo['algo'], algo['params']
             algo_class = self.judge_algo(algo_name)
+            # 确定哪些参数是有多个配置的
+            params_with_multiple_options = {param: len(values) > 1 for param, values in variations.items()}
+
             for param_dict in itertools.product(*variations.values()):
                 param_combination = dict(zip(variations.keys(), param_dict))
                 args = copy.deepcopy(self.args_template)
                 for param, value in param_combination.items():
                     setattr(args, param, value)
-                experiment_name = f"{algo_name}_{'_'.join([f'{k}{v}' for k, v in param_combination.items()])}"
+
+                # 只考虑数量大于一的参数的配置组合来命名
+                experiment_name_parts = [f"{param}{value}" for param, value in param_combination.items() if
+                                         params_with_multiple_options[param]]
+                experiment_name = f"{algo_name}_{'_'.join(experiment_name_parts)}" if experiment_name_parts else algo_name
+
                 self.handle_type(args)
-                print(args)
-                # 根据same配置创建模型和数据加载器或复制全局实例
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
-                # 创建Task对象
                 device = setup_device(args)  # 设备设置
                 task = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 self.task_queue[task_id] = task
@@ -112,51 +118,78 @@ class ExperimentManager:
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
-        dataloader_infos = {'train': {}, 'valid': {}}
+        dataloader_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}}, 'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
-        test_loaders = self.dataloaders_global[2] if self.args_template.local_test else None
         num_classes = train_loaders[0].dataset.num_classes
         num_clients = len(train_loaders)
         for label in range(num_classes):
             train_label_dis = []
+            noise_dis = []
             for cid in range(num_clients):
                 train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
-            dataloader_infos['train'][label] = train_label_dis
-            dataloader_infos['valid'][label] = [valid_loader.dataset.sample_info[label], ]
+                noise_dis.append(train_loaders[cid].dataset.noise_info[label])
+            dataloader_infos['train']['each'][label] = (train_label_dis, noise_dis)
+            dataloader_infos['valid']['each'][label] = ([valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+        dataloader_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
+        dataloader_infos['valid']['all']['total'].append(valid_loader.dataset.len)
+        for cid in range(num_clients):
+            dataloader_infos['train']['all']['noise'].append(train_loaders[cid].dataset.noise_len)
+            dataloader_infos['train']['all']['total'].append(train_loaders[cid].dataset.len)
 
         if self.args_template.local_test:
-            dataloader_infos['test'] = {}
+            test_loaders = self.dataloaders_global[2]
+            dataloader_infos['test'] = {'each': {}, 'all': {'noise': [], 'total': []}}
             for label in range(num_classes):
                 test_label_dis = []
+                noise_dis = []
                 for cid in range(num_clients):
                     test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
-                dataloader_infos['test'][label] = test_label_dis
+                    noise_dis.append(test_loaders[cid].dataset.noise_info[label])
+                dataloader_infos['test']['each'][label] = (test_label_dis, noise_dis)
+            for cid in range(num_clients):
+                dataloader_infos['test']['all']['noise'].append(test_loaders[cid].dataset.noise_len)
+                dataloader_infos['test']['all']['total'].append(test_loaders[cid].dataset.len)
 
         return dataloader_infos  # 目前只考虑类别标签分布
 
     def get_local_loader_infos(self):
         dataloader_infos = {}
+        args_queue = []
         for id, task in enumerate(self.task_queue.values()):
-            task_infos = {'train': {}, 'valid': {}}
+            task_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}}, 'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
             train_loaders, valid_loader = task.dataloaders[0], task.dataloaders[1]
             test_loaders = task.dataloaders[2] if self.args_template.local_test else None
             num_classes = train_loaders[0].dataset.num_classes
             num_clients = len(train_loaders)
             for label in range(num_classes):
                 train_label_dis = []
+                noise_dis = []
                 for cid in range(num_clients):
                     train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
-                task_infos['train'][label] = train_label_dis
-                task_infos['valid'][label] = [valid_loader.dataset.sample_info[label], ]
+                    noise_dis.append(train_loaders[cid].dataset.noise_info[label])
+                task_infos['train']['each'][label] = (train_label_dis, noise_dis)
+                task_infos['valid']['each'][label] = ([valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+            task_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
+            task_infos['valid']['all']['total'].append(valid_loader.dataset.len)
+            for cid in range(num_clients):
+                task_infos['train']['all']['noise'].append(train_loaders[cid].dataset.noise_len)
+                task_infos['train']['all']['total'].append(train_loaders[cid].dataset.len)
             if self.args_template.local_test:
-                task_infos['test'] = {}
+                task_infos['test'] = {'each': {}, 'all': {'noise': [], 'total': []}}
                 for label in range(num_classes):
                     test_label_dis = []
+                    noise_dis = []
                     for cid in range(num_clients):
                         test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
-                    task_infos['test'][label] = test_label_dis
-            dataloader_infos[self.algo_queue[id]['algo']] = task_infos
-        return dataloader_infos  # 目前只考虑类别标签分布
+                        noise_dis.append(test_loaders[cid].dataset.noise_info[label])
+                    task_infos['test']['each'][label] = (test_label_dis, noise_dis)
+                for cid in range(num_clients):
+                    task_infos['test']['all']['noise'].append(test_loaders[cid].dataset.noise_len)
+                    task_infos['test']['all']['total'].append(test_loaders[cid].dataset.len)
+            args_queue.append(task.args)
+            dataloader_infos[task.task_name] = task_infos
+
+        return dataloader_infos, args_queue  # 目前只考虑类别标签分布
 
     def run_experiment(self):
         """
