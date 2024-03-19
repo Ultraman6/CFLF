@@ -45,6 +45,7 @@ class ExperimentManager:
         self.run_mode = exp_args.get('run_mode', 'serial')
         self.run_config = exp_args.get('run_config', {'max_processes': 4, 'max_threads': 20})
         self.args_template = args_template
+        self.handle_type(self.args_template)
 
         self.model_global = None
         self.dataloaders_global = None
@@ -77,7 +78,7 @@ class ExperimentManager:
             dataloaders = get_dataloaders(args)
         return model, dataloaders
 
-    def deal_type(self, args):
+    def handle_type(self, args):
         if hasattr(args, 'num_clients'):
             args.num_clients = int(args.num_clients)
         if hasattr(args, 'seed'):
@@ -99,7 +100,7 @@ class ExperimentManager:
                 for param, value in param_combination.items():
                     setattr(args, param, value)
                 experiment_name = f"{algo_name}_{'_'.join([f'{k}{v}' for k, v in param_combination.items()])}"
-                self.deal_type(args)
+                self.handle_type(args)
                 print(args)
                 # 根据same配置创建模型和数据加载器或复制全局实例
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
