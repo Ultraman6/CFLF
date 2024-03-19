@@ -105,21 +105,26 @@ class ExperimentManager:
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
-        dataloader_infos = {'train':{}, 'valid':{}, 'test':{}}
+        dataloader_infos = {'train':{}, 'valid':{}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
         test_loaders = self.dataloaders_global[2] if self.args_template.local_test else None
         num_classes = train_loaders[0].dataset.num_classes
         num_clients = len(train_loaders)
         for label in range(num_classes):
             train_label_dis = []
-            test_label_dis = []
             for cid in range(num_clients):
                 train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
-                if test_loaders:
-                    test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
             dataloader_infos['train'][label] = train_label_dis
-            dataloader_infos['test'][label] = test_label_dis
             dataloader_infos['valid'][label] = [valid_loader.dataset.sample_info[label],]
+
+        if self.args_template.local_test:
+            dataloader_infos['test'] = {}
+            for label in range(num_classes):
+                test_label_dis = []
+                for cid in range(num_clients):
+                    test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
+                dataloader_infos['test'][label] = test_label_dis
+
         return dataloader_infos  # 目前只考虑类别标签分布
 
     def run_experiment(self):

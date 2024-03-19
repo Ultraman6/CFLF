@@ -71,7 +71,7 @@ def color(value):
 class experiment_page:
     algo_args = None
     exp_args = None
-
+    visual_data_infos = {}
     def __init__(self):  # 这里定义引用，传进去同步更新
         with lazy_stepper(keep_alive=False).props('vertical').classes('w-full') as self.stepper:
             with ui.step('参数配置'):
@@ -83,7 +83,7 @@ class experiment_page:
             @step_pre.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
-                with ui.card():  # 刷新API有问题，但仍可使用
+                with ui.card().classes('w-full'):  # 刷新API有问题，但仍可使用
                     self.create_pre_tabs()
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=self.stepper.next)
@@ -123,11 +123,12 @@ class experiment_page:
                             ui.label(f'{key}: {value}')
                 ui.button('show_exp_args', on_click=dialog.open)
                 ui.button('save_exp_args', on_click=self.save_exp_args)
-        with ui.card():
-            with ui.row():
-                ui.button('创建实验对象', on_click=self.show_experiment)
-                ui.button('装载实验任务', on_click=self.show_assemble)
-                ui.button('查看数据划分', on_click=self.show_distribution)
+        with ui.grid(columns=3).classes('w-full'):
+            ui.button('创建实验对象', on_click=self.show_experiment)
+            ui.button('装载实验任务', on_click=self.show_assemble)
+            ui.button('查看数据划分', on_click=self.show_distribution)
+        self.draw_distribution()
+
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()
@@ -150,11 +151,18 @@ class experiment_page:
         ui.notify('装载实验任务')
 
     def show_distribution(self):
-        dataloader_infos = self.experiment.get_global_loader_infos()
-        for name in dataloader_infos:
-            print(dataloader_infos[name])
-            rxui.echarts(self.cal_dis_dict(name, dataloader_infos[name]))
+        self.visual_data_infos = self.experiment.get_global_loader_infos()
+        self.draw_distribution.refresh()
         ui.notify('查看数据划分')
+
+    @ui.refreshable_method
+    def draw_distribution(self):
+        with rxui.grid(columns=1).classes('w-full'):
+            for name in self.visual_data_infos:
+                print(self.visual_data_infos[name])
+                with rxui.card().classes('w-full'):
+                    rxui.label(name).classes('w-full')
+                    rxui.echarts(self.cal_dis_dict(name, self.visual_data_infos[name]))
 
     # @ref_computed
     def cal_dis_dict(self, name, infos):
@@ -162,26 +170,120 @@ class experiment_page:
         num_classes = len(infos)
         colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
         return {
-            "title": {"text": name},  # 字典中使用任意响应式变量，通过 .value 获取值
+            # "title": {
+            #     "text": 'sb',
+            #     'left': 'center', # 标题居中
+            #     'top': 'top',  # 标题位于顶部
+            #     'padding': [20, 0, 20, 0], # 增加上下的 padding
+            # },  # 字典中使用任意响应式变量，通过 .value 获取值
             "xAxis": {
                 "type": "category",
                 "name": '客户ID',
-                "data": list(range(num_clients)),
+                "data": ['客户'+str(i) for i in range(num_clients)],
+                # 'axisTick': {
+                #     'alignWithLabel': True
+                # },
+                # 'axisLabel': {
+                #     'rotate': 45 # 如果类别名称很长可以考虑旋转标签
+                # }
             },
             "yAxis": {
                 "type": "value",
-                "name": '样本分布'
+                "name": '样本分布',
+                "minInterval": 1, # 设置Y轴的最小间隔
+                "axisLabel": {
+                    'interval': 'auto', # 根据图表的大小自动计算步长
+                },
+            },
+            'legend': {
+                'data': [
+                    {
+                        'name':'类别' + str(label),
+                        'icon': 'circle',
+                        # 'textStyle': {'color': colors[label]}
+                     }for label in infos
+                ],
+                'type': 'scroll', # 启用图例的滚动条
+                # 你可以根据需要设置左右箭头翻页
+                'pageButtonItemGap': 5,
+                'pageButtonGap': 20,
+                'pageButtonPosition': 'end', # 将翻页按钮放在最后
             },
             "series": [
                 {
                     "data": distribution,
                     "type": "bar",
-                    "showBackground": True,
-                    "stack":'x',
+                    "stack": 'x',
                     "name": '类别'+str(label),
-                    "backgroundStyle": {"color": colors[label]},
+                    "barWidth": '10%',   # 设置柱子的宽度
+                    "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
+                    'itemStyle': {
+                        'color': colors[label]
+                    },
+                    'emphasis': {
+                        'focus': 'self',
+                        'itemStyle': {
+                            'borderColor': colors[label],
+                            'color': colors[label],
+                            'borderWidth': 20,
+                            'shadowBlur': 10,
+                            'shadowOffsetX': 0,
+                            'shadowColor': 'rgba(0, 0, 0, 0)',
+                            'scale': True  # 实际放大柱状图的部分
+                        },
+                        'label': {
+                            'show': True,
+                            'formatter': '{b}\n数量{c}',
+                            'position': 'inside',
+                            # 'color': 'white',
+                        }
+                    },
+                    # 如果您想要放大当前柱子
+                    'label': {
+                        'show': False
+                    },
+                    'labelLine': {
+                        'show': False
+                    }
                 } for label, distribution in infos.items()
-            ]
+            ],
+            'tooltip': {
+                'trigger': 'item',
+                'axisPointer': {
+                    'type': 'shadow'
+                },
+                'formatter': "{b} <br/>{a} <br/> 数量{c}",
+                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);' # 添加阴影效果
+            },
+            'grid': {
+                'left': '3%',
+                'right': '4%',
+                'bottom': '3%',
+                'containLabel': True
+            },
+            'dataZoom': [{
+                'type': 'slider',
+                'xAxisIndex': [0],
+                'start': 10,
+                'end': 90,
+                'height': 15,
+                'bottom': 17,
+                # 'showDetail': False,
+                'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
+                'handleSize': '80%',
+                'handleStyle': {
+                    'color': '#fff',
+                    'shadowBlur': 3,
+                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                    'shadowOffsetX': 2,
+                    'shadowOffsetY': 2
+                },
+                'textStyle': {
+                    'color': "transparent"
+                },
+                # 使用 borderColor 透明来隐藏非激活状态的边框
+                'borderColor': "transparent"
+            }],
         }
 
     def save_algo_args(self):
@@ -191,128 +293,132 @@ class experiment_page:
         ui.notify('save_exp_args')
 
 
-colors = list(map(lambda x: color(tuple(x)), ncolors(10)))
-num_clients = 8
-infos = {
-             0: [86, 94, 83, 121, 86, 94, 83, 121], 1: [117, 114, 106, 128, 117, 114, 106, 128],
-             2: [112, 105, 118, 108, 112, 105, 118, 108], 3: [94, 88, 119, 85, 94, 88, 119, 85],
-             4: [93, 106, 107, 101, 93, 106, 107, 101], 5: [93, 94, 73, 87, 93, 94, 73, 87],
-             6: [96, 107, 95, 103, 96, 107, 95, 103], 7: [96, 104, 96, 90, 96, 104, 96, 90],
-             8: [112, 91, 111, 91, 112, 91, 111, 91], 9: [101, 97, 92, 86, 101, 97, 92, 86]
-         }
-data = {
-    "title": {"text": 'sb'},  # 字典中使用任意响应式变量，通过 .value 获取值
-    "xAxis": {
-        "type": "category",
-        "name": '客户ID',
-        "data": ['客户'+str(i) for i in range(num_clients)],
-        # 'axisTick': {
-        #     'alignWithLabel': True
-        # },
-        # 'axisLabel': {
-        #     'rotate': 45 # 如果类别名称很长可以考虑旋转标签
-        # }
-    },
-    "yAxis": {
-        "type": "value",
-        "name": '样本分布',
-        "minInterval": 1, # 设置Y轴的最小间隔
-        "axisLabel": {
-            'interval': 'auto', # 根据图表的大小自动计算步长
-        },
-    },
-    'legend': {
-        'data': [
-            {
-                'name':'类别' + str(label),
-                'icon': 'circle',
-                # 'textStyle': {'color': colors[label]}
-             }for label in infos
-        ]
-    },
-    "series": [
-        {
-            "data": distribution,
-            "type": "bar",
-            "stack": 'x',
-            "name": '类别'+str(label),
-            "barWidth": '10%',   # 设置柱子的宽度
-            "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
-            'itemStyle': {
-                'color': colors[label]
-            },
-            'emphasis': {
-                'focus': 'self',
-                'itemStyle': {
-                    'borderColor': colors[label],
-                    'color': colors[label],
-                    'borderWidth': 20,
-                    'shadowBlur': 10,
-                    'shadowOffsetX': 0,
-                    'shadowColor': 'rgba(0, 0, 0, 0)',
-                    'scale': True  # 实际放大柱状图的部分
-                },
-                'label': {
-                    'show': True,
-                    'formatter': '{b}\n数量{c}',
-                    'position': 'inside',
-                    # 'color': 'white',
-                }
-            },
-            # 如果您想要放大当前柱子
-            'label': {
-                'show': False
-            },
-            'labelLine': {
-                'show': False
-            }
-        } for label, distribution in infos.items()
-    ],
-    'tooltip': {
-        'trigger': 'item',
-        'axisPointer': {
-            'type': 'shadow'
-        },
-        'formatter': "{b} <br/>{a} <br/> 数量{c}",
-        'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);' # 添加阴影效果
-    },
-    'grid': {
-        'left': '3%',
-        'right': '4%',
-        'bottom': '3%',
-        'containLabel': True
-    },
-    'dataZoom': [{
-        'type': 'slider',
-        'xAxisIndex': [0],
-        'start': 10,
-        'end': 90,
-        'height': 15,
-        'bottom': 17,
-        # 'showDetail': False,
-        'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
-        'handleSize': '80%',
-        'handleStyle': {
-            'color': '#fff',
-            'shadowBlur': 3,
-            'shadowColor': 'rgba(0, 0, 0, 0.6)',
-            'shadowOffsetX': 2,
-            'shadowOffsetY': 2
-        },
-        'textStyle': {
-            'color': "transparent"
-        },
-        # 使用 borderColor 透明来隐藏非激活状态的边框
-        'borderColor': "transparent"
-    }],
-}
+# colors = list(map(lambda x: color(tuple(x)), ncolors(10)))
+# num_clients = 8
+# infos = {
+#              0: [86, 94, 83, 121, 86, 94, 83, 121], 1: [117, 114, 106, 128, 117, 114, 106, 128],
+#              2: [112, 105, 118, 108, 112, 105, 118, 108], 3: [94, 88, 119, 85, 94, 88, 119, 85],
+#              4: [93, 106, 107, 101, 93, 106, 107, 101], 5: [93, 94, 73, 87, 93, 94, 73, 87],
+#              6: [96, 107, 95, 103, 96, 107, 95, 103], 7: [96, 104, 96, 90, 96, 104, 96, 90],
+#              8: [112, 91, 111, 91, 112, 91, 111, 91], 9: [101, 97, 92, 86, 101, 97, 92, 86]
+#          }
+# data = {
+#     "title": {
+#         "text": 'sb',
+#         'left': 'center', # 标题居中
+#         'top': 'top',  # 标题位于顶部
+#     },  # 字典中使用任意响应式变量，通过 .value 获取值
+#     "xAxis": {
+#         "type": "category",
+#         "name": '客户ID',
+#         "data": ['客户'+str(i) for i in range(num_clients)],
+#         # 'axisTick': {
+#         #     'alignWithLabel': True
+#         # },
+#         # 'axisLabel': {
+#         #     'rotate': 45 # 如果类别名称很长可以考虑旋转标签
+#         # }
+#     },
+#     "yAxis": {
+#         "type": "value",
+#         "name": '样本分布',
+#         "minInterval": 1, # 设置Y轴的最小间隔
+#         "axisLabel": {
+#             'interval': 'auto', # 根据图表的大小自动计算步长
+#         },
+#     },
+#     'legend': {
+#         'data': [
+#             {
+#                 'name':'类别' + str(label),
+#                 'icon': 'circle',
+#                 # 'textStyle': {'color': colors[label]}
+#              }for label in infos
+#         ]
+#     },
+#     "series": [
+#         {
+#             "data": distribution,
+#             "type": "bar",
+#             "stack": 'x',
+#             "name": '类别'+str(label),
+#             "barWidth": '10%',   # 设置柱子的宽度
+#             "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
+#             'itemStyle': {
+#                 'color': colors[label]
+#             },
+#             'emphasis': {
+#                 'focus': 'self',
+#                 'itemStyle': {
+#                     'borderColor': colors[label],
+#                     'color': colors[label],
+#                     'borderWidth': 20,
+#                     'shadowBlur': 10,
+#                     'shadowOffsetX': 0,
+#                     'shadowColor': 'rgba(0, 0, 0, 0)',
+#                     'scale': True  # 实际放大柱状图的部分
+#                 },
+#                 'label': {
+#                     'show': True,
+#                     'formatter': '{b}\n数量{c}',
+#                     'position': 'inside',
+#                     # 'color': 'white',
+#                 }
+#             },
+#             # 如果您想要放大当前柱子
+#             'label': {
+#                 'show': False
+#             },
+#             'labelLine': {
+#                 'show': False
+#             }
+#         } for label, distribution in infos.items()
+#     ],
+#     'tooltip': {
+#         'trigger': 'item',
+#         'axisPointer': {
+#             'type': 'shadow'
+#         },
+#         'formatter': "{b} <br/>{a} <br/> 数量{c}",
+#         'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);' # 添加阴影效果
+#     },
+#     'grid': {
+#         'left': '3%',
+#         'right': '4%',
+#         'bottom': '3%',
+#         'containLabel': True
+#     },
+#     'dataZoom': [{
+#         'type': 'slider',
+#         'xAxisIndex': [0],
+#         'start': 10,
+#         'end': 90,
+#         'height': 15,
+#         'bottom': 17,
+#         # 'showDetail': False,
+#         'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
+#         'handleSize': '80%',
+#         'handleStyle': {
+#             'color': '#fff',
+#             'shadowBlur': 3,
+#             'shadowColor': 'rgba(0, 0, 0, 0.6)',
+#             'shadowOffsetX': 2,
+#             'shadowOffsetY': 2
+#         },
+#         'textStyle': {
+#             'color': "transparent"
+#         },
+#         # 使用 borderColor 透明来隐藏非激活状态的边框
+#         'borderColor': "transparent"
+#     }],
+# }
+#
+# def on_first_series_mouseover(e: rxui.echarts.EChartsMouseEventArguments):
+#     print(e)
+#     ui.notify(f"客户{e.name} 类别:{e.seriesName} 数量:{e.value}")
 
-def on_first_series_mouseover(e: rxui.echarts.EChartsMouseEventArguments):
-    print(e)
-    ui.notify(f"客户{e.name} 类别:{e.seriesName} 数量:{e.value}")
-
-ui.echart(data)
-ui.run()
+# ui.echart(data)
+# ui.run()
 
 # from nicegui import ui
 # from ex4nicegui.reactive import rxui
