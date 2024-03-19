@@ -15,7 +15,7 @@ from manager.task import Task
 
 def setup_device(args):
     # 检查是否有可用的 GPU
-    if args.device=='gpu' and torch.cuda.is_available():
+    if args.device == 'gpu' and torch.cuda.is_available():
         device = torch.device(f'cuda:{args.gpu}')
     else:
         device = torch.device("cpu")
@@ -77,6 +77,11 @@ class ExperimentManager:
             dataloaders = get_dataloaders(args)
         return model, dataloaders
 
+    def deal_type(self, args):
+        if hasattr(args, 'num_clients'):
+            args.num_clients = int(args.num_clients)
+        if hasattr(args, 'seed'):
+            args.seed = int(args.seed)
     def assemble_parameters(self):
         """
         解析并组装实验参数，形成实验任务列表。
@@ -94,6 +99,7 @@ class ExperimentManager:
                 for param, value in param_combination.items():
                     setattr(args, param, value)
                 experiment_name = f"{algo_name}_{'_'.join([f'{k}{v}' for k, v in param_combination.items()])}"
+                self.deal_type(args)
                 print(args)
                 # 根据same配置创建模型和数据加载器或复制全局实例
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
@@ -105,7 +111,7 @@ class ExperimentManager:
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
-        dataloader_infos = {'train':{}, 'valid':{}}
+        dataloader_infos = {'train': {}, 'valid': {}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
         test_loaders = self.dataloaders_global[2] if self.args_template.local_test else None
         num_classes = train_loaders[0].dataset.num_classes
@@ -115,7 +121,7 @@ class ExperimentManager:
             for cid in range(num_clients):
                 train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
             dataloader_infos['train'][label] = train_label_dis
-            dataloader_infos['valid'][label] = [valid_loader.dataset.sample_info[label],]
+            dataloader_infos['valid'][label] = [valid_loader.dataset.sample_info[label], ]
 
         if self.args_template.local_test:
             dataloader_infos['test'] = {}
@@ -125,6 +131,30 @@ class ExperimentManager:
                     test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
                 dataloader_infos['test'][label] = test_label_dis
 
+        return dataloader_infos  # 目前只考虑类别标签分布
+
+    def get_local_loader_infos(self):
+        dataloader_infos = {}
+        for id, task in enumerate(self.task_queue.values()):
+            task_infos = {'train': {}, 'valid': {}}
+            train_loaders, valid_loader = task.dataloaders[0], task.dataloaders[1]
+            test_loaders = task.dataloaders[2] if self.args_template.local_test else None
+            num_classes = train_loaders[0].dataset.num_classes
+            num_clients = len(train_loaders)
+            for label in range(num_classes):
+                train_label_dis = []
+                for cid in range(num_clients):
+                    train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
+                task_infos['train'][label] = train_label_dis
+                task_infos['valid'][label] = [valid_loader.dataset.sample_info[label], ]
+            if self.args_template.local_test:
+                task_infos['test'] = {}
+                for label in range(num_classes):
+                    test_label_dis = []
+                    for cid in range(num_clients):
+                        test_label_dis.append(test_loaders[cid].dataset.sample_info[label])
+                    task_infos['test'][label] = test_label_dis
+            dataloader_infos[self.algo_queue[id]['algo']] = task_infos
         return dataloader_infos  # 目前只考虑类别标签分布
 
     def run_experiment(self):

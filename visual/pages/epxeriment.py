@@ -12,6 +12,8 @@ from manager.manager import ExperimentManager
 from visual.lazy_stepper import lazy_stepper
 from visual.modules.configuration import config_ui
 from visual.modules.preview import preview_ui
+from visual.parts.lazy_panels import lazy_tab_panels
+from visual.parts.lazy_tabs import lazy_tabs
 
 
 def convert_to_list(mapping):
@@ -42,6 +44,7 @@ def get_n_hls_colors(num):
 
     return hls_colors
 
+
 def ncolors(num):
     rgb_colors = []
     if num < 1:
@@ -52,6 +55,7 @@ def ncolors(num):
         r, g, b = [int(x * 255.0) for x in (_r, _g, _b)]
         rgb_colors.append([r, g, b])
     return rgb_colors
+
 
 def color(value):
     digit = list(map(str, range(10))) + list("ABCDEF")
@@ -68,10 +72,12 @@ def color(value):
         a3 = digit.index(value[5]) * 16 + digit.index(value[6])
         return (a1, a2, a3)
 
+
 class experiment_page:
     algo_args = None
     exp_args = None
     visual_data_infos = {}
+
     def __init__(self):  # 这里定义引用，传进去同步更新
         with lazy_stepper(keep_alive=False).props('vertical').classes('w-full') as self.stepper:
             with ui.step('参数配置'):
@@ -80,6 +86,7 @@ class experiment_page:
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=self.args_fusion_step)
             step_pre = self.stepper.step('配置预览')
+
             @step_pre.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
@@ -91,15 +98,14 @@ class experiment_page:
                 with ui.card():
                     rxui.label('数据划分预览')
 
-
             step_run = self.stepper.step('算法执行')
+
             @step_run.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
                 with ui.stepper_navigation():
                     ui.button('Done', on_click=lambda: ui.notify('Yay!', type='positive'))
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
-
 
     @ui.refreshable_method
     def create_pre_tabs(self):
@@ -129,7 +135,6 @@ class experiment_page:
             ui.button('查看数据划分', on_click=self.show_distribution)
         self.draw_distribution()
 
-
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()
         if len(self.exp_args['algo_params']) == 0:
@@ -151,21 +156,41 @@ class experiment_page:
         ui.notify('装载实验任务')
 
     def show_distribution(self):
-        self.visual_data_infos = self.experiment.get_global_loader_infos()
+        if self.exp_args['same']['data']:  # 直接展示全局划分数据
+            self.visual_data_infos = self.experiment.get_global_loader_infos()
+        else:
+            self.visual_data_infos = self.experiment.get_local_loader_infos()
         self.draw_distribution.refresh()
         ui.notify('查看数据划分')
 
     @ui.refreshable_method
     def draw_distribution(self):
-        with rxui.grid(columns=1).classes('w-full'):
-            for name in self.visual_data_infos:
-                print(self.visual_data_infos[name])
-                with rxui.card().classes('w-full'):
-                    rxui.label(name).classes('w-full')
-                    rxui.echarts(self.cal_dis_dict(name, self.visual_data_infos[name]))
+        if self.exp_args['same']['data']:  # 直接展示全局划分数据
+            with rxui.grid(columns=1).classes('w-full'):
+                for name in self.visual_data_infos:
+                    print(self.visual_data_infos[name])
+                    with rxui.card().classes('w-full'):
+                        rxui.label(name).classes('w-full')
+                        rxui.echarts(self.cal_dis_dict(self.visual_data_infos[name]))
+        else:  # 展示每个算法的划分数据 (多加一层算法名称的嵌套)
+            with lazy_tabs() as tabs:
+                for name in self.visual_data_infos:
+                    tabs.add(ui.tab(name))
+            with lazy_tab_panels(tabs).classes('w-full') as panels:
+                for name in self.visual_data_infos:
+                    panel = panels.tab_panel(name)
+
+                    @panel.build_fn
+                    def _(name: str):
+                        ui.notify(f"创建:{name}的图表")
+                        with ui.card().classes('w-full'):
+                            for item in self.visual_data_infos[name]:
+                                with ui.card().classes('w-full'):
+                                    rxui.label(item).classes('w-full')
+                                    ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item]))
 
     # @ref_computed
-    def cal_dis_dict(self, name, infos):
+    def cal_dis_dict(self, infos):
         num_clients = 0 if len(infos) == 0 else len(infos[0])
         num_classes = len(infos)
         colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
@@ -179,7 +204,7 @@ class experiment_page:
             "xAxis": {
                 "type": "category",
                 "name": '客户ID',
-                "data": ['客户'+str(i) for i in range(num_clients)],
+                "data": ['客户' + str(i) for i in range(num_clients)],
                 # 'axisTick': {
                 #     'alignWithLabel': True
                 # },
@@ -190,32 +215,32 @@ class experiment_page:
             "yAxis": {
                 "type": "value",
                 "name": '样本分布',
-                "minInterval": 1, # 设置Y轴的最小间隔
+                "minInterval": 1,  # 设置Y轴的最小间隔
                 "axisLabel": {
-                    'interval': 'auto', # 根据图表的大小自动计算步长
+                    'interval': 'auto',  # 根据图表的大小自动计算步长
                 },
             },
             'legend': {
                 'data': [
                     {
-                        'name':'类别' + str(label),
+                        'name': '类别' + str(label),
                         'icon': 'circle',
                         # 'textStyle': {'color': colors[label]}
-                     }for label in infos
+                    } for label in infos
                 ],
-                'type': 'scroll', # 启用图例的滚动条
+                'type': 'scroll',  # 启用图例的滚动条
                 # 你可以根据需要设置左右箭头翻页
                 'pageButtonItemGap': 5,
                 'pageButtonGap': 20,
-                'pageButtonPosition': 'end', # 将翻页按钮放在最后
+                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
             },
             "series": [
                 {
                     "data": distribution,
                     "type": "bar",
                     "stack": 'x',
-                    "name": '类别'+str(label),
-                    "barWidth": '10%',   # 设置柱子的宽度
+                    "name": '类别' + str(label),
+                    "barWidth": '10%',  # 设置柱子的宽度
                     "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
                     'itemStyle': {
                         'color': colors[label]
@@ -253,7 +278,7 @@ class experiment_page:
                     'type': 'shadow'
                 },
                 'formatter': "{b} <br/>{a} <br/> 数量{c}",
-                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);' # 添加阴影效果
+                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
             },
             'grid': {
                 'left': '3%',
@@ -291,7 +316,6 @@ class experiment_page:
 
     def save_exp_args(self):
         ui.notify('save_exp_args')
-
 
 # colors = list(map(lambda x: color(tuple(x)), ncolors(10)))
 # num_clients = 8
