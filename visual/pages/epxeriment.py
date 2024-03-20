@@ -1,17 +1,12 @@
 import argparse
-import json
 import colorsys
 import random
-from ex4nicegui import deep_ref, ref_computed
 from ex4nicegui.reactive import rxui
-from matplotlib import pyplot as plt
-from nicegui import ui
+from nicegui import ui, run
 
-from experiment.options import args_parser
 from manager.manager import ExperimentManager
-from visual.lazy_stepper import lazy_stepper
+from visual.parts.lazy_stepper import lazy_stepper
 from visual.modules.configuration import config_ui
-from visual.modules.preview import preview_ui
 from visual.parts.lazy_panels import lazy_tab_panels
 from visual.parts.lazy_tabs import lazy_tabs
 
@@ -22,6 +17,152 @@ name_mapping = {
     'test': '测试集',
 }
 
+def get_dicts(colors, infos_each, infos_all, ):
+    legend_dict = [
+        {
+            'name': '总数',
+            'icon': 'circle',
+        },
+        {
+            'name': '噪声',
+            'icon': 'circle',
+        }
+    ]
+    for label in infos_each:
+        legend_dict.append(
+            {
+                'name': '类别' + str(label),
+                'icon': 'circle',
+            }
+        )
+    series_dict= [
+        {
+            "data": infos_all['total'],
+            "type": "bar",
+            "name": '总数',
+            "barWidth": '10%',  # 设置柱子的宽度
+            "barCategoryGap": '0%',  # 设置类目间柱形距离（类目宽的百分比）
+            'itemStyle': {
+                'color': 'black',
+            },
+            'emphasis': {
+                'focus': 'self',
+                'itemStyle': {
+                    'borderColor': 'black',
+                    'color': 'black',
+                    'borderWidth': 20,
+                    'shadowBlur': 10,
+                    'shadowOffsetX': 0,
+                    'shadowColor': 'rgba(0, 0, 0, 0)',
+                    'scale': True  # 实际放大柱状图的部分
+                },
+                'label': {
+                    'show': True,
+                    'formatter': '{b}\n数量{c}',
+                    'position': 'inside',
+                }
+            },
+            # 如果您想要放大当前柱子
+            'label': {
+                'show': False
+            },
+            'labelLine': {
+                'show': False
+            }
+        },
+        {
+            "data": infos_all['noise'],
+            "type": "bar",
+            "name": '噪声',
+            "barWidth": '10%',  # 设置柱子的宽度
+            "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
+            'itemStyle': {
+                'color': 'grey',
+            },
+            'emphasis': {
+                'focus': 'self',
+                'itemStyle': {
+                    'borderColor': 'grey',
+                    'color': 'grey',
+                    'borderWidth': 20,
+                    'shadowBlur': 10,
+                    'shadowOffsetX': 0,
+                    'shadowColor': 'rgba(0, 0, 0, 0)',
+                    'scale': True  # 实际放大柱状图的部分
+                },
+                'label': {
+                    'show': True,
+                    'formatter': '{b}\n噪声{c}',
+                    'position': 'inside',
+                }
+            },
+            # 如果您想要放大当前柱子
+            'label': {
+                'show': False
+            },
+            'labelLine': {
+                'show': False
+            }
+        }
+    ]
+    for label, (distribution, noises) in infos_each.items():
+        series_dict.append(
+            {
+                "data": [
+                    {
+                        "value": dist,  # 总数据量
+                        "itemStyle": {
+                            "color": {
+                                "type": "linear",
+                                "x": 0,
+                                "y": 0,
+                                "x2": 0,
+                                "y2": 1,
+                                "colorStops": [
+                                    {"offset": 0, "color": colors[label]},  # 原始颜色
+                                    {"offset": 1 - noise / dist, "color": colors[label]},  # 与原始颜色相同，此处为噪声数据位置
+                                    {"offset": 1 - noise / dist, "color": 'grey'},  # 从噪声数据位置开始渐变
+                                    {"offset": 1, "color": 'grey'}  # 底部透明
+                                ]
+                            }
+                        }
+                    }
+                    for dist, noise in zip(distribution, noises)
+                ],
+                "type": "bar",
+                "stack": 'each',
+                "name": '类别' + str(label),
+                "barWidth": '10%',  # 设置柱子的宽度
+                "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
+                'itemStyle': {
+                    'color': colors[label],
+                },
+                'emphasis': {
+                    'focus': 'self',
+                    'itemStyle': {
+                        'borderColor': colors[label],
+                        'color': colors[label],
+                        'borderWidth': 20,
+                        'shadowBlur': 10,
+                        'shadowOffsetX': 0,
+                        'shadowColor': 'rgba(0, 0, 0, 0)',
+                        'scale': True  # 实际放大柱状图的部分
+                    },
+                    'label': {
+                        'show': True,
+                        'formatter': '{b}\n数量{c}',
+                        'position': 'inside',
+                    }
+                },
+                # 如果您想要放大当前柱子
+                'label': {
+                    'show': False
+                },
+                'labelLine': {
+                    'show': False
+                }
+            })
+    return legend_dict, series_dict
 
 def convert_to_list(mapping):
     mapping_list = []
@@ -79,6 +220,16 @@ def color(value):
         a3 = digit.index(value[5]) * 16 + digit.index(value[6])
         return (a1, a2, a3)
 
+def build_task_loading(message: str, is_done=False):
+    with ui.row().classes("flex-center"):
+        if not is_done:
+            ui.spinner(color="negative")
+        else:
+            ui.icon("done", color="positive")
+
+        with ui.row():
+            ui.label(message)
+
 
 class experiment_page:
     algo_args = None
@@ -135,8 +286,8 @@ class experiment_page:
                 ui.button('展示实验配置', on_click=dialog.open)
                 ui.button('保存实验配置', on_click=self.save_exp_args)
         with ui.grid(columns=3).classes('w-full'):
-            ui.button('创建实验对象', on_click=self.show_experiment)
-            ui.button('装载实验任务', on_click=self.show_assemble)
+            ui.button('装载实验对象', on_click=lambda e: self.assemble_experiment(e, loading_box))
+            loading_box = ui.row()
             ui.button('查看数据划分', on_click=self.show_distribution)
         self.draw_distribution()
 
@@ -148,17 +299,30 @@ class experiment_page:
         self.create_pre_tabs.refresh()
         self.stepper.next()
 
-    def show_experiment(self):
+    def create_experiment(self):
         for item in self.exp_args['algo_params']:
             item['params']['device'] = [item['params']['device'], ]
             item['params']['gpu'] = [item['params']['gpu'], ]
-        print(self.exp_args['algo_params'])
         self.experiment = ExperimentManager(argparse.Namespace(**self.algo_args), self.exp_args)
-        ui.notify('创建实验对象')
 
-    def show_assemble(self):
+    def assemble_params(self):
         self.experiment.assemble_parameters()
-        ui.notify('装载实验任务')
+
+    async def assemble_experiment(self, e, box):
+        btn: ui.button = e.sender
+        btn.disable()
+        box.clear()
+        with box:
+            loading = ui.refreshable(build_task_loading)
+            loading("创建实验对象")
+            await run.io_bound(self.create_experiment)
+            loading.refresh(is_done=True)
+
+            loading = ui.refreshable(build_task_loading)
+            loading("装载实验参数")
+            await run.io_bound(self.assemble_params)
+            loading.refresh(is_done=True)
+
 
     def show_distribution(self):
         if self.exp_args['same']['data']:  # 直接展示全局划分数据
@@ -207,152 +371,7 @@ class experiment_page:
         num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0]) # 现在还有噪声数据，必须取元组的首元素
         num_classes = len(infos_each)
         colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
-        legend_dict = [
-            {
-                'name': '总数',
-                'icon': 'circle',
-            },
-            {
-                'name': '噪声',
-                'icon': 'circle',
-            }
-        ]
-        for label in infos_each:
-            legend_dict.append(
-                {
-                    'name': '类别' + str(label),
-                    'icon': 'circle',
-                }
-            )
-        series_dict = [
-                {
-                    "data": [
-                        {
-                            "value": dist,  # 总数据量
-                            "itemStyle": {
-                                "color": {
-                                    "type": "linear",
-                                    "x": 0,
-                                    "y": 0,
-                                    "x2": 0,
-                                    "y2": 1,
-                                    "colorStops": [
-                                        {"offset": 0, "color": colors[label]},  # 原始颜色
-                                        {"offset": 1 - noise / dist, "color": colors[label]},  # 与原始颜色相同，此处为噪声数据位置
-                                        {"offset": 1 - noise / dist, "color": 'grey'},  # 从噪声数据位置开始渐变
-                                        {"offset": 1, "color": 'grey'}  # 底部透明
-                                    ]
-                                }
-                            }
-                        }
-                        for dist, noise in zip(distribution, noises)
-                    ],
-                    "type": "bar",
-                    "stack": 'each',
-                    "name": '类别' + str(label),
-                    "barWidth": '10%',  # 设置柱子的宽度
-                    "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
-                    'itemStyle': {
-                        'color': colors[label],
-                    },
-                    'emphasis': {
-                        'focus': 'self',
-                        'itemStyle': {
-                            'borderColor': colors[label],
-                            'color': colors[label],
-                            'borderWidth': 20,
-                            'shadowBlur': 10,
-                            'shadowOffsetX': 0,
-                            'shadowColor': 'rgba(0, 0, 0, 0)',
-                            'scale': True  # 实际放大柱状图的部分
-                        },
-                        'label': {
-                            'show': True,
-                            'formatter': '{b}\n数量{c}',
-                            'position': 'inside',
-                        }
-                    },
-                    # 如果您想要放大当前柱子
-                    'label': {
-                        'show': False
-                    },
-                    'labelLine': {
-                        'show': False
-                    }
-                } for label, (distribution, noises) in infos_each.items()
-            ]
-        series_dict.append(
-            {
-                "data": [{'value': d} for d in infos_all['total']],
-                "type": "bar",
-                "name": '总数',
-                "barWidth": '10%',  # 设置柱子的宽度
-                "barCategoryGap": '0%',  # 设置类目间柱形距离（类目宽的百分比）
-                'itemStyle': {
-                    'color': 'black',
-                },
-                'emphasis': {
-                    'focus': 'self',
-                    'itemStyle': {
-                        'borderColor': 'black',
-                        'color': 'black',
-                        'borderWidth': 20,
-                        'shadowBlur': 10,
-                        'shadowOffsetX': 0,
-                        'shadowColor': 'rgba(0, 0, 0, 0)',
-                        'scale': True  # 实际放大柱状图的部分
-                    },
-                    'label': {
-                        'show': True,
-                        'formatter': '{b}\n数量{c}',
-                        'position': 'inside',
-                    }
-                },
-                # 如果您想要放大当前柱子
-                'label': {
-                    'show': False
-                },
-                'labelLine': {
-                    'show': False
-                }
-            }
-        )
-        series_dict.append(
-            {
-                "data": [{'value': d} for d in infos_all['noise']],
-                "type": "bar",
-                "name": '噪声',
-                "barWidth": '10%',  # 设置柱子的宽度
-                "barCategoryGap": '20%',  # 设置类目间柱形距离（类目宽的百分比）
-                'itemStyle': {
-                    'color': 'grey',
-                },
-                'emphasis': {
-                    'focus': 'self',
-                    'itemStyle': {
-                        'borderColor': 'grey',
-                        'color': 'grey',
-                        'borderWidth': 20,
-                        'shadowBlur': 10,
-                        'shadowOffsetX': 0,
-                        'shadowColor': 'rgba(0, 0, 0, 0)',
-                        'scale': True  # 实际放大柱状图的部分
-                    },
-                    'label': {
-                        'show': True,
-                        'formatter': '{b}\n噪声{c}',
-                        'position': 'inside',
-                    }
-                },
-                # 如果您想要放大当前柱子
-                'label': {
-                    'show': False
-                },
-                'labelLine': {
-                    'show': False
-                }
-            }
-        )
+        legend_dict, series_dict = get_dicts(colors, infos_each, infos_all)
         return {
             "xAxis": {
                 "type": "category",

@@ -1,9 +1,18 @@
 from weakref import WeakValueDictionary
 
-from nicegui import ui
+from nicegui import ui, run
 from typing import Any, Callable, Optional, Union, cast
 from nicegui.elements.stepper import Step
 from nicegui.events import handle_event
+
+
+def build_task_loading(message: str, is_done=False):
+    with ui.row().classes("flex-center"):
+        if not is_done:
+            ui.spinner(color="negative")
+            with ui.row():
+                ui.label(message)
+
 
 
 class lazy_stepper(ui.stepper):

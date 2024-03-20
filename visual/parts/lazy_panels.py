@@ -9,6 +9,7 @@ from weakref import WeakValueDictionary
 # region 这是通用代码
 
 
+
 class lazy_tab_panels(ui.tab_panels):
     def __init__(
         self,

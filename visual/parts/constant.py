@@ -145,3 +145,14 @@ algo_params = {
         'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
     }
 }
+
+legend_dict = [
+    {
+        'name': '总数',
+        'icon': 'circle',
+    },
+    {
+        'name': '噪声',
+        'icon': 'circle',
+    }
+]
