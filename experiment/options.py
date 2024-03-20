@@ -236,7 +236,7 @@ def args_parser():
     federated_learning.add_argument(
         '--noise_type',
         type=str,
-        default='custom_feature',
+        default='none',
         choices=['none', 'gaussian', 'custom_label', 'custom_feature'],
         help='type of noise distribution'
     )
@@ -326,14 +326,14 @@ def args_parser():
     )
     running_environment.add_argument(
         '--train_mode',
-        default='serial',
+        default='thread',
         type=str,
         choices=['serial', 'thread', 'process'],
         help='maximum threads for multi-processing'
     )
     running_environment.add_argument(
         '--max_threads',
-        default=30,
+        default=5,
         type=int,
         help='maximum threads for multi-processing'
     )

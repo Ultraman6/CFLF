@@ -8,7 +8,12 @@ from weakref import WeakValueDictionary
 
 # region 这是通用代码
 
-
+def build_ui_loading(message: str, is_done=False):
+    with ui.row().classes("flex-center"):
+        if not is_done:
+            ui.spinner(color="negative")
+            with ui.row():
+                ui.label(message)
 
 class lazy_tab_panels(ui.tab_panels):
     def __init__(
@@ -55,6 +60,7 @@ class lazy_tab_panel(ui.tab_panel):
                 self._build_fn(self._props["name"])
             self._build_fn = None
 
+
     def build_fn(self, fn: Callable[[str], None]):
         self._build_fn = fn
         return fn
@@ -68,9 +74,9 @@ class lazy_tab_panel(ui.tab_panel):
 #
 #
 # r = ui.radio(list("abcd"), on_change=onchange)
-#
-#
-# # 每次 panel 切换，都会执行
+
+
+# 每次 panel 切换，都会执行
 # def on_panels_change(e):
 #     tab_name = e.value
 #     ui.notify(f"页面切换了:{tab_name=}")

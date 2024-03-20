@@ -1,8 +1,15 @@
-from nicegui import ui
+from nicegui import ui, run
 from visual.modules.configuration import config_ui
 from visual.pages.epxeriment import experiment_page
 from visual.parts.lazy_panels import lazy_tab_panels
 from visual.parts.lazy_tabs import lazy_tabs
+
+def build_ui_loading(message: str=None, is_done=False):
+    with ui.row().classes("flex-center"):
+        if not is_done:
+            ui.spinner(color="negative")
+            with ui.row():
+                ui.label(message)
 
 
 class MainWindow:
@@ -19,6 +26,9 @@ class MainWindow:
         }
         self.tabs = lazy_tabs(on_change=lambda: self.on_main_tab_change())
         self.sub_tabs = lazy_tabs().props('vertical').classes('w-full')
+
+    def get_ui(self, name: str):
+        self.unit_mapping[name]()
 
     def on_main_tab_change(self):
         tab_list = []
@@ -41,8 +51,12 @@ class MainWindow:
                     panel = panels.tab_panel(v)
                     @panel.build_fn
                     def _(name: str):
+                        # 显示 loading 效果
+                        # build_ui_loading(f"正在加载{name}页面...")
+                        # ui.label(f"正在加载{name}页面...")
+                        self.get_ui(name)
                         ui.notify(f"创建页面:{name}")
-                        self.unit_mapping[name]()
+                        # self.unit_mapping[name]()
 
 
 # Initialize and run the main window

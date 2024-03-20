@@ -4,6 +4,8 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 import os
 import torch
+from ex4nicegui import deep_ref
+
 from data.get_data import get_dataloaders
 from manager.mapping import algorithm_mapping
 from model.Initialization import model_creator
@@ -50,6 +52,7 @@ class ExperimentManager:
         self.model_global = None
         self.dataloaders_global = None
         self.task_queue = {}
+        self.task_info_refs = {}
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -83,6 +86,8 @@ class ExperimentManager:
             args.num_clients = int(args.num_clients)
         if hasattr(args, 'seed'):
             args.seed = int(args.seed)
+        if hasattr(args, 'batch_size'):
+            args.batch_size = int(args.batch_size)
 
     def assemble_parameters(self):
         """
@@ -112,9 +117,13 @@ class ExperimentManager:
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
-                task = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
+                self.task_info_refs[task_id] = deep_ref({})
+                task = Task(self.task_info_refs[task_id], algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 self.task_queue[task_id] = task
                 task_id += 1
+
+        # for tid in self.task_queue:
+        #     print(self.task_queue[tid].global_infos)
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -210,12 +219,7 @@ class ExperimentManager:
         """
         task = self.task_queue[tid]
         control_seed(task.args.seed)
-        # try:
         return task.run()
-        # except Exception as e:
-        #     # 获取完整的堆栈跟踪信息
-        #     error_msg = traceback.format_exc()
-        #     print(f"Error in task creation: {error_msg}")
 
     def control_same(self):
         if self.same['model']:
@@ -224,7 +228,7 @@ class ExperimentManager:
             self.dataloaders_global = get_dataloaders(self.args_template)
 
     def execute_serial(self):
-        for tid in self.algo_queue:
+        for tid in self.task_queue:
             result = self.run_task(tid)
             self.results[tid] = result
 

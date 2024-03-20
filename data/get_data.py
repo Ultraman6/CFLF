@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, default_collate, Subset
 
 from data.dataset import get_mnist, get_cifar10, get_femnist, get_cinic10, get_synthetic
 from data.dataset.fashionmnist import get_fashionmnist
+from data.dataset.svhn import get_svhn
 from data.utils.distribution import split_data
 from data.utils.partition import balance_sample
 
@@ -28,7 +29,7 @@ def get_data(args):
         elif dataset == 'fashionmnist':
             return get_fashionmnist(dataset_root)
         elif dataset == 'SVHN':
-            return get_svhn(dataset_root)
+            return get_svhn(dataset_root, args.model)
         else:
             raise ValueError('Dataset `{}` not found'.format(dataset))
 
@@ -85,19 +86,20 @@ def show_data_distribution(dataloaders, args):
             # distribution = get_distribution(train_loader, args.dataset)
             print("train dataloader {} distribution".format(i))
             print(train_loader.dataset.len)
-            print(train_loader.dataset.sample_info)
+            dis = list(train_loader.dataset.sample_info.values())
+            print([d / sum(dis) for d in dis])
             if args.local_test:
                 test_loader = dataloaders[2][i]
-                # distribution = get_distribution(train_loader, args.dataset)
                 print("test dataloader {} distribution".format(i))
                 print(test_loader.dataset.len)
-                print(test_loader.dataset.sample_info)
+                dis = list(test_loader.dataset.sample_info.values())
+                print([d / sum(dis) for d in dis])
         # 全局验证集加载器划分
-        # distribution = get_distribution(v_global, args.dataset)
         valid_loader = dataloaders[1]
         print("global valid dataloader distribution")
         print(valid_loader.dataset.len)
-        print(valid_loader.dataset.sample_info)
+        dis = list(valid_loader.dataset.sample_info.values())
+        print([d / sum(dis) for d in dis])
 
 
 def get_distribution(dataloader, dataset_name, mode='pro'):

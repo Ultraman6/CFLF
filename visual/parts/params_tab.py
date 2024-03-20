@@ -19,22 +19,15 @@ class params_tab:
                 @rxui.vfor(nums)
                 def _(s):
                     self.clickable_num(rxui.vmodel(s.get()), type, format, options)
-
                 ui.button("追加", on_click=lambda: self.nums.value.append(default))
 
     # 名称、双向绑定值、类型、格式、选项
     def clickable_num(self, num: Ref[int], type: str, format: str = None, options: Dict[str, str] or List = None):
-        # def onclick():
-        #     is_show.value = not is_show.value
-        # def edit():
-        #     is_show.value = False
-        # def close():
-        #     is_show.value = True
+
         def delete(dialog):
             self.nums.value.remove(num.value)
             dialog.submit('Yes')
 
-        is_show = deep_ref(True)
         with rxui.grid():
             with ui.dialog() as dialog, ui.card():
                 if type == "number":
@@ -53,32 +46,3 @@ class params_tab:
                 .padding("p-1")
             )
 
-# n_list = [{'key': [1, 2, 3], 'a': 0}]
-# n_ref = deep_ref(n_list[0]['key'])
-# nums = deep_ref(n_list[0]['key'])
-# n1 = deep_ref(n_list[0]['a'])
-# params_tab(nums, 'number', "%.0f")
-# rxui.select(value=n_ref, options={0:'device', 1:'cpu'}, on_change=lambda: print(n_list))
-
-
-
-
-
-
-
-
-# data = deep_ref({"id": "xx", "key1": "cpu", "key2": "xx"})
-#
-# rxui.label(data)
-#
-#
-# def my_vmodel(data, key):
-#     def setter(new):
-#         data.value[key] = new
-#
-#     return to_ref_wrapper(lambda: data.value[key], setter)
-#
-#
-# for key in ["key1", "key2"]:
-#     rxui.input(value=my_vmodel(data, key))
-# ui.run()

@@ -59,11 +59,11 @@ class ModelTrainer:
                 self.optimizer.step()
                 batch_loss.append(loss.item())
             epoch_losses.append(sum(batch_loss) / len(batch_loss) if batch_loss else 0.0)
-            # print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
+            print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
         # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
         round_avg_loss = sum(epoch_losses) / len(epoch_losses)
         self.all_epoch_losses[global_round] = {
-            "round_avg_loss": round_avg_loss,
+            "avg_loss": round_avg_loss,
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
         }
@@ -111,9 +111,9 @@ class ModelTrainer:
         self.all_epoch_losses.append({
             "client_id": self.cid,
             "global_round": global_round,
-            "round_avg_loss": round_avg_loss,
+            "avg_loss": round_avg_loss,
             "epoch_losses": epoch_losses,
-            "current_learning_rate": self.optimizer.param_groups[0]['lr']
+            "learning_rate": self.optimizer.param_groups[0]['lr']
         })
         self.upgrate_lr(global_round)  # 更新学习率
         return average_hessian_estimation
@@ -135,7 +135,7 @@ class ModelTrainer:
                 metrics["test_correct"] += correct.item()
                 metrics["test_loss"] += loss.item() * target.size(0)
                 metrics["test_total"] += target.size(0)
-        return metrics
+        return metrics["test_correct"] / metrics["test_total"], metrics["test_loss"] / metrics["test_total"]
 
     def test_JSD(self, test_data):
         self.model.to(self.device)

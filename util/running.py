@@ -37,6 +37,8 @@ def create_optimizer(model, args):
 
 
 def schedule_lr(round_idx, current_lr, args):
+    if args.scheduler == 'none':
+        return current_lr
     if args.scheduler == 'step':
         # StepLR: 每 step_size 轮减少学习率
         step_size = args.lr_decay_step
@@ -48,7 +50,7 @@ def schedule_lr(round_idx, current_lr, args):
         # ExponentialLR: 每轮学习率衰减
         decay_rate = args.lr_decay_step
         return current_lr * decay_rate
-    elif args.schedulere == 'cosineAnnealing':
+    elif args.scheduler == 'cosineAnnealing':
         # CosineAnnealingLR: 余弦退火调度
         T_max = args.round
         eta_min = args.lr_min

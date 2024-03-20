@@ -158,12 +158,6 @@ class algo_table:
         self.table.element.update() #这里会更新slot内部的样式
 
 
-    # def detect(self, algo: str):
-    #     for row in self.rows:
-    #         if row["algo"] == algo:
-    #             return True
-    #     return False
-
     def delete(self, e: events.GenericEventArguments) -> None:
         idx = [index for index, row in enumerate(self.rows) if row["id"] == e.args["id"]][0]
         self.rows.pop(idx)
@@ -192,27 +186,25 @@ class algo_table:
         with ui.dialog().on('hide', lambda: self.table.element.update()) as dialog, ui.card():
             with rxui.grid(columns=5):
                 for key in self.rows[rid]['params']:
-                    with ui.card():
-                        if key == 'id' or key == 'gpu':
-                            continue
-                        elif key == 'device':
-                            rxui.select(label='运行设备', value=my_vmodel(row_ref, key), options=list(self.devices.keys()))
-                            rxui.label('选择CPU: '+self.devices['cpu']).bind_visible(lambda key=key: row_ref.value[key] == 'cpu')
-                            rxui.select(label='选择GPU', value=my_vmodel(row_ref, 'gpu'), options=self.devices['gpu']).bind_visible(lambda key=key: row_ref.value[key] == 'gpu')
-                        elif key == 'seed':
-                            name = algo_params['common'][key]['name']
-                            type = algo_params['common'][key]['type']
-                            format = algo_params['common'][key]['format']
-                            options = algo_params['common'][key]['options']
-                            params_tab(name=name, nums=my_vmodel(row_ref, 'seed'), type=type, format=format, options=options, default=algo_params['common'][key]['default'])
-                        else:
-                            algo = self.rows[rid]['algo']
-                            name = algo_params[algo][key]['name']
-                            type = algo_params[algo][key]['type']
-                            format = algo_params[algo][key]['format']
-                            options = algo_params[algo][key]['options']
-                            params_tab(name=name, nums=my_vmodel(row_ref, key), type=type, format=format, options=options, default=algo_params[algo][key]['default'])
+                    if key == 'id' or key == 'gpu':
+                        continue
+                    else:
+                        with ui.column():
+                            if key == 'device':
+                                rxui.select(label='运行设备', value=my_vmodel(row_ref, key), options=list(self.devices.keys()))
+                                rxui.label('选择CPU: '+self.devices['cpu']).bind_visible(lambda key=key: row_ref.value[key] == 'cpu')
+                                rxui.select(label='选择GPU', value=my_vmodel(row_ref, 'gpu'), options=self.devices['gpu']).bind_visible(lambda key=key: row_ref.value[key] == 'gpu')
+                            elif key == 'seed':
+                                name = algo_params['common'][key]['name']
+                                type = algo_params['common'][key]['type']
+                                format = algo_params['common'][key]['format']
+                                options = algo_params['common'][key]['options']
+                                params_tab(name=name, nums=my_vmodel(row_ref, 'seed'), type=type, format=format, options=options, default=algo_params['common'][key]['default'])
+                            else:
+                                algo = self.rows[rid]['algo']
+                                name = algo_params[algo][key]['name']
+                                type = algo_params[algo][key]['type']
+                                format = algo_params[algo][key]['format']
+                                options = algo_params[algo][key]['options']
+                                params_tab(name=name, nums=my_vmodel(row_ref, key), type=type, format=format, options=options, default=algo_params[algo][key]['default'])
         self.dialog_list[rid] = dialog
-
-# keys = {'rows': []}
-# algo_table(rows=keys['rows'])

@@ -47,6 +47,9 @@ num_type = {'average': '平均分配', 'random': '随机分配', 'custom_single'
 custom_single = {'sample_per_client': {'name': '本地样本数(公共)', 'format': '%.0f'}}
 imbalance_control = {'imbalance_alpha': {'name': '不平衡系数', 'format': '%.4f'}}
 
+noise_type = {'none': '无噪声', 'gaussian': '高斯噪声分布(特征)', 'custom_label': '自定义噪声(标签)',
+              'custom_feature': '自定义噪声(特征)'}
+
 # 算法配置（包括每种算法特定的详细参数）
 algo_type_options = [
     {'value': 'method', 'label': '部分方法'},
@@ -133,14 +136,16 @@ algo_params = {
         'seed': {'name': '随机种子', 'format': '%.0f', 'type': 'number', 'default': 1, 'options': None},
         'device': {'name': '设备', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
     },
-    'fedavg':{
+    'fedavg': {
         'gamma': {'name': '质量评估超参数', 'format': '%.4f', 'type': 'number', 'default': 0.1, 'options': None},
         'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
         'fair': {'name': '公平系数', 'format': '%.4f', 'type': 'number', 'default': 3.0, 'options': None},
         'eta': {'name': '模型质量筛选系数', 'format': '%.4f', 'type': 'number', 'default': 0.01, 'options': None},
         'e': {'name': '模型融合迭代次数', 'format': '%.0f', 'type': 'number', 'default': 4, 'options': None},
-        'reward_mode': {'name': '奖励模式', 'format': None, 'type': 'choice', 'options': ['mask', 'grad'], 'default': 'mask'},
-        'time_mode': {'name': '时间模式', 'format': None, 'type': 'choice', 'options': ['exp', 'cvx'], 'default': 'exp'},
+        'reward_mode': {'name': '奖励模式', 'format': None, 'type': 'choice', 'options': ['mask', 'grad'],
+                        'default': 'mask'},
+        'time_mode': {'name': '时间模式', 'format': None, 'type': 'choice', 'options': ['exp', 'cvx'],
+                      'default': 'exp'},
         'lamb': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'default': 0.5, 'options': None},
         'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
     }
