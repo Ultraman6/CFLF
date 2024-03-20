@@ -82,26 +82,26 @@ class BaseServer(object):
 
     # 创建记录(子类可以在此方法中初始化自己的记录信息)
     def global_initialize(self):
-        # 初始化全局信息和客户信息
-        self.info_metrics_ref.value['global_info'] = {"Loss": [], "Accuracy": [], "Relative Time": []}
-        self.info_metrics_ref.value['client_info'] = {"avg_loss": {}, "learning_rate": {}}
-        for cid in range(self.args.num_clients):  # 每个客户的信息，需要标注好轮次（客户可能当前轮没参加）
-            self.info_metrics_ref.value['client_info']['avg_loss'][cid] = {}
-            self.info_metrics_ref.value['client_info']['learning_rate'][cid] = {}
+        # 初始化全局信息和客户信息(已经放到task中完成，便于绑定)
+        # self.info_metrics_ref.value['global_info'] = {"Loss": [], "Accuracy": [], "Time": []}
+        # self.info_metrics_ref.value['client_info'] = {"avg_loss": {}, "learning_rate": {}}
+        # for cid in range(self.args.num_clients):  # 每个客户的信息，需要标注好轮次（客户可能当前轮没参加）
+        #     self.info_metrics_ref.value['client_info']['avg_loss'][cid] = {}
+        #     self.info_metrics_ref.value['client_info']['learning_rate'][cid] = {}
 
         # 预全局测试
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
         # print(f"Round 0: Test Loss: {test_loss}, Test Accuracy: {test_acc}")
         self.info_metrics_ref.value['global_info']["Loss"].append(test_loss)
         self.info_metrics_ref.value['global_info']["Accuracy"].append(test_acc)
-        self.info_metrics_ref.value['global_info']["Relative Time"].append(0)
+        self.info_metrics_ref.value['global_info']["Time"].append(0)
         self.start_time = time.time()
 
     def execute_iteration(self):
         self.w_locals.clear()
         if self.args.train_mode == 'serial':
             for cid in self.client_indexes:
-                w_local = self.thread_train(cid, self.round_idx)
+                w_local = self.thread_train(cid)
                 self.w_locals.append(w_local)
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
@@ -122,7 +122,7 @@ class BaseServer(object):
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
         self.info_metrics_ref.value['global_info']["Loss"].append(test_loss)
         self.info_metrics_ref.value['global_info']["Accuracy"].append(test_acc)
-        self.info_metrics_ref.value['global_info']["Relative Time"].append(time.time() - self.start_time)
+        self.info_metrics_ref.value['global_info']["Time"].append(time.time() - self.start_time)
 
     def global_record(self):
         # 收集客户端信息

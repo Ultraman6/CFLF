@@ -12,6 +12,7 @@ class Task:
         self.model = model
         self.device = device or self.setup_device()
         self.info_ref = global_info_ref  # 传引用对象，同步回显至父级实验对象
+        self.adj_info_ref()
 
     def run(self):
         print(f"联邦学习任务：{self.task_name} 开始")
@@ -20,6 +21,13 @@ class Task:
         print(f"联邦学习任务：{self.task_name} 结束")
         # self.get_result(info_metrics['global_info'])
         # return self.task_name, info_metrics
+
+    def adj_info_ref(self):
+        self.info_ref.value['global_info'] = {"Loss": [], "Accuracy": [], "Time": []}
+        self.info_ref.value['client_info'] = {"avg_loss": {}, "learning_rate": {}}
+        for cid in range(self.args.num_clients):  # 每个客户的信息，需要标注好轮次（客户可能当前轮没参加）
+            self.info_ref.value['client_info']['avg_loss'][cid] = {}
+            self.info_ref.value['client_info']['learning_rate'][cid] = {}
 
     def get_result(self, global_info):
         # 从 global_info 中提取精度和损失
