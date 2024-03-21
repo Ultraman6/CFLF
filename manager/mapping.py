@@ -117,4 +117,23 @@ algorithm_dict = {
         }
     }
 }
+# 所有算法需要记录的信息全部在此进行形式化定义
+# 参数分为三种类型：全局、局部、部分局部
+# 不同算法可重新定义其信息结构，在common上加入即可
+algo_info_mapping = {
+    'common': {
+        'global_info': {
+            'Loss': '损失',
+            'Accuracy': '精度',
+            'Time': '时间戳',
+        },
+        'client_info': {
+            'avg_loss': '平均损失',
+            'learning_rate': '学习率',
+        }
+    },
+    'fedetf': {
+
+    }
+}
 

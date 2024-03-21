@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExec
 import os
 import torch
 from ex4nicegui import deep_ref
-
 from data.get_data import get_dataloaders
 from manager.mapping import algorithm_mapping
 from model.Initialization import model_creator
@@ -117,13 +116,11 @@ class ExperimentManager:
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
+                task = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 self.task_info_refs[task_id] = deep_ref({})
-                task = Task(self.task_info_refs[task_id], algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 self.task_queue[task_id] = task
                 task_id += 1
 
-        # for tid in self.task_queue:
-        #     print(self.task_queue[tid].global_infos)
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -262,20 +259,29 @@ class ExperimentManager:
                     print(f"Error in process: {e}")
             print("All tasks completed. Results collected.")
 
-    def visual_results(self):
+    # 选择任务对齐进行可视化
+    def visual_results(self, tides):
         """
         将结果可视化。
         """
         results_list = []
-        for task_name, result in self.results:
+        for tid in tides:
+            task_name, result = self.task_queue[tid].task_name, self.results[tid]
             results_list.append(pack_result(task_name, result))
         plot_results(results_list)
 
-    def save_results(self):
-        root_save_path = os.path.join(self.result_root, self.exp_name)
-        if not os.path.exists(root_save_path):
-            os.makedirs(root_save_path)
-        for task_name, result in self.results:
+    # 选择任务对其结果保存
+    def save_results(self, tides):
+        root_save_path = self.handle_root()
+        for tid in tides:
+            task_name, result = self.task_queue[tid].task_name, self.results[tid]
+            task_name, result = self.task_queue[tid].task_name, self.results[tid]
             save_file_name = os.path.join(str(root_save_path), f"{task_name}_results.xlsx")
             save_results_to_excel(result, save_file_name)
             print("Results saved to Excel {}.".format(save_file_name))
+
+    def handle_root(self):
+        root_save_path = os.path.join(self.args_template.result_root, self.exp_name)
+        if not os.path.exists(root_save_path):
+            os.makedirs(root_save_path)
+        return root_save_path

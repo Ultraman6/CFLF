@@ -17,9 +17,8 @@ algo_param_mapping = {
 
 def my_vmodel(data, key):
     def setter(new):
-        data.value[key] = new
-
-    return to_ref_wrapper(lambda: data.value[key], setter)
+        data[key] = new
+    return to_ref_wrapper(lambda: data[key], setter)
 
 def scan_local_device():
     # 初始化设备字典
@@ -191,20 +190,20 @@ class algo_table:
                     else:
                         with ui.column():
                             if key == 'device':
-                                rxui.select(label='运行设备', value=my_vmodel(row_ref, key), options=list(self.devices.keys()))
+                                rxui.select(label='运行设备', value=my_vmodel(row_ref.value, key), options=list(self.devices.keys()))
                                 rxui.label('选择CPU: '+self.devices['cpu']).bind_visible(lambda key=key: row_ref.value[key] == 'cpu')
-                                rxui.select(label='选择GPU', value=my_vmodel(row_ref, 'gpu'), options=self.devices['gpu']).bind_visible(lambda key=key: row_ref.value[key] == 'gpu')
+                                rxui.select(label='选择GPU', value=my_vmodel(row_ref.value, 'gpu'), options=self.devices['gpu']).bind_visible(lambda key=key: row_ref.value[key] == 'gpu')
                             elif key == 'seed':
                                 name = algo_params['common'][key]['name']
                                 type = algo_params['common'][key]['type']
                                 format = algo_params['common'][key]['format']
                                 options = algo_params['common'][key]['options']
-                                params_tab(name=name, nums=my_vmodel(row_ref, 'seed'), type=type, format=format, options=options, default=algo_params['common'][key]['default'])
+                                params_tab(name=name, nums=my_vmodel(row_ref.value, 'seed'), type=type, format=format, options=options, default=algo_params['common'][key]['default'])
                             else:
                                 algo = self.rows[rid]['algo']
                                 name = algo_params[algo][key]['name']
                                 type = algo_params[algo][key]['type']
                                 format = algo_params[algo][key]['format']
                                 options = algo_params[algo][key]['options']
-                                params_tab(name=name, nums=my_vmodel(row_ref, key), type=type, format=format, options=options, default=algo_params[algo][key]['default'])
+                                params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type, format=format, options=options, default=algo_params[algo][key]['default'])
         self.dialog_list[rid] = dialog

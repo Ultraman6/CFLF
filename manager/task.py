@@ -1,9 +1,12 @@
 import torch
+from ex4nicegui import deep_ref, to_raw
+
 from util.drawing import create_result
 
-
+global_info_dicts=['Loss', 'Accuracy', 'Time']
+client_info_dicts=['avg_loss', 'learning_rate']
 class Task:
-    def __init__(self, global_info_ref, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None):
+    def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None):
         self.algo_class = algo_class
         self.args = args
         self.task_name = task_name or algo_class.__name__
@@ -11,29 +14,31 @@ class Task:
         self.dataloaders = dataloaders
         self.model = model
         self.device = device or self.setup_device()
-        self.info_ref = global_info_ref  # 传引用对象，同步回显至父级实验对象
+        self.info_ref = {}  # 传引用对象，同步回显至父级实验对象
         self.adj_info_ref()
 
     def run(self):
         print(f"联邦学习任务：{self.task_name} 开始")
         algorithm = self.algo_class(self.args, self.device, self.dataloaders, self.model, self.info_ref)
-        info_metrics = algorithm.train(self.task_name, self.task_id)
+        algorithm.train(self.task_name, self.task_id)
         print(f"联邦学习任务：{self.task_name} 结束")
-        # self.get_result(info_metrics['global_info'])
-        # return self.task_name, info_metrics
+        return self.get_result()
 
-    def adj_info_ref(self):
-        self.info_ref.value['global_info'] = {"Loss": [], "Accuracy": [], "Time": []}
-        self.info_ref.value['client_info'] = {"avg_loss": {}, "learning_rate": {}}
-        for cid in range(self.args.num_clients):  # 每个客户的信息，需要标注好轮次（客户可能当前轮没参加）
-            self.info_ref.value['client_info']['avg_loss'][cid] = {}
-            self.info_ref.value['client_info']['learning_rate'][cid] = {}
+    def adj_info_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
+        self.info_ref['global_info'] = {}
+        self.info_ref['client_info'] = {}
+        for key in global_info_dicts:
+            self.info_ref['global_info'][key] = deep_ref([])
+        for key in client_info_dicts:   # 客户信息，需要存放收集客户的(轮次为键)
+            self.info_ref['client_info'][key] = {cid: deep_ref({}) for cid in range(self.args.num_clients)}
 
-    def get_result(self, global_info):
+    def get_result(self):
         # 从 global_info 中提取精度和损失
-        global_acc = [info["Accuracy"] for info in global_info.values()]
-        global_loss = [info["Loss"] for info in global_info.values()]
-        return create_result(self.task_name, global_acc, list(range(self.args.round)), global_loss)
+        infos_raw = {}
+        for key, value in self.info_ref.items():  # 第一层，查看其有哪些类型
+            for k, ref in value: # 第二层，查看其有哪些值
+                infos_raw[key][k] = to_raw(ref.value)
+        return infos_raw
 
     def setup_device(self):
         # 检查是否有可用的 GPU

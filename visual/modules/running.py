@@ -2,8 +2,15 @@ import colorsys
 import random
 from ex4nicegui import effect, ref_computed, on, deep_ref
 from ex4nicegui.reactive import rxui
+from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
 from nicegui import ui
 # 任务运行界面
+
+def my_vmodel(data, key):
+    def setter(new):
+        data.value[key] = new
+
+    return to_ref_wrapper(lambda: data.value[key], setter)
 
 def get_n_hls_colors(num):
     hls_colors = []
@@ -52,14 +59,15 @@ class run_ui:
     def __init__(self, experiment):
         self.experiment = experiment
         self.infos_ref = {}
-        # with rxui.grid(columns=1):
-        # print(self.experiment.task_info_refs)
         for tid in self.experiment.task_info_refs:
+            for key in self.experiment.task_info_refs[tid].value: # 首先明确每个任务存有何种信息
+                if key not in self.infos_ref:
+                    self.infos_ref[key] = {}
+                self.infos_ref[key][tid] = self.experiment.task_info_refs[tid][key] # 直接和其deep_ref绑定（只绑定到二层）
             info_ref = self.experiment.task_info_refs[tid]
             self.infos_ref[tid] = info_ref
-            # on(info_ref)(lambda: self.show_run_metrics(tid))
-            # ui.echart()
-        ui.button('开始运行', on_click=self.draw_global_infos)
+
+        ui.button('开始运行', on_click=self.draw_infos)
 
     def show_run_metrics(self, tid):
         name = self.experiment.task_queue[tid].task_name
@@ -70,23 +78,25 @@ class run_ui:
     # 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
 
     # global info默认为：精度-轮次、损失-轮次、轮次-时间
-    def draw_global_infos(self):
+    def draw_infos(self):
         self.experiment.run_experiment()
         # 默认获得三种数据，精度、损失、时间
-        task_names = []
+        self.task_names = {}
         global_acc, global_loss, global_time = {}, {}, {}
-        # client_loss, client_lr = {}, {} # 默认的client记录
+        client_loss, client_lr = {}, {} # 默认的client记录
         for tid in self.infos_ref:
-            task_names.append(self.experiment.task_queue[tid].task_name)
-            global_loss[tid] = self.infos_ref[tid].value['global_info']['Loss']
+            self.task_names[tid] = self.experiment.task_queue[tid].task_name
+            global_loss[tid] = self.infos_ref[tid]['global_info']['Loss']
             global_acc[tid] = self.infos_ref[tid].value['global_info']['Accuracy']
             global_time[tid] = self.infos_ref[tid].value['global_info']['Time']
-            # client_loss[tid] = self.infos_ref[tid]['client_info']['avg_loss']
-            # client_loss[tid] = self.infos_ref[tid]['client_info']['learning_rate']
-        print(global_acc)
-        print(global_loss)
-        print(global_time)
-        acc_options = {
+            client_loss[tid] = self.infos_ref[tid]['client_info']['avg_loss']
+            client_loss[tid] = self.infos_ref[tid]['client_info']['learning_rate']
+        # 此部分画图
+        # 全局信息图（传入的是某个指标的infos）
+        rxui.echarts(self.get_infos_option(global_acc)).classes('w-full')
+
+    def get_infos_option(self, infos_dict):
+        return {
             "xAxis": {
                 "type": "category",
                 "name": '轮次',
@@ -101,18 +111,30 @@ class run_ui:
                 },
             },
             'legend': {
-                'data': task_names
+                'data': [self.task_names[tid] for tid in self.task_names]
             },
             'series': [
                 {
-                    'name': task_names[tid],
+                    'name': self.task_names[tid],
                     'type': 'line',
-                    'data': global_acc[tid],
+                    'data': to_raw(list(infos_dict[tid].value))
                 }
-                for tid in global_acc
+                for tid in infos_dict
             ]
         }
-        rxui.echarts(options=acc_options).classes('w-full')
 
 
-
+# series_data = deep_ref([120, 200, 150])
+# def opts(data):
+#     return {
+#         "xAxis": {
+#             "type": "category",
+#             "data": ["Mon", "Tue", "Wed"],
+#         },
+#         "yAxis": {"type": "value"},
+#         "series": [{"data": list(data.value), "type": "bar"}],
+#     }
+#
+# rxui.number(value=rxui.vmodel(series_data.value[0]))
+# rxui.echarts(opts(series_data), not_merge=False)
+# ui.run()
