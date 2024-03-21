@@ -25,12 +25,12 @@ class Task:
         return self.get_result()
 
     def adj_info_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
-        self.info_ref['global_info'] = {}
-        self.info_ref['client_info'] = {}
+        self.info_ref['global'] = {}
+        self.info_ref['local'] = {}
         for key in global_info_dicts:
-            self.info_ref['global_info'][key] = deep_ref([])
+            self.info_ref['global'][key] = deep_ref([])
         for key in client_info_dicts:   # 客户信息，需要存放收集客户的(轮次为键)
-            self.info_ref['client_info'][key] = {cid: deep_ref({}) for cid in range(self.args.num_clients)}
+            self.info_ref['local'][key] = {cid: deep_ref({}) for cid in range(self.args.num_clients)}
 
     def get_result(self):
         # 从 global_info 中提取精度和损失

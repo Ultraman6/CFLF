@@ -87,6 +87,10 @@ class ExperimentManager:
             args.seed = int(args.seed)
         if hasattr(args, 'batch_size'):
             args.batch_size = int(args.batch_size)
+        if hasattr(args, 'round'):
+            args.round = int(args.round)
+        if hasattr(args, 'epoch'):
+            args.epoch = int(args.epoch)
 
     def assemble_parameters(self):
         """
@@ -117,7 +121,7 @@ class ExperimentManager:
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
                 task = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
-                self.task_info_refs[task_id] = deep_ref({})
+                self.task_info_refs[task_id] = task.info_ref
                 self.task_queue[task_id] = task
                 task_id += 1
 
