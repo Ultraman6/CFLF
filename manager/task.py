@@ -5,8 +5,11 @@ from ex4nicegui import deep_ref, to_raw
 
 from util.drawing import create_result
 
-global_info_dicts={'info':['Loss', 'Accuracy'], 'type':['round', 'time']}
-local_info_dicts={'info':['avg_loss', 'learning_rate'], 'type':['round']}
+inform_dicts = {
+    'global': {'info':['Loss', 'Accuracy'], 'type':['round', 'time']},
+    'local': {'info':['avg_loss', 'learning_rate'], 'type':['round']}
+}
+
 class Task:
     def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None):
         self.algo_class = algo_class
@@ -16,23 +19,43 @@ class Task:
         self.dataloaders = dataloaders
         self.model = model
         self.device = device or self.setup_device()
+        self.informer = None
+        self.statuser = None  # 任务状态记录
+        self.mode = None
 
-    def run(self, ref=None, queue=None):
+    def run(self, informer=None, statuser=None, mode='ref'):
+        self.informer = informer
+        self.mode = mode
+        self.statuser = statuser
         print(f"联邦学习任务：{self.task_name} 开始")
-        algorithm = self.algo_class(self.args, self.device, self.dataloaders,self.model, self.task_id, self.task_name, ref, queue)
+        algorithm = self.algo_class(self)
         algorithm.train()
         print(f"联邦学习任务：{self.task_name} 结束")
-        if queue is not None:
-            queue.put((self.task_id, 'done'))  # 将结果传递给父级实验对象
+        self.set_done()
 
+    # 此value包含了type
+    def set_info(self, spot, name, value, cid=None):
+        v = value[-1]
+        for i, type in enumerate(inform_dicts[spot]['type']):
+            if self.mode == 'ref':
+                if cid is None:
+                    self.informer[spot][name][type].value.append((value[i], v))
+                else:
+                    self.informer[spot][name][type][cid].value.append((value[i], v))
+            elif self.mode == 'queue':
+                if cid is None:
+                    mes = {spot: {name: {type: (value[i], v)}}}
+                else:
+                    mes = {spot: {name: {type: {cid: (value[i], v)}}}}
+                self.informer.put((self.task_id, mes))
 
-    # def get_result(self):
-    #     # 从 global_info 中提取精度和损失
-    #     infos_raw = {}
-    #     for key, value in self.info_ref.items():  # 第一层，查看其有哪些类型
-    #         for k, ref in value: # 第二层，查看其有哪些值
-    #             infos_raw[key][k] = to_raw(ref.value)
-    #     return infos_raw
+    def set_done(self):
+        if self.mode=='queue':
+            self.informer.put((self.task_id, 'done'))
+
+    def set_statuse(self, type, value):
+        self.statuser[type].value = value
+
 
     def setup_device(self):
         # 检查是否有可用的 GPU
@@ -42,6 +65,3 @@ class Task:
             device = torch.device("cpu")
         print(f"使用设备：{device}")
         return device
-
-    # def receive_infos(self, infos): # 此方法接收来自算法对象回显的信息，并将其更新至来自父级实验对象的容器
-    #     self.global_info[self.task_id] = infos

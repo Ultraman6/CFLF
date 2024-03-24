@@ -5,7 +5,7 @@ import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
-from ex4nicegui import deep_ref
+from ex4nicegui import deep_ref, to_ref
 from nicegui import run, ui
 from data.get_data import get_dataloaders
 from manager.mapping import algorithm_mapping
@@ -80,6 +80,7 @@ class ExperimentManager:
         self.dataloaders_global = None
         self.task_queue = {}
         self.task_info_refs = {}
+        self.task_statuse_refs = {}
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -149,6 +150,7 @@ class ExperimentManager:
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
                 self.task_info_refs[task_id] = self.adj_info_ref(args)
+                self.task_statuse_refs[task_id] = self.adj_statues_ref()
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
 
@@ -242,12 +244,12 @@ class ExperimentManager:
             raise ValueError('Execution mode not recognized.')
 
     @staticmethod
-    def run_task(task, ref=None, queue=None):
+    def run_task(task, informer=None, statuser=None, mode='none'):
         """
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        task.run(ref, queue)
+        task.run(informer, statuser, mode)
         return task.task_id
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
@@ -266,6 +268,9 @@ class ExperimentManager:
                     info_ref['local'][key][k][cid] = deep_ref([])
         return info_ref
 
+    def adj_statues_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
+        statue_ref = {'progress': to_ref(0), 'status': deep_ref('running')}
+        return statue_ref
 
     def control_same(self):
         if self.same['model']:
@@ -275,15 +280,15 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid], self.task_info_refs[tid])
+            self.run_task(self.task_queue[tid], self.task_info_refs[tid], self.task_statuse_refs[tid], 'ref')
             print(f"任务 {tid} 运行完成")
-            # self.results[tid] = result
 
     async def execute_thread(self):
         # 使用 ThreadPoolExecutor
         run.thread_pool = ThreadPoolExecutor(max_workers=int(self.run_config['max_threads']))
         futures = [
-            asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid], self.task_info_refs[tid]))
+            asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid],
+                                             self.task_info_refs[tid], self.task_statuse_refs[tid], 'ref'))
             for tid in self.task_queue
         ]
         for coro in asyncio.as_completed(futures):
@@ -299,7 +304,7 @@ class ExperimentManager:
         queue = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
-            asyncio.create_task(run.cpu_bound(self.run_task, task, None, queue))
+            asyncio.create_task(run.cpu_bound(self.run_task, task, queue, 'queue'))
             for task in self.task_queue.values()
         ]
         # 等待监控任务完成

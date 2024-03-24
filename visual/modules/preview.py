@@ -269,21 +269,22 @@ class preview_ui:
             with lazy_tab_panels(tabs).classes('w-full') as panels:
                 for tid, name in enumerate(self.visual_data_infos):
                     panel = panels.tab_panel(name)
-
-                    @panel.build_fn
-                    def _(name: str):
-                        ui.notify(f"创建:{name}的图表")
-                        with ui.dialog() as dialog, ui.card():
-                            args = vars(self.args_queue[tid])
-                            with ui.card():
-                                for k, v in args.items():
-                                    ui.label(f'{k}: {v}')
-                        rxui.button('show_exp_args', on_click=dialog.open)
-                        for item in self.visual_data_infos[name]:
-                            target = name_mapping[item]
-                            rxui.label(target).classes('w-full')
-                            ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes(
-                                'w-full')
+                    def closure(tid: int):
+                        @panel.build_fn
+                        def _(name: str):
+                            ui.notify(f"创建:{name}的图表")
+                            with ui.dialog() as dialog, ui.card():
+                                args = vars(self.args_queue[tid])
+                                with ui.card():
+                                    for k, v in args.items():
+                                        ui.label(f'{k}: {v}')
+                            rxui.button('show_exp_args', on_click=dialog.open)
+                            for item in self.visual_data_infos[name]:
+                                target = name_mapping[item]
+                                rxui.label(target).classes('w-full')
+                                ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes(
+                                    'w-full')
+                    closure(tid)
 
     def assemble_params(self):
         self.experiment.assemble_parameters()
@@ -316,6 +317,7 @@ class preview_ui:
             print(self.visual_data_infos)
         else:
             self.visual_data_infos, self.args_queue = self.experiment.get_local_loader_infos()
+            print(self.args_queue)
         self.draw_distribution.refresh()
         ui.notify('查看数据划分')
 

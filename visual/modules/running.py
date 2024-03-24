@@ -1,16 +1,5 @@
-import asyncio
 import colorsys
-import multiprocessing
-import pickle
 import random
-import time
-from asyncio import Queue
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
-from time import sleep
-import asyncio
-from multiprocessing import Process, Queue
-import time
-from ex4nicegui import effect, ref_computed, on, deep_ref
 from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
 from nicegui import ui, run
@@ -111,21 +100,30 @@ class run_ui:
     # 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
     # global info默认为：精度-轮次、损失-轮次、轮次-时间
     def draw_infos(self):
-        # rxui.echarts(lambda: self.get_global_option(self.infos_ref['global']['Accuracy']), not_merge=False).classes('w-full')
-        # 默认获得三种数据，精度、损失、时间
-        for info_spot in self.infos_ref:
-            if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
-                with rxui.card().classes('w-full'):
-                    rxui.label('全局信息')
+        # 任务状态实时展示
+        with rxui.card().classes('w-full'):
+            rxui.label('进度状态').tailwind('mx-auto', 'w-1/2')
+            with rxui.grid(columns=5).classes('w-full'):
+                for tid in self.experiment.task_statuse_refs:
+                    with rxui.column().classes('w-full'):
+                        rxui.label(self.task_names[tid])
+                        pro_ref = self.experiment.task_statuse_refs[tid]['progress']
+                        pro_max = self.experiment.task_queue[tid].args.rounds
+                        ui.circular_progress(min = pro_ref, max=pro_max)
+                        rxui.label(text = lambda: pro_ref.value + '/' + str(pro_max))
+        # 信息曲线图实时展示
+        with rxui.card().classes('w-full'):
+            for info_spot in self.infos_ref:
+                if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
+                    rxui.label('全局信息').tailwind('mx-auto', 'w-1/2')
                     with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
                                 self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
-            elif info_spot == 'local':
-                print(self.infos_ref[info_spot])
-                with rxui.column().classes('w-full'):
-                    rxui.label('局部信息')
-                    for tid in self.infos_ref[info_spot]:
-                        with rxui.card().classes('w-full'):
+                elif info_spot == 'local':
+                    print(self.infos_ref[info_spot])
+                    with rxui.column().classes('w-full'):
+                        rxui.label('局部信息').tailwind('mx-auto', 'w-1/2')
+                        for tid in self.infos_ref[info_spot]:
                             rxui.label(self.task_names[tid])
                             self.control_local_echarts(self.infos_ref[info_spot][tid])
 
