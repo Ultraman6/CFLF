@@ -1,10 +1,12 @@
+import asyncio
 import copy
 import itertools
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
 from ex4nicegui import deep_ref
+from nicegui import run, ui
 from data.get_data import get_dataloaders
 from manager.mapping import algorithm_mapping
 from model.Initialization import model_creator
@@ -12,6 +14,10 @@ from util.drawing import plot_results, create_result
 from util.logging import save_results_to_excel
 from util.running import control_seed
 from manager.task import Task
+
+# 由于多进程原因，ref存储从task层移植到manager层中
+global_info_dicts={'info':['Loss', 'Accuracy'], 'type':['round', 'time']}
+local_info_dicts={'info':['avg_loss', 'learning_rate'], 'type':['round']}
 
 
 def setup_device(args):
@@ -30,6 +36,28 @@ def pack_result(task_name, result):
     global_acc = [info["Accuracy"] for info in global_info.values()]
     global_loss = [info["Loss"] for info in global_info.values()]
     return create_result(task_name, global_acc, list(range(len(global_acc))), global_loss)
+
+async def handle_mes_ref(data, ref):
+    """递归遍历并更新data_ref字典"""
+    for k, v in data.items():
+        if isinstance(v, dict):
+            # 如果值是字典，递归调用
+            await handle_mes_ref(v, ref[k])
+        else:
+            # 否则，追加值到相应的数组中
+            ref[k].value.append(v)
+
+def run_task(attr, queue=None):
+    """
+    运行单个算法任务。
+    """
+    task = Task(*attr)
+    control_seed(task.args.seed)
+    # if queue is not None:
+    result = task.run(queue=queue)
+    # else:
+    #     result = task.run(ref=self.task_info_refs[tid])
+    return task.task_id, result
 
 
 # 先创建实验、选择算法，然后选择参数，然后选择运行方式（可以选择参数微调(任务参数)、参数独立）
@@ -120,9 +148,8 @@ class ExperimentManager:
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
-                task = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
-                self.task_info_refs[task_id] = task.info_ref
-                self.task_queue[task_id] = task
+                self.task_info_refs[task_id] = self.adj_info_ref(args)
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
 
 
@@ -201,26 +228,44 @@ class ExperimentManager:
 
         return dataloader_infos, args_queue  # 目前只考虑类别标签分布
 
-    def run_experiment(self):
+    async def run_experiment(self):
         """
         根据提供的执行模式运行实验。
         """
         if self.run_mode == 'serial':
-            self.execute_serial()
+            await run.io_bound(self.execute_serial)
         elif self.run_mode == 'thread':
-            self.execute_thread()
+            await self.execute_thread()
         elif self.run_mode == 'process':
-            self.execute_process()
+            await self.execute_process()
         else:
             raise ValueError('Execution mode not recognized.')
 
-    def run_task(self, tid):
+    @staticmethod
+    def run_task(task, ref=None, queue=None):
         """
         运行单个算法任务。
         """
-        task = self.task_queue[tid]
         control_seed(task.args.seed)
-        return task.run()
+        task.run(ref, queue)
+        return task.task_id
+
+    def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
+        info_ref = {}
+        info_ref['global'] = {}
+        info_ref['local'] = {}
+        for key in global_info_dicts['info']:
+            info_ref['global'][key] = {}
+            for k in global_info_dicts['type']:
+                info_ref['global'][key][k] = deep_ref([])
+        for key in local_info_dicts['info']:
+            info_ref['local'][key] = {}
+            for k in local_info_dicts['type']:
+                info_ref['local'][key][k] = {}
+                for cid in range(args.num_clients):
+                    info_ref['local'][key][k][cid] = deep_ref([])
+        return info_ref
+
 
     def control_same(self):
         if self.same['model']:
@@ -230,38 +275,57 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            result = self.run_task(tid)
-            self.results[tid] = result
+            self.run_task(self.task_queue[tid], self.task_info_refs[tid])
+            print(f"任务 {tid} 运行完成")
+            # self.results[tid] = result
 
-    def execute_thread(self):
+    async def execute_thread(self):
         # 使用 ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=self.run_config['max_threads']) as executor:
-            futures = []
-            for tid in self.algo_queue:
-                future = executor.submit(self.run_task, tid)
-                futures.append(future)
-            for future in as_completed(futures):
-                try:
-                    tid, result = future.result()
-                    self.results[tid] = result
-                except Exception as e:
-                    print(f"Error in thread: {e}")
-            print("All tasks completed. Results collected.")
+        run.thread_pool = ThreadPoolExecutor(max_workers=int(self.run_config['max_threads']))
+        futures = [
+            asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid], self.task_info_refs[tid]))
+            for tid in self.task_queue
+        ]
+        for coro in asyncio.as_completed(futures):
+            try:
+                tid = await coro
+                print(f"线程 {tid} 运行完成")
+            except Exception as e:
+                print(f"Task执行过程中发生异常: {e}")
 
-    def execute_process(self):
-        # 使用 ThreadPoolExecutor
-        with ProcessPoolExecutor(max_workers=self.run_config['max_processes']) as executor:
-            futures = []
-            for tid in self.algo_queue:
-                future = executor.submit(self.run_task, tid)
-                futures.append(future)
-            for future in as_completed(futures):
-                try:
-                    tid, result = future.result()
-                    self.results[tid] = result
-                except Exception as e:
-                    print(f"Error in process: {e}")
-            print("All tasks completed. Results collected.")
+    async def execute_process(self):
+        num_tasks = len(self.task_queue)
+        manager = multiprocessing.Manager()
+        queue = manager.Queue()
+        run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
+        futures = [
+            asyncio.create_task(run.cpu_bound(self.run_task, task, None, queue))
+            for task in self.task_queue.values()
+        ]
+        # 等待监控任务完成
+        await asyncio.create_task(self.monitor_queue(queue, num_tasks))
+        # 等待所有工作任务完成，处理可能的异常
+        for coro in asyncio.as_completed(futures):
+            try:
+                tid = await coro
+                print(f"进程 {tid} 运行完成")
+            except Exception as e:
+                print(f"Task执行过程中发生异常: {e}")
+
+    async def monitor_queue(self, queue, num_workers):
+        """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
+        completions = 0
+        loop = asyncio.get_running_loop()
+        while completions < num_workers:
+            # 异步等待queue.get()
+            task_id, message = await loop.run_in_executor(None, queue.get)
+            if message == "done":
+                completions += 1
+                # print(f"Task {task_id} completed.")
+            else:
+                # print(f"Task {task_id} returned message: {message}")
+                await handle_mes_ref(message, self.task_info_refs[task_id])
+            # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
 
     # 选择任务对齐进行可视化
     def visual_results(self, tides):

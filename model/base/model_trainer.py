@@ -59,7 +59,7 @@ class ModelTrainer:
                 self.optimizer.step()
                 batch_loss.append(loss.item())
             epoch_losses.append(sum(batch_loss) / len(batch_loss) if batch_loss else 0.0)
-            print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
+            # print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
         # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
         round_avg_loss = sum(epoch_losses) / len(epoch_losses)
         self.all_epoch_losses[global_round] = {

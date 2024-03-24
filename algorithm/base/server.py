@@ -10,8 +10,8 @@ from .client import BaseClient
 
 
 # 服务端过程分为：创建记录 -> 选择客户端 -> 本地更新 -> 全局更新 -> 同步记录
-class BaseServer(object):
-    def __init__(self, args, device, dataset, model, info_ref):
+class BaseServer:
+    def __init__(self, args, device, dataset, model, task_id, task_name, info_ref, queue=None):
         if args.local_test:
             [train_loaders, test_loaders, valid_global] = dataset
         else:
@@ -35,6 +35,9 @@ class BaseServer(object):
         self.round_idx = 0
         self.start_time = 0
         self.info_metrics_ref = info_ref
+        self.queue = queue
+        self.task_id = task_id
+        self.task_name = task_name
         self.w_locals = []
         self.client_indexes = []
         # self.task = task  # 保留task对象，用于回显信息
@@ -56,9 +59,9 @@ class BaseServer(object):
         for client in self.client_list:  # 遍历每个客户，改变其所属的数据
             client.update_data(self.train_loaders[new_idx])
 
-    def train(self, task_name, position):
+    def train(self):
         self.global_initialize()
-        for self.round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, position=position, leave=False):
+        for self.round_idx in tqdm(range(1, self.args.round + 1), desc=self.task_name, position=self.task_id, leave=False):
             # print("################Communication round : {}".format(round_idx))
             self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
             self.execute_iteration()
@@ -85,9 +88,14 @@ class BaseServer(object):
         # 初始化全局信息和客户信息(已经放到task中完成，便于绑定) 弃用，直接在task中初始化
         # 预全局测试
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
-        self.info_metrics_ref['global']['Loss'].value.append(test_loss)
-        self.info_metrics_ref['global']['Accuracy'].value.append(test_acc)
-        self.info_metrics_ref['global']['Time'].value.append(0.0)
+        if self.queue is not None:
+            message = {'global':{'Loss':{'time': (0.0, test_loss), 'round': (0, test_loss)},  'Accuracy':{'time': (0.0, test_acc), 'round': (0, test_acc)}}}
+            self.queue.put((self.task_id, message))
+        else:
+            self.info_metrics_ref['global']['Loss']['time'].value.append((0.0, test_loss))
+            self.info_metrics_ref['global']['Loss']['round'].value.append((0, test_loss))
+            self.info_metrics_ref['global']['Accuracy']['time'].value.append((0.0, test_acc))
+            self.info_metrics_ref['global']['Accuracy']['round'].value.append((0, test_acc))
         self.start_time = time.time()
 
     def execute_iteration(self):
@@ -113,16 +121,29 @@ class BaseServer(object):
         # 全局测试
         self.model_trainer.set_model_params(self.global_params)
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
-        self.info_metrics_ref['global']["Loss"].value.append(test_loss)
-        self.info_metrics_ref['global']["Accuracy"].value.append(test_acc)
-        self.info_metrics_ref['global']["Time"].value.append(time.time() - self.start_time)
+        # print("Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss, test_acc))
+        if self.queue is not None:
+            message = {'global':{'Loss':{'time': (time.time() - self.start_time, test_loss), 'round': (self.round_idx, test_loss)},
+                                 'Accuracy':{'time': (time.time() - self.start_time, test_acc), 'round': (self.round_idx, test_acc)}}}
+            self.queue.put((self.task_id, message))
+        else:
+            self.info_metrics_ref['global']['Loss']['time'].value.append((time.time() - self.start_time, test_loss))
+            self.info_metrics_ref['global']['Loss']['round'].value.append((self.round_idx, test_loss))
+            self.info_metrics_ref['global']['Accuracy']['time'].value.append((time.time() - self.start_time, test_acc))
+            self.info_metrics_ref['global']['Accuracy']['round'].value.append((self.round_idx, test_acc))
 
     def global_record(self):
         # 收集客户端信息
-        for cid in self.client_indexes:
-            client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
-            self.info_metrics_ref['local']['avg_loss'][cid].value[self.round_idx] = client_losses['avg_loss']
-            self.info_metrics_ref['local']['learning_rate'][cid].value[self.round_idx] = client_losses['learning_rate']
+        if self.queue is None:
+            for cid in self.client_indexes:
+                client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
+                self.info_metrics_ref['local']['avg_loss']['round'][cid].value.append((self.round_idx, client_losses['avg_loss']))
+                self.info_metrics_ref['local']['learning_rate']['round'][cid].value.append((self.round_idx, client_losses['learning_rate']))
+        else:
+            message = {'local':{'avg_loss': {'round': {}}, 'learning_rate': {'round': {}}}}
+            for cid in self.client_indexes:
+                client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
+                message['local']['avg_loss']['round'][cid] = (self.round_idx, client_losses['avg_loss'])
+                message['local']['learning_rate']['round'][cid] = (self.round_idx, client_losses['learning_rate'])
+            self.queue.put((self.task_id, message))
 
-    # def reply_infos(self):
-    #     self.task.receive_infos(self.info_metrics[self.round_idx])

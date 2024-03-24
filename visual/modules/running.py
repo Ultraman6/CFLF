@@ -1,5 +1,15 @@
+import asyncio
 import colorsys
+import multiprocessing
+import pickle
 import random
+import time
+from asyncio import Queue
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+from time import sleep
+import asyncio
+from multiprocessing import Process, Queue
+import time
 from ex4nicegui import effect, ref_computed, on, deep_ref
 from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
@@ -56,7 +66,7 @@ def color(value):
         a3 = digit.index(value[5]) * 16 + digit.index(value[6])
         return (a1, a2, a3)
 
-type_dict = {'global':['Loss', 'Accuracy', 'Time'], 'local':['avg_loss', 'learning_rate']}
+type_dict = {'global':{'metric':['Loss', 'Accuracy'], 'util': 'Time'}, 'local':['avg_loss', 'learning_rate']}
 
 class run_ui:
     def __init__(self, experiment):
@@ -65,22 +75,36 @@ class run_ui:
         self.task_names = {}
 
         for tid in self.experiment.task_info_refs:
-            for info_type in self.experiment.task_info_refs[tid]: # 首先明确每个任务存有何种信息
-                if info_type not in self.infos_ref:
-                    self.infos_ref[info_type] = {}
-                for info_name in self.experiment.task_info_refs[tid][info_type]:
-                    if info_name not in self.infos_ref[info_type]:
-                        self.infos_ref[info_type][info_name] = {}
-                    self.infos_ref[info_type][info_name][tid] = self.experiment.task_info_refs[tid][info_type][info_name]
+            for info_spot in self.experiment.task_info_refs[tid]: # 首先明确每个任务存有何种信息(这里只记录到参数名，后面处理x类型/客户id)
+                if info_spot not in self.infos_ref:
+                    self.infos_ref[info_spot] = {}
+                if info_spot == 'global':
+                    for info_name in self.experiment.task_info_refs[tid][info_spot]:
+                        if info_name not in self.infos_ref[info_spot]:
+                            self.infos_ref[info_spot][info_name] = {}
+                        for info_type in self.experiment.task_info_refs[tid][info_spot][info_name]:
+                            if info_type not in self.infos_ref[info_spot][info_name]:
+                                self.infos_ref[info_spot][info_name][info_type] = {}
+                            self.infos_ref[info_spot][info_name][info_type][tid] = self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+                elif info_spot=='local':
+                    if tid not in self.infos_ref[info_spot]:
+                        self.infos_ref[info_spot][tid] = {}
+                    for info_name in self.experiment.task_info_refs[tid][info_spot]:
+                        if info_name not in self.infos_ref[info_spot][tid]:
+                            self.infos_ref[info_spot][tid][info_name] = {}
+                        for info_type in self.experiment.task_info_refs[tid][info_spot][info_name]:
+                            if info_type not in self.infos_ref[info_spot][tid][info_name]:
+                                self.infos_ref[info_spot][tid][info_name][info_type] = {}
+                            self.infos_ref[info_spot][tid][info_name][info_type] = self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
-        print(self.experiment.task_info_refs)
-        print(self.infos_ref)
-        ui.button('开始运行', on_click=self.show_run_metrics)
+        # print(self.experiment.task_info_refs)
+        # print(self.infos_ref)
+        ui.button('开始运行', on_click=lambda: self.experiment.run_experiment())
         self.draw_infos()
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
-    async def show_run_metrics(self):
-        await run.io_bound(self.experiment.run_experiment)
+    # def show_run_metrics(self):
+    #     self.experiment.run_experiment()
 
     # 默认生成为精度/损失-轮次/时间曲线图，多算法每个series为一个算法
     # 当显示时间时，需要设置二维坐标轴，即每个series中的 一个值的时间戳为其横坐标
@@ -89,98 +113,328 @@ class run_ui:
     def draw_infos(self):
         # rxui.echarts(lambda: self.get_global_option(self.infos_ref['global']['Accuracy']), not_merge=False).classes('w-full')
         # 默认获得三种数据，精度、损失、时间
-        for info_type in self.infos_ref:
-            if info_type == 'global':  # 目前仅支持global切换横轴: 轮次/时间
-                for info_name in self.infos_ref[info_type]:
-                    # for tid in self.infos_ref[info_type][info_name]:
-                    #     on(self.infos_ref[info_type][info_name][tid].value)(print(self.infos_ref[info_type][info_name][tid].value))
-                    with rxui.card().classes('w-full'):
-                        # mode_ref = to_ref('轮次')
-                        # rxui.select(vmodel=mode_ref, options={'轮次', '时间'}, on_change=lambda: chart.set_options())
-                        on(self.infos_ref[info_type][info_name])(print(self.infos_ref[info_type][info_name]))
-                        rxui.echarts(lambda info_type=info_type, info_name=info_name: self.get_global_option(self.infos_ref[info_type][info_name]), not_merge=False).classes('w-full')
-                # elif type == 'local':
-                #     rxui.echarts(lambda: self.get_global_option(self.infos_ref[info_type][info_name]), not_merge=False).classes('w-full')
+        for info_spot in self.infos_ref:
+            if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
+                with rxui.card().classes('w-full'):
+                    rxui.label('全局信息')
+                    with rxui.grid(columns=2).classes('w-full'):
+                        for info_name in self.infos_ref[info_spot]:
+                                self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
+            elif info_spot == 'local':
+                print(self.infos_ref[info_spot])
+                with rxui.column().classes('w-full'):
+                    rxui.label('局部信息')
+                    for tid in self.infos_ref[info_spot]:
+                        with rxui.card().classes('w-full'):
+                            rxui.label(self.task_names[tid])
+                            self.control_local_echarts(self.infos_ref[info_spot][tid])
+
+    def control_global_echarts(self, info_name, infos_dicts):
+        mode_ref = to_ref(list(infos_dicts.keys())[0])
+        with rxui.column():
+            rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
+            rxui.echarts(lambda: self.get_global_option(infos_dicts, mode_ref, info_name), not_merge=False).classes('w-full')
+
+    def control_local_echarts(self, infos_dicts):
+        with rxui.grid(columns=1).classes('w-full'):
+            for info_name in infos_dicts:
+                with rxui.column().classes('w-full'):
+                    mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
+                    rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
+                    rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name: self.get_local_option(infos_dicts[info_name], mode_ref, info_name), not_merge=False).classes('w-full')
 
     # 全局信息使用算法-指标-轮次/时间的方式展示
-    def get_global_option(self, infos_dict):
+    def get_global_option(self, infos_dict, mode_ref, info_name):
         return {
+            'grid': {
+                'left': '10%', # 左侧留白
+                'right': '10%', # 右侧留白
+                'bottom': '10%', # 底部留白
+                'top': '10%', # 顶部留白
+                'width': "50%",
+                'height': "80%",
+                # 'containLabel': True # 包含坐标轴在内的宽高设置
+            },
+            'tooltip': {
+                'trigger': 'axis',
+                'axisPointer': {
+                    'type': 'cross',
+                    'lineStyle': { # 设置纵向指示线
+                        'type': 'dashed',
+                        'color': "rgba(198, 196, 196, 0.75)"
+                    }
+                },
+                'crossStyle': { # 设置横向指示线
+                    'color': "rgba(198, 196, 196, 0.75)"
+                },
+                'formatter': "算法{a}<br/>"+mode_ref.value+','+info_name+"<br/>{c}",
+                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+            },
             "xAxis": {
-                "type": "category",
-                "name": '轮次',
+                "type": 'value',
+                "name": mode_ref.value,
+                'minInterval': 1 if mode_ref.value == 'round' else None,
             },
             "yAxis": {
                 "type": "value",
-                "name": '精度',
-                "minInterval": 1,  # 设置Y轴的最小间隔
+                "name": info_name,
                 "axisLabel": {
                     'interval': 'auto',  # 根据图表的大小自动计算步长
                 },
+                'splitNumber': 5, # 分成5个区间
+                # 'nameGap': '20%',
             },
             'legend': {
-                'data': [self.task_names[tid] for tid in self.task_names]
+                'data': [self.task_names[tid] for tid in self.task_names],
+                'type': 'scroll',  # 启用图例的滚动条
+                'pageButtonItemGap': 5,
+                'pageButtonGap': 20,
+                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
             },
             'series': [
                 {
                     'name': self.task_names[tid],
                     'type': 'line',
-                    'data': list(infos_dict[tid].value)
+                    'data': list(infos_dict[mode_ref.value][tid].value),
+                    'connectNulls': True, # 连接数据中的空值
                 }
-                for tid in infos_dict
-            ]
-        }
-    # 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
-    def get_local_option(self, infos_dict: dict):
-        return {
-            "xAxis": {
-                "type": "category",
-                "name": '轮次',
-                # "data": ['轮次' + str(i) for i in range(rounds)],
-            },
-            "yAxis": {
-                "type": "value",
-                "name": '精度',
-                "minInterval": 1,  # 设置Y轴的最小间隔
-                "axisLabel": {
-                    'interval': 'auto',  # 根据图表的大小自动计算步长
-                },
-            },
-            'legend': {
-                'data': [self.task_names[tid] for tid in self.task_names]
-            },
-            'series': [
+                for tid in infos_dict[mode_ref.value]
+            ],
+            'dataZoom': [
                 {
-                    'name': self.task_names[tid],
-                    'type': 'line',
-                    'data': list(infos_dict[tid].value)
+                   'type': 'inside', # 放大和缩小
+                   'orient': 'vertical',
+                   'start': 0,
+                   'end': 100,
+                   'minSpan': 1, # 最小缩放比例，可以根据需要调整
+                   'maxSpan': 100, # 最大缩放比例，可以根据需要调整
+                },
+                {
+                    'type': 'inside',
+                    'start': 0,
+                    'end': 100,
+                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
                 }
-                for tid in infos_dict
-            ]
+            ],
         }
 
-# series_datas = {
-#     'global': {'1': deep_ref([20, 20, 20])},
-#     'local': {'1': deep_ref([100, 100, 100])}
+    # 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
+    def get_local_option(self, info_dict: dict, mode_ref, info_name: str):
+        return {
+            'grid': {
+                'left': '10%', # 左侧留白
+                'right': '10%', # 右侧留白
+                'bottom': '10%', # 底部留白
+                'top': '10%', # 顶部留白
+                # 'width': "50%",
+                # 'height': "80%",
+                'containLabel': True # 包含坐标轴在内的宽高设置
+            },
+            'tooltip': {
+                'trigger': 'axis',
+                'axisPointer': {
+                    'type': 'cross',
+                    'lineStyle': { # 设置纵向指示线
+                        'type': 'dashed',
+                        'color': "rgba(198, 196, 196, 0.75)"
+                    }
+                },
+                'crossStyle': { # 设置横向指示线
+                    'color': "rgba(198, 196, 196, 0.75)"
+                },
+                'formatter': "客户{a}<br/>"+mode_ref.value+','+info_name+"<br/>{c}",
+                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+            },
+            "xAxis": {
+                "type": 'value',
+                "name": mode_ref.value,
+                'minInterval': 1 if mode_ref.value == 'round' else None,
+            },
+            "yAxis": {
+                "type": "value",
+                "name": info_name,
+                "axisLabel": {
+                    'interval': 'auto',  # 根据图表的大小自动计算步长
+                },
+                'splitNumber': 5, # 分成5个区间
+                # 'nameGap': '20%',
+            },
+            'legend': {
+                'data': ['客户'+str(cid) for cid in info_dict[mode_ref.value]]
+            },
+            'series': [
+                {
+                    'name': '客户'+str(cid),
+                    'type': 'line',
+                    'data': list(info_dict[mode_ref.value][cid].value),
+                    'connectNulls': True, # 连接数据中的空值
+                }
+                for cid in info_dict[mode_ref.value]
+            ],
+            'dataZoom': [
+                {
+                   'type': 'inside', # 放大和缩小
+                   'orient': 'vertical',
+                   'start': 0,
+                   'end': 100,
+                   'minSpan': 1, # 最小缩放比例，可以根据需要调整
+                   'maxSpan': 100, # 最大缩放比例，可以根据需要调整
+                },
+                {
+                    'type': 'inside',
+                    'start': 0,
+                    'end': 100,
+                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+                }
+            ],
+        }
+
+
+# data_ref = {
+#     "0": deep_ref([]),
+#     "1": deep_ref([]),
+#     "2": deep_ref([]),
 # }
-# series_data = deep_ref([120, 200, 150])
-# def opts(datas):
+#
+#
+# def opt():
 #     return {
 #         "xAxis": {
 #             "type": "category",
-#             # "data": ["Mon", "Tue", "Wed"],
+#             # "data": ['轮次' + str(i) for i in range(rounds)],
 #         },
-#         "yAxis": {"type": "value"},
-#         "series": [{"data": list(datas[data]['1'].value), "type": "line"} for data in datas],
+#         "yAxis": {
+#             "type": "value",
+#         },
+#         "legend": {"data": [tid for tid in data_ref]},
+#         "series": [
+#             {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
+#             for tid in data_ref
+#         ],
 #     }
-# def add(name):
-#     if name == 'local':
-#         series_datas[name]['1'].value.append(100)
-#     else:
-#         series_datas[name]['1'].value.append(20)
-#     print(series_datas)
-# def draw():
-#     rxui.button(on_click=lambda: add('local'))
-#     rxui.button(on_click=lambda: add('global'))
-#     rxui.echarts(lambda: opts(series_datas), not_merge=False)
-# ui.button("draw", on_click=draw)
+
+# run.process_pool = ProcessPoolExecutor(max_workers=3)
+#
+# async def handle_queue(queue):
+#     loop = asyncio.get_running_loop()
+#     finished_processes = set()
+#     while len(finished_processes) < 3:
+#         tid, value = await loop.run_in_executor(None, queue.get)
+#         if value is None:
+#             finished_processes.add(tid)
+#             if len(finished_processes) == 3:  # 所有子进程完成
+#                 break
+#             continue
+#         data_ref[str(tid)].value.append(value)
+#         print(f"Data from process {tid}: {value}")
+#
+#
+#
+# async def _run():
+#     queue = asyncio.Queue()
+#     tasks = [
+#         asyncio.create_task(run.cpu_bound(run_task,  tid, queue, idx + 1))
+#         for idx, tid in enumerate(data_ref.keys())
+#     ]
+#
+#     ui.notify(f"开始任务")
+#
+#     for coro in asyncio.as_completed(tasks):
+#         tid = await coro
+#         ui.notify(f"进程 {tid} 运行完成")
+#         # data_ref[tid].value.append(int(tid))
+#
+#
+# async def run_task(tid, queue, sleep_time=1):
+#     for i in range(10):
+#         sleep(sleep_time)
+#         await queue.put((tid, i))
+#     # return str(tid)
+#
+#
+# for data in data_ref.values():
+#     rxui.label(data)
+#
+# rxui.button("开始运行", on_click=lambda: _run())
+# rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
+#
+# ui.run(port=9999)
+
+
+# data_ref = {
+#     "0": deep_ref([]),
+#     "1": deep_ref([]),
+#     "2": deep_ref([]),
+# }
+#
+# def opt():
+#     return {
+#         "xAxis": {
+#             "type": "category",
+#             # "data": ['轮次' + str(i) for i in range(rounds)],
+#         },
+#         "yAxis": {
+#             "type": "value",
+#         },
+#         "legend": {"data": [tid for tid in data_ref]},
+#         "series": [
+#             {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
+#             for tid in data_ref
+#         ],
+#     }
+#
+# class my_process:
+#     test_ref = deep_ref([])
+#     def worker_process(self, task_id, queue):
+#         """工作进程的任务函数，执行指定次数的迭代并通过队列发送消息。"""
+#         for iteration in range(5):
+#             queue.put((task_id, int(task_id)+1))
+#             # 模拟耗时操作
+#             time.sleep(int(task_id)+1)
+#         # 发送结束信号
+#         queue.put((task_id, "done"))
+#
+#     async def monitor_queue(self, queue, num_workers):
+#         """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
+#         completions = 0
+#         while completions < num_workers:
+#             while not queue.empty():
+#                 task_id, message = queue.get()
+#                 if message == "done":
+#                     completions += 1
+#                     print(f"Task {task_id} completed.")
+#                 else:
+#                     data_ref[task_id].value.append(message)
+#                     print(f"Task {task_id}, message: {message}")
+#             await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
+#
+#
+#     async def main(self):
+#         num_workers = len(data_ref)
+#         manager = multiprocessing.Manager()
+#         queue = manager.Queue()
+#         # 使用 ProcessPoolExecutor 管理工作进程
+#         executor = ProcessPoolExecutor(max_workers=num_workers)
+#         loop = asyncio.get_running_loop()
+#         # 在进程池中提交任务
+#         for task_id in data_ref.keys():
+#             try:
+#                 # 假设 run_task 是一个简单的同步函数
+#                 pickle.dumps(self.worker_process)
+#                 print("run_task 方法本身可以被序列化。")
+#             except Exception as e:
+#                 print(f"run_task 方法本身无法被序列化，原因: {e}")
+#             loop.run_in_executor(executor, self.worker_process, task_id, queue)
+#         # 异步监控队列
+#         await self.monitor_queue(queue, num_workers)
+#         # 清理
+#         executor.shutdown(wait=True)
+#
+# for data in data_ref.values():
+#     rxui.label(data)
+# process = my_process()
+# rxui.button("开始运行", on_click=lambda: process.main())
+# rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
 # ui.run()
