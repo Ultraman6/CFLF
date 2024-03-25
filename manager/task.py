@@ -6,9 +6,10 @@ from ex4nicegui import deep_ref, to_raw
 from util.drawing import create_result
 
 inform_dicts = {
-    'global': {'info':['Loss', 'Accuracy'], 'type':['round', 'time']},
-    'local': {'info':['avg_loss', 'learning_rate'], 'type':['round']}
+    'global': {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']},
+    'local': {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
 }
+
 
 class Task:
     def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None):
@@ -20,13 +21,12 @@ class Task:
         self.model = model
         self.device = device or self.setup_device()
         self.informer = None
-        self.statuser = None  # 任务状态记录
+        # self.statuser = None  # 任务状态记录
         self.mode = None
 
-    def run(self, informer=None, statuser=None, mode='ref'):
+    def run(self, informer=None, mode='ref'):
         self.informer = informer
         self.mode = mode
-        self.statuser = statuser
         print(f"联邦学习任务：{self.task_name} 开始")
         algorithm = self.algo_class(self)
         algorithm.train()
@@ -50,13 +50,17 @@ class Task:
                 self.informer.put((self.task_id, mes))
 
     def set_done(self):
-        if self.mode=='queue':
+        if self.mode == 'queue':
             self.informer.put((self.task_id, 'done'))
 
     # 暂时只能用异步消息队列
-    def set_statuse(self, name, value):
+    def set_statue(self, name, value):
         # self.statuser[name].value = value
-        self.statuser[name].put(value)
+        if self.mode == 'ref':
+            self.informer['statue'][name].value.append(value)
+        elif self.mode == 'queue':
+            mes = {'statue': {name: value}}
+            self.informer.put((self.task_id, mes))
 
     def setup_device(self):
         # 检查是否有可用的 GPU

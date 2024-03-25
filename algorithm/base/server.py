@@ -59,8 +59,10 @@ class BaseServer:
     def train(self):
         self.global_initialize()
         for self.round_idx in tqdm(range(1, self.args.round + 1), desc=self.task.task_name, position=self.task.task_id, leave=False):
-            # print("################Communication round : {}".format(round_idx))
+            self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
+            # print("################Communication round : {}".format(self.round_idx))
             self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
+            self.task.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
             self.execute_iteration()
             self.global_update()
             self.global_record()
@@ -102,7 +104,10 @@ class BaseServer:
                     self.w_locals.append(future.result())
 
     def thread_train(self, cid):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
-        return self.client_list[cid].local_train(self.round_idx, self.local_params[cid])
+        self.task.set_statue('text', "Client {} training begin".format(cid))
+        w = self.client_list[cid].local_train(self.round_idx, self.local_params[cid])
+        self.task.set_statue('text', "Client {} training end".format(cid))
+        return w
 
     # 基于echarts的特性，这里需要以数组单独存放每个算法的不同指标（在不同轮次） 参数名key应该置前
     def global_update(self):
@@ -111,6 +116,7 @@ class BaseServer:
         # 全局测试
         self.model_trainer.set_model_params(self.global_params)
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
+        self.task.set_statue('text', "Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss, test_acc))
         # print("Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss, test_acc))
         this_time = time.time() - self.start_time
         self.task.set_info('global', 'Loss', (self.round_idx, this_time, test_loss))
@@ -122,4 +128,4 @@ class BaseServer:
             client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
             self.task.set_info('local', 'avg_loss', (self.round_idx, client_losses['avg_loss']), cid)
             self.task.set_info('local', 'learning_rate', (self.round_idx, client_losses['learning_rate']), cid)
-        self.task.set_statuse('progress', self.round_idx)
+        self.task.set_statue('progress', self.round_idx)

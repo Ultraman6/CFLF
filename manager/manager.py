@@ -18,7 +18,7 @@ from manager.task import Task
 # 由于多进程原因，ref存储从task层移植到manager层中
 global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
 local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-statuse_dicts = ['progress']
+statuse_dicts = {'progress': 0, 'text': '任务初始化...'}
 
 
 def setup_device(args):
@@ -57,7 +57,7 @@ def run_task(attr, queue=None):
     task = Task(*attr)
     control_seed(task.args.seed)
     # if queue is not None:
-    result = task.run(queue=queue)
+    result = task.run()
     # else:
     #     result = task.run(ref=self.task_info_refs[tid])
     return task.task_id, result
@@ -83,7 +83,6 @@ class ExperimentManager:
         self.dataloaders_global = None
         self.task_queue = {}
         self.task_info_refs = {}
-        self.task_statuse_refs = {}
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -153,7 +152,6 @@ class ExperimentManager:
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
                 self.task_info_refs[task_id] = self.adj_info_ref(args)
-                self.task_statuse_refs[task_id] = self.adj_statues_ref()
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
 
@@ -250,18 +248,19 @@ class ExperimentManager:
             raise ValueError('Execution mode not recognized.')
 
     @staticmethod
-    def run_task(task, informer=None, statuser=None, mode='none'):
+    def run_task(task, informer=None, mode='none'):
         """
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        task.run(informer, statuser, mode)
+        task.run(informer, mode)
         return task.task_id
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
         info_ref = {}
         info_ref['global'] = {}
         info_ref['local'] = {}
+        info_ref['statue'] = {}
         for key in global_info_dicts['info']:
             info_ref['global'][key] = {}
             for k in global_info_dicts['type']:
@@ -272,16 +271,19 @@ class ExperimentManager:
                 info_ref['local'][key][k] = {}
                 for cid in range(args.num_clients):
                     info_ref['local'][key][k][cid] = deep_ref([])
+        for k, v in statuse_dicts.items():
+            info_ref['statue'][k] = deep_ref([v])
         return info_ref
 
     # 暂时只能用异步消息队列
-    def adj_statues_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
-        manager = multiprocessing.Manager()
-        statue_ref = {}
-        for k in statuse_dicts:
-            queue = manager.Queue()
-            statue_ref[k] = queue
-        return statue_ref
+    # def adj_statues_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
+    #     # manager = multiprocessing.Manager()
+    #     statue_ref = {}
+    #     for k in statuse_dicts:
+    #         # queue = manager.Queue()
+    #         # statue_ref[k] = queue
+    #         statue_ref[k] = to_ref(0)
+    #     return statue_ref
 
     def control_same(self):
         if self.same['model']:
@@ -291,7 +293,7 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid], self.task_info_refs[tid], self.task_statuse_refs[tid], 'ref')
+            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref')
             print(f"任务 {tid} 运行完成")
 
     async def execute_thread(self):
@@ -299,7 +301,7 @@ class ExperimentManager:
         run.thread_pool = ThreadPoolExecutor(max_workers=int(self.run_config['max_threads']))
         futures = [
             asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid],
-                                             self.task_info_refs[tid], self.task_statuse_refs[tid], 'ref'))
+                                             self.task_info_refs[tid], 'ref'))
             for tid in self.task_queue
         ]
         for coro in asyncio.as_completed(futures):
@@ -309,13 +311,15 @@ class ExperimentManager:
             except Exception as e:
                 print(f"Task执行过程中发生异常: {e}")
 
+    # 消息队列一个就够了
     async def execute_process(self):
         num_tasks = len(self.task_queue)
         manager = multiprocessing.Manager()
         queue = manager.Queue()
+        # queue_statuse = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
-            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, self.task_statuse_refs[tid], 'queue'))
+            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, 'queue'))
             for tid in self.task_queue
         ]
         # 等待监控任务完成
@@ -328,7 +332,7 @@ class ExperimentManager:
             except Exception as e:
                 print(f"Task执行过程中发生异常: {e}")
 
-    async def monitor_queue(self, queue, num_workers):
+    async def monitor_queue(self, queue,  num_workers):
         """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
         completions = 0
         loop = asyncio.get_running_loop()
@@ -337,9 +341,7 @@ class ExperimentManager:
             task_id, message = await loop.run_in_executor(None, queue.get)
             if message == "done":
                 completions += 1
-                # print(f"Task {task_id} completed.")
             else:
-                # print(f"Task {task_id} returned message: {message}")
                 await handle_mes_ref(message, self.task_info_refs[task_id])
             # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
 

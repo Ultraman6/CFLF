@@ -64,7 +64,7 @@ class run_ui:
     def __init__(self, experiment):
         self.experiment = experiment
         self.infos_ref = {}
-        self.statuser_queue = self.experiment.task_statuse_refs
+        # self.statuser_queue = self.experiment.task_statuse_refs
         self.task_names = {}
 
         for tid in self.experiment.task_info_refs:
@@ -91,6 +91,12 @@ class run_ui:
                                 self.infos_ref[info_spot][tid][info_name][info_type] = {}
                             self.infos_ref[info_spot][tid][info_name][info_type] = \
                                 self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+                elif info_spot == 'statue':  # 状态信息就没有type字段了
+                    for info_name in self.experiment.task_info_refs[tid][info_spot]:
+                        if info_name not in self.infos_ref[info_spot]:
+                            self.infos_ref[info_spot][info_name] = {}
+                        self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][
+                            info_name]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
         # print(self.experiment.task_info_refs)
         # print(self.infos_ref)
@@ -106,32 +112,33 @@ class run_ui:
     # 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
     # global info默认为：精度-轮次、损失-轮次、轮次-时间
     def draw_infos(self):
-        # 任务状态实时展示
-        with rxui.card().classes('w-full'):
-            rxui.label('进度状态').tailwind('mx-auto', 'w-1/2')
-            with rxui.grid(columns=5).classes('w-full'):
-                for tid in self.experiment.task_statuse_refs:
-                    with rxui.column().classes('w-full'):
-                        def closure(tid: int):
-                            rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
-                            pro_queue = self.experiment.task_statuse_refs[tid]['progress']
-                            pro_max = self.experiment.task_queue[tid].args.round
-                            progressbar = ui.circular_progress(value=0, max=pro_max)
-                            label = ui.label('0 / ' + str(pro_max))
-                            ui.timer(0.1, callback=lambda: on_change(progressbar, label))
-
-                            def on_change(progressbar, label):
-                                progressbar.set_value(pro_queue.get() if not pro_queue.empty() else progressbar.value)
-                                label.set_text(str(progressbar.value) + ' / ' + str(pro_max))
-
-                        closure(tid)
-
-        # 信息曲线图实时展示
+        # 任务状态、信息曲线图实时展
         with rxui.card().classes('w-full'):
             for info_spot in self.infos_ref:
-                if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
+                if info_spot == 'statue':
+                    with rxui.column().classes('w-full'):
+                        for info_name in self.infos_ref[info_spot]:
+                            with rxui.column().classes('w-full'):
+                                rxui.label(info_name).tailwind('mx-auto', 'w-1/2')
+                                if info_name == 'progress':
+                                    with rxui.grid(columns=5).classes('w-full'):
+                                        for tid in self.infos_ref[info_spot][info_name]:
+                                            with rxui.column().classes('w-full'):
+                                                rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
+                                                pro_ref = self.infos_ref[info_spot][info_name][tid]
+                                                pro_max = self.experiment.task_queue[tid].args.round
+                                                rxui.circular_progress(show_value=False, value=lambda: list(pro_ref.value)[-1], max=pro_max)
+                                                rxui.label(text=lambda: str(list(pro_ref.value)[-1]) + '/' + str(pro_max))
+                                elif info_name == 'text':
+                                    with rxui.column().classes('w-full'):
+                                        for tid in self.infos_ref[info_spot][info_name]:
+                                            tex_ref = self.infos_ref[info_spot][info_name][tid]
+                                            rxui.textarea(label=self.task_names[tid],
+                                                          value=lambda: '\n'.join(list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10')
+
+                elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2')
-                    with rxui.grid(columns=1).classes('w-full'):
+                    with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
                             self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
                 elif info_spot == 'local':
@@ -210,11 +217,9 @@ class run_ui:
                 'pageButtonPosition': 'end',  # 将翻页按钮放在最后
                 'itemWidth': 25,  # 控制图例标记的宽度
                 'itemHeight': 14,  # 控制图例标记的高度
-                'width': '80%',
-                # 调整左边距离，可以是百分比或者像素值
-                'left': '10%',
-                # 调整右边距离，可以是百分比或者像素值
-                'right': '10%',
+                'width': '70%',
+                'left': '15%',
+                'right': '15%',
                 'textStyle': {
                     'width': 80,  # 设置图例文本的宽度
                     'overflow': 'truncate',  # 当文本超出宽度时，截断文本
@@ -469,4 +474,9 @@ class run_ui:
 # process = my_process()
 # rxui.button("开始运行", on_click=lambda: process.main())
 # rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
+# ui.run()
+# info_ref = to_ref('')
+# rxui.input(value=info_ref)
+# # ui.textarea(value=info_ref).disable()
+# rxui.textarea(value=info_ref).classes('w-full').element.disable()
 # ui.run()

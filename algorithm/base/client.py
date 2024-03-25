@@ -1,7 +1,5 @@
 import copy
-
 import torch
-
 from model.base.model_dict import _modeldict_to_np, _modeldict_sub, _modeldict_norm, _modeldict_scale, _modeldict_add, \
     _modeldict_to_device
 
@@ -19,6 +17,7 @@ class BaseClient:
             self.standalone_trainer = copy.deepcopy(model_trainer)
         else:
             self.standalone_trainer = None
+
     # 本地训练 调用trainer，传入args、device、训练数据集
     def local_train(self, round_idx, w_global):
         self.local_params = copy.deepcopy(w_global)
