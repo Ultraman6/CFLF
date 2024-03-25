@@ -1,17 +1,8 @@
-import argparse
-import colorsys
-import random
-from ex4nicegui.reactive import rxui
 from nicegui import ui, run
-
-from manager.manager import ExperimentManager
 from visual.modules.preview import preview_ui
 from visual.modules.running import run_ui
 from visual.parts.lazy_stepper import lazy_stepper
 from visual.modules.configuration import config_ui
-from visual.parts.lazy_panels import lazy_tab_panels
-from visual.parts.lazy_tabs import lazy_tabs
-
 
 
 def convert_to_list(mapping):

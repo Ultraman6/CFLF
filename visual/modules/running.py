@@ -1,5 +1,7 @@
 import colorsys
 import random
+import threading
+
 from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
 from nicegui import ui, run
@@ -60,11 +62,15 @@ def color(value):
 type_dict = {'global': {'metric': ['Loss', 'Accuracy'], 'util': 'Time'}, 'local': ['avg_loss', 'learning_rate']}
 
 
+# 默认生成为精度/损失-轮次/时间曲线图，多算法每个series为一个算法
+# 当显示时间时，需要设置二维坐标轴，即每个series中的 一个值的时间戳为其横坐标
+# 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
+# global info默认为：精度-轮次、损失-轮次、轮次-时间
+
 class run_ui:
     def __init__(self, experiment):
         self.experiment = experiment
         self.infos_ref = {}
-        # self.statuser_queue = self.experiment.task_statuse_refs
         self.task_names = {}
 
         for tid in self.experiment.task_info_refs:
@@ -80,6 +86,7 @@ class run_ui:
                                 self.infos_ref[info_spot][info_name][info_type] = {}
                             self.infos_ref[info_spot][info_name][info_type][tid] = \
                                 self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+
                 elif info_spot == 'local':
                     if tid not in self.infos_ref[info_spot]:
                         self.infos_ref[info_spot][tid] = {}
@@ -91,6 +98,7 @@ class run_ui:
                                 self.infos_ref[info_spot][tid][info_name][info_type] = {}
                             self.infos_ref[info_spot][tid][info_name][info_type] = \
                                 self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+
                 elif info_spot == 'statue':  # 状态信息就没有type字段了
                     for info_name in self.experiment.task_info_refs[tid][info_spot]:
                         if info_name not in self.infos_ref[info_spot]:
@@ -100,17 +108,25 @@ class run_ui:
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
         # print(self.experiment.task_info_refs)
         # print(self.infos_ref)
-        ui.button('开始运行', on_click=lambda: self.experiment.run_experiment())
+        self.draw_controller()
         self.draw_infos()
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
     # def show_run_metrics(self):
     #     self.experiment.run_experiment()
+    def draw_controller(self):
+        with ui.row().classes('w-full'):
+            with ui.column().classes('w-full'):
+                be_ref = to_ref(False)
+                b_btn = ui.button('开始运行', on_click=lambda: _run(b_btn, ))
+                e_btn = ui.button('结束运行', on_click=lambda: _run(b_btn, e_btn)).visible(False)
+                def _run():
+                    self.experiment.run_experiment()
+                    btn1.visible(False)
+                    btn2.visible(True)
+            ui.button('全部暂停', on_click=lambda: self.experiment.run_experiment())
+            ui.button('全部恢复', on_click=lambda: self.experiment.run_experiment()).visible(False)
 
-    # 默认生成为精度/损失-轮次/时间曲线图，多算法每个series为一个算法
-    # 当显示时间时，需要设置二维坐标轴，即每个series中的 一个值的时间戳为其横坐标
-    # 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
-    # global info默认为：精度-轮次、损失-轮次、轮次-时间
     def draw_infos(self):
         # 任务状态、信息曲线图实时展
         with rxui.card().classes('w-full'):
@@ -329,154 +345,81 @@ class run_ui:
             ],
         }
 
-# data_ref = {
-#     "0": deep_ref([]),
-#     "1": deep_ref([]),
-#     "2": deep_ref([]),
-# }
-#
-#
-# def opt():
-#     return {
-#         "xAxis": {
-#             "type": "category",
-#             # "data": ['轮次' + str(i) for i in range(rounds)],
-#         },
-#         "yAxis": {
-#             "type": "value",
-#         },
-#         "legend": {"data": [tid for tid in data_ref]},
-#         "series": [
-#             {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
-#             for tid in data_ref
-#         ],
-#     }
 
-# run.process_pool = ProcessPoolExecutor(max_workers=3)
-#
-# async def handle_queue(queue):
-#     loop = asyncio.get_running_loop()
-#     finished_processes = set()
-#     while len(finished_processes) < 3:
-#         tid, value = await loop.run_in_executor(None, queue.get)
-#         if value is None:
-#             finished_processes.add(tid)
-#             if len(finished_processes) == 3:  # 所有子进程完成
-#                 break
-#             continue
-#         data_ref[str(tid)].value.append(value)
-#         print(f"Data from process {tid}: {value}")
-#
-#
-#
-# async def _run():
-#     queue = asyncio.Queue()
-#     tasks = [
-#         asyncio.create_task(run.cpu_bound(run_task,  tid, queue, idx + 1))
-#         for idx, tid in enumerate(data_ref.keys())
-#     ]
-#
-#     ui.notify(f"开始任务")
-#
-#     for coro in asyncio.as_completed(tasks):
-#         tid = await coro
-#         ui.notify(f"进程 {tid} 运行完成")
-#         # data_ref[tid].value.append(int(tid))
-#
-#
-# async def run_task(tid, queue, sleep_time=1):
-#     for i in range(10):
-#         sleep(sleep_time)
-#         await queue.put((tid, i))
-#     # return str(tid)
-#
-#
-# for data in data_ref.values():
-#     rxui.label(data)
-#
-# rxui.button("开始运行", on_click=lambda: _run())
-# rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
-#
-# ui.run(port=9999)
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from time import sleep
+from nicegui import ui, run
+from ex4nicegui import deep_ref, rxui, to_ref
 
 
-# data_ref = {
-#     "0": deep_ref([]),
-#     "1": deep_ref([]),
-#     "2": deep_ref([]),
-# }
-#
-# def opt():
-#     return {
-#         "xAxis": {
-#             "type": "category",
-#             # "data": ['轮次' + str(i) for i in range(rounds)],
-#         },
-#         "yAxis": {
-#             "type": "value",
-#         },
-#         "legend": {"data": [tid for tid in data_ref]},
-#         "series": [
-#             {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
-#             for tid in data_ref
-#         ],
-#     }
-#
-# class my_process:
-#     test_ref = deep_ref([])
-#     def worker_process(self, task_id, queue):
-#         """工作进程的任务函数，执行指定次数的迭代并通过队列发送消息。"""
-#         for iteration in range(5):
-#             queue.put((task_id, int(task_id)+1))
-#             # 模拟耗时操作
-#             time.sleep(int(task_id)+1)
-#         # 发送结束信号
-#         queue.put((task_id, "done"))
-#
-#     async def monitor_queue(self, queue, num_workers):
-#         """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
-#         completions = 0
-#         while completions < num_workers:
-#             while not queue.empty():
-#                 task_id, message = queue.get()
-#                 if message == "done":
-#                     completions += 1
-#                     print(f"Task {task_id} completed.")
-#                 else:
-#                     data_ref[task_id].value.append(message)
-#                     print(f"Task {task_id}, message: {message}")
-#             await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
-#
-#
-#     async def main(self):
-#         num_workers = len(data_ref)
-#         manager = multiprocessing.Manager()
-#         queue = manager.Queue()
-#         # 使用 ProcessPoolExecutor 管理工作进程
-#         executor = ProcessPoolExecutor(max_workers=num_workers)
-#         loop = asyncio.get_running_loop()
-#         # 在进程池中提交任务
-#         for task_id in data_ref.keys():
-#             try:
-#                 # 假设 run_task 是一个简单的同步函数
-#                 pickle.dumps(self.worker_process)
-#                 print("run_task 方法本身可以被序列化。")
-#             except Exception as e:
-#                 print(f"run_task 方法本身无法被序列化，原因: {e}")
-#             loop.run_in_executor(executor, self.worker_process, task_id, queue)
-#         # 异步监控队列
-#         await self.monitor_queue(queue, num_workers)
-#         # 清理
-#         executor.shutdown(wait=True)
-#
-# for data in data_ref.values():
-#     rxui.label(data)
-# process = my_process()
-# rxui.button("开始运行", on_click=lambda: process.main())
-# rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
-# ui.run()
-# info_ref = to_ref('')
-# rxui.input(value=info_ref)
-# # ui.textarea(value=info_ref).disable()
-# rxui.textarea(value=info_ref).classes('w-full').element.disable()
-# ui.run()
+data_ref = {
+    "0": deep_ref([]),
+    "1": deep_ref([]),
+    "2": deep_ref([]),
+}
+
+
+def opt():
+    return {
+        "xAxis": {
+            "type": "category",
+            # "data": ['轮次' + str(i) for i in range(rounds)],
+        },
+        "yAxis": {
+            "type": "value",
+        },
+        "legend": {"data": [tid for tid in data_ref]},
+        "series": [
+            {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
+            for tid in data_ref
+        ],
+    }
+
+
+run.thread_pool = ThreadPoolExecutor(max_workers=3)
+task_control = {}
+for tid in data_ref:
+    task_control[tid] = threading.Event()
+    task_control[tid].set()  # 确保初始为非暂停状态
+task_status = {tid: "running" for tid in data_ref}   # 可能的状态：running, paused, stopped
+
+async def _run():
+    tasks = [
+        asyncio.create_task(run.io_bound(run_task, tid, idx + 1))
+        for idx, tid in enumerate(data_ref.keys())
+    ]
+
+    ui.notify(f"开始任务")
+
+    for coro in asyncio.as_completed(tasks):
+        tid = await coro
+        ui.notify(f"线程 {tid} 运行完成")
+        # data_ref[tid].value.append(int(tid))
+
+
+async def run_task(tid, sleep_time=1):
+    for i in range(5):
+        if task_control[tid].is_set():
+            data_ref[tid].clear()  # 清空状态
+            print(f"Task {tid} stopped and cleared. Restarting...")
+            task_stop_signals[tid].clear()  # 重置结束信号
+            await run_task(tid, sleep_time)  # 重新开始任务
+            return
+        # 假设的任务执行逻辑
+        print(f"Task {tid} is running...")
+        data_ref[tid].append(int(tid) + 1)
+        sleep(sleep_time)
+    print(f"Task {tid} completed.")
+
+
+rxui.button("开始运行", on_click=lambda: _run())
+
+for tid in data_ref:
+    rxui.label(data_ref[tid]).tailwind("text-center")
+    rxui.button("暂停运行", on_click=lambda: pause_event.clear())
+    rxui.button("恢复运行", on_click=lambda: pause_event.set())
+rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
+
+
+ui.run(port=9999)

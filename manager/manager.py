@@ -2,6 +2,7 @@ import asyncio
 import copy
 import itertools
 import multiprocessing
+import threading
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
@@ -83,6 +84,7 @@ class ExperimentManager:
         self.dataloaders_global = None
         self.task_queue = {}
         self.task_info_refs = {}
+        self.task_control = {}
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -154,6 +156,16 @@ class ExperimentManager:
                 self.task_info_refs[task_id] = self.adj_info_ref(args)
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
+
+    def get_control(self):
+        if self.run_mode == 'serial':
+            self.task_control[-1] = threading.Event()
+        elif self.run_mode == 'thread':
+            for tid in self.task_queue:
+                self.task_control[tid] = threading.Event()
+        elif self.run_mode == 'process':
+            for tid in self.task_queue:
+                self.task_control[tid] = multiprocessing.Event()
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -247,13 +259,14 @@ class ExperimentManager:
         else:
             raise ValueError('Execution mode not recognized.')
 
+
     @staticmethod
-    def run_task(task, informer=None, mode='none'):
+    def run_task(task, informer=None, mode='none', control=None):
         """
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        task.run(informer, mode)
+        task.run(informer, mode, control)
         return task.task_id
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
@@ -293,7 +306,7 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref')
+            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref', self.task_control[-1])
             print(f"任务 {tid} 运行完成")
 
     async def execute_thread(self):
@@ -301,7 +314,7 @@ class ExperimentManager:
         run.thread_pool = ThreadPoolExecutor(max_workers=int(self.run_config['max_threads']))
         futures = [
             asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid],
-                                             self.task_info_refs[tid], 'ref'))
+                                             self.task_info_refs[tid], 'ref', self.task_control[tid]))
             for tid in self.task_queue
         ]
         for coro in asyncio.as_completed(futures):
@@ -319,7 +332,7 @@ class ExperimentManager:
         # queue_statuse = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
-            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, 'queue'))
+            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, 'queue', self.task_control[tid]))
             for tid in self.task_queue
         ]
         # 等待监控任务完成
@@ -371,3 +384,5 @@ class ExperimentManager:
         if not os.path.exists(root_save_path):
             os.makedirs(root_save_path)
         return root_save_path
+
+

@@ -21,15 +21,14 @@ class Task:
         self.model = model
         self.device = device or self.setup_device()
         self.informer = None
-        # self.statuser = None  # 任务状态记录
         self.mode = None
 
-    def run(self, informer=None, mode='ref'):
+    def run(self, informer=None, mode='ref', control=None):
         self.informer = informer
         self.mode = mode
         print(f"联邦学习任务：{self.task_name} 开始")
         algorithm = self.algo_class(self)
-        algorithm.train()
+        algorithm.train(control)
         print(f"联邦学习任务：{self.task_name} 结束")
         self.set_done()
 

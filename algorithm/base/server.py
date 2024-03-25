@@ -56,9 +56,11 @@ class BaseServer:
         for client in self.client_list:  # 遍历每个客户，改变其所属的数据
             client.update_data(self.train_loaders[new_idx])
 
-    def train(self):
+    def train(self, control=None):
         self.global_initialize()
         for self.round_idx in tqdm(range(1, self.args.round + 1), desc=self.task.task_name, position=self.task.task_id, leave=False):
+            if control is not None:
+                control.wait()  # 控制器同步等待
             self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
             # print("################Communication round : {}".format(self.round_idx))
             self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)

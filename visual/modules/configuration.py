@@ -118,14 +118,6 @@ class config_ui:
                     ui.label('结果存放路径')
                     rxui.button(text=my_vmodel(self.algo_ref.value, 'result_root'), icon='file',
                                 on_click=lambda: self.han_fold_choice('result'))
-
-            # with ui.tabs().classes('w-full').props('vertical') as tabs:
-            #     ui.tab('配置算法模板')
-            #     ui.tab('设置算法参数')
-            # with lazy_tab_panels(tabs).classes('w-full').props('vertical') as panels:
-            #         panel = panels.tab_panel('配置算法模板')
-            #         @panel.build_fn
-            #         def _(name: str):
                 ui.button('配置算法模板', on_click=lambda: panels.set_value('配置算法模板'))
                 ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
                 with lazy_tab_panels().classes('w-full') as panels:
@@ -347,27 +339,3 @@ class config_ui:
         algo_args['gaussian'] = (algo_args['gaussian']['mean'], algo_args['gaussian']['std'])
         print(algo_args)
         return algo_args, exp_args
-
-# if __name__ == '__main__':
-# args = args_parser()
-# cf_ui = config_ui()
-# cf_ui.create_config_ui(args)
-# ui.run(native=True)
-# running_mode = {'serial': '顺序串行', 'thread': '线程并行', 'process': '进程并行'}
-# algo_ref = deep_ref(
-#     {
-#         'train_mode': 'serial',
-#         'max_threads': 4,
-#         'max_processes': 4
-#     }
-# )
-# rxui.select(label='本地训练模式', options=running_mode,
-#             value=rxui.vmodel(algo_ref.value['train_mode']))
-# with rxui.column().bind_visible(lambda: algo_ref.value['train_mode'] == 'thread'):
-#     rxui.number(label='最大线程数',
-#                 value=rxui.vmodel(algo_ref.value['max_threads']),
-#                 format='%.0f')
-# with rxui.column().bind_visible(lambda: algo_ref.value['train_mode'] == 'process'):
-#     rxui.number(label='最大进程数',
-#                 value=rxui.vmodel(algo_ref.value['max_processes']),
-#                 format='%.0f')
