@@ -53,9 +53,10 @@ class Task:
         if self.mode=='queue':
             self.informer.put((self.task_id, 'done'))
 
-    def set_statuse(self, type, value):
-        self.statuser[type].value = value
-
+    # 暂时只能用异步消息队列
+    def set_statuse(self, name, value):
+        # self.statuser[name].value = value
+        self.statuser[name].put(value)
 
     def setup_device(self):
         # 检查是否有可用的 GPU

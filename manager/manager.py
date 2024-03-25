@@ -16,8 +16,9 @@ from util.running import control_seed
 from manager.task import Task
 
 # 由于多进程原因，ref存储从task层移植到manager层中
-global_info_dicts={'info':['Loss', 'Accuracy'], 'type':['round', 'time']}
-local_info_dicts={'info':['avg_loss', 'learning_rate'], 'type':['round']}
+global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
+local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
+statuse_dicts = ['progress']
 
 
 def setup_device(args):
@@ -37,6 +38,7 @@ def pack_result(task_name, result):
     global_loss = [info["Loss"] for info in global_info.values()]
     return create_result(task_name, global_acc, list(range(len(global_acc))), global_loss)
 
+
 async def handle_mes_ref(data, ref):
     """递归遍历并更新data_ref字典"""
     for k, v in data.items():
@@ -46,6 +48,7 @@ async def handle_mes_ref(data, ref):
         else:
             # 否则，追加值到相应的数组中
             ref[k].value.append(v)
+
 
 def run_task(attr, queue=None):
     """
@@ -154,10 +157,10 @@ class ExperimentManager:
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
 
-
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
-        dataloader_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}}, 'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
+        dataloader_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}},
+                            'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
         num_classes = train_loaders[0].dataset.num_classes
         num_clients = len(train_loaders)
@@ -168,7 +171,8 @@ class ExperimentManager:
                 train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
                 noise_dis.append(train_loaders[cid].dataset.noise_info[label])
             dataloader_infos['train']['each'][label] = (train_label_dis, noise_dis)
-            dataloader_infos['valid']['each'][label] = ([valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+            dataloader_infos['valid']['each'][label] = (
+            [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
         dataloader_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
         dataloader_infos['valid']['all']['total'].append(valid_loader.dataset.len)
         for cid in range(num_clients):
@@ -195,7 +199,8 @@ class ExperimentManager:
         dataloader_infos = {}
         args_queue = []
         for id, task in enumerate(self.task_queue.values()):
-            task_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}}, 'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
+            task_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}},
+                          'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
             train_loaders, valid_loader = task.dataloaders[0], task.dataloaders[1]
             test_loaders = task.dataloaders[2] if self.args_template.local_test else None
             num_classes = train_loaders[0].dataset.num_classes
@@ -207,7 +212,8 @@ class ExperimentManager:
                     train_label_dis.append(train_loaders[cid].dataset.sample_info[label])
                     noise_dis.append(train_loaders[cid].dataset.noise_info[label])
                 task_infos['train']['each'][label] = (train_label_dis, noise_dis)
-                task_infos['valid']['each'][label] = ([valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+                task_infos['valid']['each'][label] = (
+                [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
             task_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
             task_infos['valid']['all']['total'].append(valid_loader.dataset.len)
             for cid in range(num_clients):
@@ -268,8 +274,13 @@ class ExperimentManager:
                     info_ref['local'][key][k][cid] = deep_ref([])
         return info_ref
 
+    # 暂时只能用异步消息队列
     def adj_statues_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
-        statue_ref = {'progress': to_ref(0), 'status': deep_ref('running')}
+        manager = multiprocessing.Manager()
+        statue_ref = {}
+        for k in statuse_dicts:
+            queue = manager.Queue()
+            statue_ref[k] = queue
         return statue_ref
 
     def control_same(self):
@@ -304,8 +315,8 @@ class ExperimentManager:
         queue = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
-            asyncio.create_task(run.cpu_bound(self.run_task, task, queue, 'queue'))
-            for task in self.task_queue.values()
+            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, self.task_statuse_refs[tid], 'queue'))
+            for tid in self.task_queue
         ]
         # 等待监控任务完成
         await asyncio.create_task(self.monitor_queue(queue, num_tasks))

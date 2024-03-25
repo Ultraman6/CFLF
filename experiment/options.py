@@ -138,7 +138,7 @@ def args_parser():
     federated_learning.add_argument(
         '--round',
         type=int,
-        default=1,
+        default=10,
         help='number of communication rounds with the cloud server'
     )
     federated_learning.add_argument(

@@ -104,7 +104,7 @@ class BaseServer:
     def thread_train(self, cid):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
         return self.client_list[cid].local_train(self.round_idx, self.local_params[cid])
 
-    # 基于echart的特性，这里需要以数组单独存放每个算法的不同指标（在不同轮次） 参数名key应该置前
+    # 基于echarts的特性，这里需要以数组单独存放每个算法的不同指标（在不同轮次） 参数名key应该置前
     def global_update(self):
         weights = np.array([self.sample_num[cid] / self.all_sample_num for cid in self.client_indexes])
         self.global_params = _modeldict_weighted_average(self.w_locals, weights)

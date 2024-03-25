@@ -13,6 +13,7 @@ def my_vmodel(data, key):
 
     return to_ref_wrapper(lambda: data.value[key], setter)
 
+
 def get_n_hls_colors(num):
     hls_colors = []
     i = 0
@@ -55,16 +56,19 @@ def color(value):
         a3 = digit.index(value[5]) * 16 + digit.index(value[6])
         return (a1, a2, a3)
 
-type_dict = {'global':{'metric':['Loss', 'Accuracy'], 'util': 'Time'}, 'local':['avg_loss', 'learning_rate']}
+
+type_dict = {'global': {'metric': ['Loss', 'Accuracy'], 'util': 'Time'}, 'local': ['avg_loss', 'learning_rate']}
+
 
 class run_ui:
     def __init__(self, experiment):
         self.experiment = experiment
         self.infos_ref = {}
+        self.statuser_queue = self.experiment.task_statuse_refs
         self.task_names = {}
 
         for tid in self.experiment.task_info_refs:
-            for info_spot in self.experiment.task_info_refs[tid]: # 首先明确每个任务存有何种信息(这里只记录到参数名，后面处理x类型/客户id)
+            for info_spot in self.experiment.task_info_refs[tid]:  # 首先明确每个任务存有何种信息(这里只记录到参数名，后面处理x类型/客户id)
                 if info_spot not in self.infos_ref:
                     self.infos_ref[info_spot] = {}
                 if info_spot == 'global':
@@ -74,8 +78,9 @@ class run_ui:
                         for info_type in self.experiment.task_info_refs[tid][info_spot][info_name]:
                             if info_type not in self.infos_ref[info_spot][info_name]:
                                 self.infos_ref[info_spot][info_name][info_type] = {}
-                            self.infos_ref[info_spot][info_name][info_type][tid] = self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
-                elif info_spot=='local':
+                            self.infos_ref[info_spot][info_name][info_type][tid] = \
+                                self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+                elif info_spot == 'local':
                     if tid not in self.infos_ref[info_spot]:
                         self.infos_ref[info_spot][tid] = {}
                     for info_name in self.experiment.task_info_refs[tid][info_spot]:
@@ -84,7 +89,8 @@ class run_ui:
                         for info_type in self.experiment.task_info_refs[tid][info_spot][info_name]:
                             if info_type not in self.infos_ref[info_spot][tid][info_name]:
                                 self.infos_ref[info_spot][tid][info_name][info_type] = {}
-                            self.infos_ref[info_spot][tid][info_name][info_type] = self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
+                            self.infos_ref[info_spot][tid][info_name][info_type] = \
+                                self.experiment.task_info_refs[tid][info_spot][info_name][info_type]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
         # print(self.experiment.task_info_refs)
         # print(self.infos_ref)
@@ -106,19 +112,28 @@ class run_ui:
             with rxui.grid(columns=5).classes('w-full'):
                 for tid in self.experiment.task_statuse_refs:
                     with rxui.column().classes('w-full'):
-                        rxui.label(self.task_names[tid])
-                        pro_ref = self.experiment.task_statuse_refs[tid]['progress']
-                        pro_max = self.experiment.task_queue[tid].args.rounds
-                        ui.circular_progress(min = pro_ref, max=pro_max)
-                        rxui.label(text = lambda: pro_ref.value + '/' + str(pro_max))
+                        def closure(tid: int):
+                            rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
+                            pro_queue = self.experiment.task_statuse_refs[tid]['progress']
+                            pro_max = self.experiment.task_queue[tid].args.round
+                            progressbar = ui.circular_progress(value=0, max=pro_max)
+                            label = ui.label('0 / ' + str(pro_max))
+                            ui.timer(0.1, callback=lambda: on_change(progressbar, label))
+
+                            def on_change(progressbar, label):
+                                progressbar.set_value(pro_queue.get() if not pro_queue.empty() else progressbar.value)
+                                label.set_text(str(progressbar.value) + ' / ' + str(pro_max))
+
+                        closure(tid)
+
         # 信息曲线图实时展示
         with rxui.card().classes('w-full'):
             for info_spot in self.infos_ref:
                 if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2')
-                    with rxui.grid(columns=2).classes('w-full'):
+                    with rxui.grid(columns=1).classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
-                                self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
+                            self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
                 elif info_spot == 'local':
                     print(self.infos_ref[info_spot])
                     with rxui.column().classes('w-full'):
@@ -131,7 +146,8 @@ class run_ui:
         mode_ref = to_ref(list(infos_dicts.keys())[0])
         with rxui.column():
             rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
-            rxui.echarts(lambda: self.get_global_option(infos_dicts, mode_ref, info_name), not_merge=False).classes('w-full')
+            rxui.echarts(lambda: self.get_global_option(infos_dicts, mode_ref, info_name), not_merge=False).classes(
+                'w-full')
 
     def control_local_echarts(self, infos_dicts):
         with rxui.grid(columns=1).classes('w-full'):
@@ -139,33 +155,36 @@ class run_ui:
                 with rxui.column().classes('w-full'):
                     mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
                     rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
-                    rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name: self.get_local_option(infos_dicts[info_name], mode_ref, info_name), not_merge=False).classes('w-full')
+                    rxui.echarts(
+                        lambda mode_ref=mode_ref, info_name=info_name: self.get_local_option(infos_dicts[info_name],
+                                                                                             mode_ref, info_name),
+                        not_merge=False).classes('w-full')
 
     # 全局信息使用算法-指标-轮次/时间的方式展示
     def get_global_option(self, infos_dict, mode_ref, info_name):
         return {
             'grid': {
-                'left': '10%', # 左侧留白
-                'right': '10%', # 右侧留白
-                'bottom': '10%', # 底部留白
-                'top': '10%', # 顶部留白
-                'width': "50%",
-                'height': "80%",
+                'left': '10%',  # 左侧留白
+                'right': '10%',  # 右侧留白
+                'bottom': '10%',  # 底部留白
+                'top': '10%',  # 顶部留白
+                # 'width': "50%",
+                # 'height': "80%",
                 # 'containLabel': True # 包含坐标轴在内的宽高设置
             },
             'tooltip': {
                 'trigger': 'axis',
                 'axisPointer': {
                     'type': 'cross',
-                    'lineStyle': { # 设置纵向指示线
+                    'lineStyle': {  # 设置纵向指示线
                         'type': 'dashed',
                         'color': "rgba(198, 196, 196, 0.75)"
                     }
                 },
-                'crossStyle': { # 设置横向指示线
+                'crossStyle': {  # 设置横向指示线
                     'color': "rgba(198, 196, 196, 0.75)"
                 },
-                'formatter': "算法{a}<br/>"+mode_ref.value+','+info_name+"<br/>{c}",
+                'formatter': "算法{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
                 'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
             },
             "xAxis": {
@@ -179,33 +198,49 @@ class run_ui:
                 "axisLabel": {
                     'interval': 'auto',  # 根据图表的大小自动计算步长
                 },
-                'splitNumber': 5, # 分成5个区间
+                'splitNumber': 5,  # 分成5个区间
                 # 'nameGap': '20%',
             },
             'legend': {
                 'data': [self.task_names[tid] for tid in self.task_names],
                 'type': 'scroll',  # 启用图例的滚动条
+                'orient': 'horizontal',  # 横向排列
                 'pageButtonItemGap': 5,
                 'pageButtonGap': 20,
                 'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+                'itemWidth': 25,  # 控制图例标记的宽度
+                'itemHeight': 14,  # 控制图例标记的高度
+                'width': '80%',
+                # 调整左边距离，可以是百分比或者像素值
+                'left': '10%',
+                # 调整右边距离，可以是百分比或者像素值
+                'right': '10%',
+                'textStyle': {
+                    'width': 80,  # 设置图例文本的宽度
+                    'overflow': 'truncate',  # 当文本超出宽度时，截断文本
+                    'ellipsis': '...',  # 截断时末尾添加的字符串
+                },
+                'tooltip': {
+                    'show': True  # 启用悬停时的提示框
+                }
             },
             'series': [
                 {
                     'name': self.task_names[tid],
                     'type': 'line',
                     'data': list(infos_dict[mode_ref.value][tid].value),
-                    'connectNulls': True, # 连接数据中的空值
+                    'connectNulls': True,  # 连接数据中的空值
                 }
                 for tid in infos_dict[mode_ref.value]
             ],
             'dataZoom': [
                 {
-                   'type': 'inside', # 放大和缩小
-                   'orient': 'vertical',
-                   'start': 0,
-                   'end': 100,
-                   'minSpan': 1, # 最小缩放比例，可以根据需要调整
-                   'maxSpan': 100, # 最大缩放比例，可以根据需要调整
+                    'type': 'inside',  # 放大和缩小
+                    'orient': 'vertical',
+                    'start': 0,
+                    'end': 100,
+                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
                 },
                 {
                     'type': 'inside',
@@ -221,27 +256,27 @@ class run_ui:
     def get_local_option(self, info_dict: dict, mode_ref, info_name: str):
         return {
             'grid': {
-                'left': '10%', # 左侧留白
-                'right': '10%', # 右侧留白
-                'bottom': '10%', # 底部留白
-                'top': '10%', # 顶部留白
+                'left': '10%',  # 左侧留白
+                'right': '10%',  # 右侧留白
+                'bottom': '10%',  # 底部留白
+                'top': '10%',  # 顶部留白
                 # 'width': "50%",
                 # 'height': "80%",
-                'containLabel': True # 包含坐标轴在内的宽高设置
+                'containLabel': True  # 包含坐标轴在内的宽高设置
             },
             'tooltip': {
                 'trigger': 'axis',
                 'axisPointer': {
                     'type': 'cross',
-                    'lineStyle': { # 设置纵向指示线
+                    'lineStyle': {  # 设置纵向指示线
                         'type': 'dashed',
                         'color': "rgba(198, 196, 196, 0.75)"
                     }
                 },
-                'crossStyle': { # 设置横向指示线
+                'crossStyle': {  # 设置横向指示线
                     'color': "rgba(198, 196, 196, 0.75)"
                 },
-                'formatter': "客户{a}<br/>"+mode_ref.value+','+info_name+"<br/>{c}",
+                'formatter': "客户{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
                 'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
             },
             "xAxis": {
@@ -255,29 +290,29 @@ class run_ui:
                 "axisLabel": {
                     'interval': 'auto',  # 根据图表的大小自动计算步长
                 },
-                'splitNumber': 5, # 分成5个区间
+                'splitNumber': 5,  # 分成5个区间
                 # 'nameGap': '20%',
             },
             'legend': {
-                'data': ['客户'+str(cid) for cid in info_dict[mode_ref.value]]
+                'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]]
             },
             'series': [
                 {
-                    'name': '客户'+str(cid),
+                    'name': '客户' + str(cid),
                     'type': 'line',
                     'data': list(info_dict[mode_ref.value][cid].value),
-                    'connectNulls': True, # 连接数据中的空值
+                    'connectNulls': True,  # 连接数据中的空值
                 }
                 for cid in info_dict[mode_ref.value]
             ],
             'dataZoom': [
                 {
-                   'type': 'inside', # 放大和缩小
-                   'orient': 'vertical',
-                   'start': 0,
-                   'end': 100,
-                   'minSpan': 1, # 最小缩放比例，可以根据需要调整
-                   'maxSpan': 100, # 最大缩放比例，可以根据需要调整
+                    'type': 'inside',  # 放大和缩小
+                    'orient': 'vertical',
+                    'start': 0,
+                    'end': 100,
+                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
                 },
                 {
                     'type': 'inside',
@@ -288,7 +323,6 @@ class run_ui:
                 }
             ],
         }
-
 
 # data_ref = {
 #     "0": deep_ref([]),
