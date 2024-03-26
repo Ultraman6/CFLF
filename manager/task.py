@@ -10,6 +10,12 @@ inform_dicts = {
     'local': {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
 }
 
+def clear_ref(info_dict):
+    for v in info_dict.values():
+        if type(v) == dict:
+            clear_ref(v)
+        else:
+            v.value.clear()
 
 class Task:
     def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None):
@@ -60,6 +66,12 @@ class Task:
         elif self.mode == 'queue':
             mes = {'statue': {name: value}}
             self.informer.put((self.task_id, mes))
+
+    def clear_informer(self):
+        if self.mode == 'ref':
+            clear_ref(self.informer)
+        elif self.mode == 'queue':
+            self.informer.put((self.task_id, 'clear'))
 
     def setup_device(self):
         # 检查是否有可用的 GPU

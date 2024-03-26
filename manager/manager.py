@@ -19,7 +19,7 @@ from manager.task import Task
 # 由于多进程原因，ref存储从task层移植到manager层中
 global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
 local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-statuse_dicts = {'progress': 0, 'text': '任务初始化...'}
+statuse_dicts = ['progress', 'text']
 
 
 def setup_device(args):
@@ -63,6 +63,12 @@ def run_task(attr, queue=None):
     #     result = task.run(ref=self.task_info_refs[tid])
     return task.task_id, result
 
+def clear_ref(info_dict):
+    for v in info_dict.values():
+        if type(v) == dict:
+            clear_ref(v)
+        else:
+            v.value.clear()
 
 # 先创建实验、选择算法，然后选择参数，然后选择运行方式（可以选择参数微调(任务参数)、参数独立）
 # 实验管理类需要的参数：是否使用相同的数据、模型、种子、实验名称、参数模板、参数变式
@@ -160,16 +166,16 @@ class ExperimentManager:
 
     def get_control(self):
         if self.run_mode == 'serial':
-            self.task_control[-1] = threading.Event()
-            self.task_control[-1].set()
+            self.task_control[-1] = [threading.Event(), 'running']
+            self.task_control[-1][0].set()
         elif self.run_mode == 'thread':
             for tid in self.task_queue:
-                self.task_control[tid] = threading.Event()
-                self.task_control[tid].set()
+                self.task_control[tid] = [threading.Event(), 'running']
+                self.task_control[tid][0].set()
         elif self.run_mode == 'process':
             for tid in self.task_queue:
-                self.task_control[tid] = multiprocessing.Event()
-                self.task_control[tid].set()
+                self.task_control[tid] = [multiprocessing.Event(), 'running']
+                self.task_control[tid][0].set()
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -288,8 +294,8 @@ class ExperimentManager:
                 info_ref['local'][key][k] = {}
                 for cid in range(args.num_clients):
                     info_ref['local'][key][k][cid] = deep_ref([])
-        for k, v in statuse_dicts.items():
-            info_ref['statue'][k] = deep_ref([v])
+        for k in statuse_dicts:
+            info_ref['statue'][k] = deep_ref([])
         return info_ref
 
     # 暂时只能用异步消息队列
@@ -358,6 +364,8 @@ class ExperimentManager:
             task_id, message = await loop.run_in_executor(None, queue.get)
             if message == "done":
                 completions += 1
+            elif message == "clear":
+                clear_ref(self.task_info_refs[task_id])
             else:
                 await handle_mes_ref(message, self.task_info_refs[task_id])
             # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU

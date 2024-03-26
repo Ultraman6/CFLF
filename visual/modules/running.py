@@ -62,6 +62,14 @@ def color(value):
 type_dict = {'global': {'metric': ['Loss', 'Accuracy'], 'util': 'Time'}, 'local': ['avg_loss', 'learning_rate']}
 
 
+def clear_ref(info_dict):
+    for v in info_dict.values():
+        if type(v) == dict:
+            clear_ref(v)
+        else:
+            v.value.clear()
+
+
 # 默认生成为精度/损失-轮次/时间曲线图，多算法每个series为一个算法
 # 当显示时间时，需要设置二维坐标轴，即每个series中的 一个值的时间戳为其横坐标
 # 用户根据需要，可以定制自己的global_info，同样轮次以位数、时间戳以值
@@ -115,38 +123,56 @@ class run_ui:
     # def show_run_metrics(self):
     #     self.experiment.run_experiment()
     def draw_controller(self):
-        with rxui.grid(columns=len(self.experiment.task_queue)+1).classes('w-full'):
+        with rxui.grid(columns=len(self.experiment.task_queue) + 1).classes('w-full'):
             with ui.column().classes('w-full'):
                 rxui.label('全部任务')
                 be_ref = to_ref(True)
                 pc_ref = to_ref(True)
                 rxui.button('开始运行', on_click=lambda: _run()).bind_visible(lambda: be_ref.value)
+                rxui.button('重置任务', on_click=lambda e: _restart(e)).bind_visible(lambda: not be_ref.value)
                 rxui.button('暂停运行', on_click=lambda: _pause()).bind_visible(lambda: pc_ref.value)
                 rxui.button('继续运行', on_click=lambda: _resume()).bind_visible(lambda: not pc_ref.value)
+
                 async def _run():
                     be_ref.value = False
                     await self.experiment.run_experiment()
+
                 def _pause():
                     for control in self.experiment.task_control.values():
-                        control.clear()
+                        control[0].clear()
                     pc_ref.value = False
+
                 def _resume():
                     for control in self.experiment.task_control.values():
-                        control.set()
+                        control[0].set()
                     pc_ref.value = True
+
+                def _restart(e):
+                    btn: ui.button = e.sender
+                    btn.disable()  # 这样如果任务还没能接收，也会提前告知任务
+                    for control in self.experiment.task_control.values():
+                        control[0].clear()  # 先将任务暂停
+                        control[1] = 'restart'  # 告知每个任务，当前为重启状态
+                        control[0].set()  # 再将任务重启
+
+                    btn.enable()
 
             if self.experiment.run_mode != 'serial':
                 for tid in self.experiment.task_control:
                     with ui.column().classes('w-full'):
                         rxui.label(self.task_names[tid])
                         pc_ref = to_ref(True)
-                        rxui.button('暂停', on_click=lambda tid=tid, pc_ref=pc_ref: _pause(tid, pc_ref)).bind_visible(lambda pc_ref=pc_ref: pc_ref.value)
-                        rxui.button('继续', on_click=lambda tid=tid, pc_ref=pc_ref: _resume(tid, pc_ref)).bind_visible(lambda pc_ref=pc_ref: not pc_ref.value)
+                        rxui.button('暂停', on_click=lambda tid=tid, pc_ref=pc_ref: _pause(tid, pc_ref)).bind_visible(
+                            lambda pc_ref=pc_ref: pc_ref.value)
+                        rxui.button('继续', on_click=lambda tid=tid, pc_ref=pc_ref: _resume(tid, pc_ref)).bind_visible(
+                            lambda pc_ref=pc_ref: not pc_ref.value)
+
                         def _pause(tid, ref):
-                            self.experiment.task_control[tid].clear()
+                            self.experiment.task_control[tid][0].clear()
                             ref.value = False
+
                         def _resume(tid, ref):
-                            self.experiment.task_control[tid].set()
+                            self.experiment.task_control[tid][0].set()
                             ref.value = True
 
     def draw_infos(self):
@@ -165,14 +191,20 @@ class run_ui:
                                                 rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
                                                 pro_ref = self.infos_ref[info_spot][info_name][tid]
                                                 pro_max = self.experiment.task_queue[tid].args.round
-                                                rxui.circular_progress(show_value=False, value=lambda: list(pro_ref.value)[-1], max=pro_max)
-                                                rxui.label(text=lambda: str(list(pro_ref.value)[-1]) + '/' + str(pro_max))
+                                                rxui.circular_progress(show_value=False,
+                                                                       value=lambda: list(pro_ref.value)[-1] if len(
+                                                                           pro_ref.value) > 0 else 0,
+                                                                       max=pro_max)
+                                                rxui.label(
+                                                    text=lambda: str(list(pro_ref.value)[-1]) if len(
+                                                        pro_ref.value) > 0 else '0' + '/' + str(pro_max))
                                 elif info_name == 'text':
                                     with rxui.column().classes('w-full'):
                                         for tid in self.infos_ref[info_spot][info_name]:
                                             tex_ref = self.infos_ref[info_spot][info_name][tid]
                                             rxui.textarea(label=self.task_names[tid],
-                                                          value=lambda: '\n'.join(list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10')
+                                                          value=lambda: '\n'.join(list(tex_ref.value))).classes(
+                                                'w-full').props(add='outlined readonly rows=10')
 
                 elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2')
@@ -366,21 +398,45 @@ class run_ui:
                 }
             ],
         }
+#
+# class TaskStatus(Enum):
+#     RUNNING = auto()
+#     PAUSED = auto()
+#     STOPPED = auto()
+#
+# class TaskController:
+#     def __init__(self):
+#         self.status = TaskStatus.RUNNING
+#         self.control_event = threading.Event()
+#         self.control_event.set()  # Initially allow to run
+#
+#     def pause(self):
+#         self.status = TaskStatus.PAUSED
+#         self.control_event.clear()
+#
+#     def resume(self):
+#         if self.status == TaskStatus.PAUSED:
+#             self.status = TaskStatus.RUNNING
+#             self.control_event.set()
+#
+#     def stop_and_clear(self):
+#         self.status = TaskStatus.STOPPED
+#         # 这里可以添加逻辑以清空任务相关的状态
+#         self.control_event.set()  # 确保如果任务正在等待，则可以继续以执行停止逻辑
+#
+#     def reset_and_restart(self, restart_function, *args, **kwargs):
+#         # 重置任务状态为RUNNING，准备重新执行
+#         self.status = TaskStatus.RUNNING
+#         self.control_event.set()  # 确保任务不再是暂停状态
+#         # 调用重新开始任务的函数
+#         restart_function(*args, **kwargs)
 
 
-# import asyncio
-# from concurrent.futures import ThreadPoolExecutor
-# from time import sleep
-# from nicegui import ui, run
-# from ex4nicegui import deep_ref, rxui, to_ref
-#
-#
-# data_ref = {
-#     "0": deep_ref([]),
-#     "1": deep_ref([]),
-#     "2": deep_ref([]),
-# }
-#
+# data_ref = {}
+# controllers = {}
+# for i in range(3):
+#     data_ref[str(i)] = deep_ref([])
+#     controllers[str(i)] = TaskController()
 #
 # def opt():
 #     return {
@@ -404,35 +460,46 @@ class run_ui:
 # for tid in data_ref:
 #     task_control[tid] = threading.Event()
 #     task_control[tid].set()  # 确保初始为非暂停状态
-# task_status = {tid: "running" for tid in data_ref}   # 可能的状态：running, paused, stopped
+# task_status = {tid: "running" for tid in data_ref}  # 可能的状态：running, paused, stopped
+#
 #
 # async def _run():
 #     tasks = [
-#         asyncio.create_task(run.io_bound(run_task, tid, idx + 1))
+#         asyncio.create_task(run.io_bound(task_execution, tid, idx + 1))
 #         for idx, tid in enumerate(data_ref.keys())
 #     ]
-#
 #     ui.notify(f"开始任务")
-#
 #     for coro in asyncio.as_completed(tasks):
 #         tid = await coro
 #         ui.notify(f"线程 {tid} 运行完成")
 #         # data_ref[tid].value.append(int(tid))
 #
 #
-# async def run_task(tid, sleep_time=1):
-#     for i in range(5):
-#         if task_control[tid].is_set():
-#             data_ref[tid].clear()  # 清空状态
-#             print(f"Task {tid} stopped and cleared. Restarting...")
-#             task_stop_signals[tid].clear()  # 重置结束信号
-#             await run_task(tid, sleep_time)  # 重新开始任务
-#             return
-#         # 假设的任务执行逻辑
-#         print(f"Task {tid} is running...")
-#         data_ref[tid].append(int(tid) + 1)
-#         sleep(sleep_time)
-#     print(f"Task {tid} completed.")
+# async def task_execution(tid, sleep_time=1):
+#     controller = controllers[tid]
+#     for i in range(5):  # 假设任务执行5个步骤
+#         controller.control_event.wait()
+#         if controller.status == TaskStatus.STOPPED:
+#             # 如果任务被标记为停止，清空相关状态
+#             print(f"任务 {tid} 停止并清除状态。")
+#             return  # 退出当前任务执行
+#         while controller.status == TaskStatus.PAUSED:
+#             await asyncio.sleep(1)  # 如果暂停，则等待
+#         # 任务的主要逻辑
+#         data_ref[tid].value.append(int(tid) + 1)
+#         print(f"任务 {tid} 正在运行...")
+#         await asyncio.sleep(sleep_time)
+#     print(f"任务 {tid} 完成。")
+#
+#
+# async def restart_task(tid):
+#     controller = task_controllers[tid]
+#     # 停止当前任务，并准备重新开始
+#     controller.stop_and_clear()
+#     # 清空任务相关状态
+#     data_ref[tid].clear()
+#     # 重置任务控制器状态并重新开始任务
+#     controller.reset_and_restart(task_execution, tid, controller)
 #
 #
 # rxui.button("开始运行", on_click=lambda: _run())
@@ -442,6 +509,5 @@ class run_ui:
 #     rxui.button("暂停运行", on_click=lambda: pause_event.clear())
 #     rxui.button("恢复运行", on_click=lambda: pause_event.set())
 # rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
-#
 #
 # ui.run(port=9999)

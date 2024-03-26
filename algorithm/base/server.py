@@ -24,7 +24,7 @@ class BaseServer:
         self.valid_global = valid_global
         self.sample_num = [len(loader.dataset) for loader in train_loaders]
         self.all_sample_num = sum(self.sample_num)
-        self.model_trainer = ModelTrainer(task.model, task.device, task.args)
+        self.model_trainer = ModelTrainer(copy.deepcopy(task.model), task.device, task.args)
         self.global_params = self.model_trainer.get_model_params(self.device)  # 暂存每个客户的本地模型，提升扩展性
         self.local_params = [copy.deepcopy(self.global_params) for _ in range(self.args.num_clients)]
         _modeldict_to_device(self.global_params, self.device)
@@ -32,12 +32,11 @@ class BaseServer:
         self.setup_clients()
         self.client_selected_times = [0 for _ in range(self.args.num_clients)]  # 历史被选中次数
         #  用于全局记录
-        self.task = task
+        self.task = task  # 保留task对象，用于回显信息
         self.round_idx = 0
         self.start_time = 0
         self.w_locals = []
         self.client_indexes = []
-        # self.task = task  # 保留task对象，用于回显信息
 
     def setup_clients(self):  # 开局数据按顺序分配
         for client_idx in range(self.args.num_clients):
@@ -57,17 +56,35 @@ class BaseServer:
             client.update_data(self.train_loaders[new_idx])
 
     def train(self, control=None):
-        self.global_initialize()
-        for self.round_idx in tqdm(range(1, self.args.round + 1), desc=self.task.task_name, position=self.task.task_id, leave=False):
+        pbar = tqdm(total=self.args.round, desc=self.task.task_name, position=self.task.task_id, leave=False)
+        while self.round_idx <= self.args.round:
+            if self.round_idx == 0:
+                self.global_initialize()
+                self.round_idx += 1  # 更新 round_idx
+                continue
             if control is not None:
-                control.wait()  # 控制器同步等待
+                control[0].wait()  # 控制器同步等待
+                # 检查是否需要重启任务
+                if control[1] == "restart":
+                    print("重启任务...")
+                    self.task.clear_informer()  # 清空记录
+                    self.round_idx = 0  # 重置 round_idx 为 0
+                    init_model = self.task.model.state_dict()
+                    self.global_params = copy.deepcopy(init_model)  # 重置全局模型参数
+                    for cid in range(self.args.num_clients):
+                        self.local_params[cid] = copy.deepcopy(init_model)  # 重置本地模型参数
+                    pbar.n = 0  # 重置进度条
+                    pbar.refresh()
+                    control[1] = "running"  # 重置控制器状态,告诉自己已经得知并准备开始执行
+                    continue  # 跳过当前循环，由于round_idx为0，外层循环将重新开始
             self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
-            # print("################Communication round : {}".format(self.round_idx))
             self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
             self.task.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
             self.execute_iteration()
             self.global_update()
             self.global_record()
+            pbar.update(1)  # 更新进度条
+            self.round_idx += 1  # 更新 round_idx
 
     def client_sampling(self, cid_list, num_to_selected, scores=None):  # 记录客户历史选中次数，不再是静态方法
         self.client_indexes.clear()
@@ -88,6 +105,8 @@ class BaseServer:
         # 初始化全局信息和客户信息(已经放到task中完成，便于绑定) 弃用，直接在task中初始化
         # 预全局测试
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
+        self.task.set_statue('progress', self.round_idx)  # 首先要进入第0轮
+        self.task.set_statue('text', "Round : 0 Test Loss : {:.4f} Test Accuracy : {:.4f}".format(test_loss, test_acc))
         self.task.set_info('global', 'Loss', (0, 0.0, test_loss))
         self.task.set_info('global', 'Accuracy', (0, 0.0, test_acc))
         self.start_time = time.time()
@@ -118,7 +137,9 @@ class BaseServer:
         # 全局测试
         self.model_trainer.set_model_params(self.global_params)
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
-        self.task.set_statue('text', "Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss, test_acc))
+        self.task.set_statue('text',
+                             "Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss,
+                                                                                           test_acc))
         # print("Round : {} Test Loss : {:.4f} Test Accuracy : {:.4f}".format(self.round_idx, test_loss, test_acc))
         this_time = time.time() - self.start_time
         self.task.set_info('global', 'Loss', (self.round_idx, this_time, test_loss))
