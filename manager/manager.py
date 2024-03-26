@@ -156,16 +156,20 @@ class ExperimentManager:
                 self.task_info_refs[task_id] = self.adj_info_ref(args)
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
+        self.get_control()
 
     def get_control(self):
         if self.run_mode == 'serial':
             self.task_control[-1] = threading.Event()
+            self.task_control[-1].set()
         elif self.run_mode == 'thread':
             for tid in self.task_queue:
                 self.task_control[tid] = threading.Event()
+                self.task_control[tid].set()
         elif self.run_mode == 'process':
             for tid in self.task_queue:
                 self.task_control[tid] = multiprocessing.Event()
+                self.task_control[tid].set()
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):

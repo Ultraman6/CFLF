@@ -1,21 +1,29 @@
+import threading
+from enum import Enum, auto
 
-# 此消息类绑定细粒度为每个算法任务
-# ref表示数据绑定 queue表示消息队列
-class Informer:
-    def __init__(self, informer, tid, mode='ref'):
-        self.informer = informer  # 信息承载对象
-        self.tid = tid
-        self.mode = mode
 
-    def set_info(self, spot, type, name, value):
-        if self.mode == 'ref':
-            self.informer[spot][type][name].value.append(value)
-        elif self.mode == 'queue':
-            self.informer.put((self.tid, value))
+class TaskStatus(Enum):
+    RUNNING = auto()
+    PAUSED = auto()
+    STOPPED = auto()
 
-    # def get_info(self):
-    #     return self.informer
-    #
-    # def inform(self, message):
-    #     self.informer.inform(message)
-    
+
+class TaskController:
+    def __init__(self):
+        self.status = TaskStatus.RUNNING  # 任务当前状态
+        self.control = threading.Event()  # 任务控制器
+        self.informer = {}  # 任务绑定信息
+        self.control.set()  # Initially allow to run
+
+    def pause(self):
+        self.status = TaskStatus.PAUSED
+        self.control.clear()  # Block the task execution
+
+    def resume(self):
+        if self.status == TaskStatus.PAUSED:
+            self.status = TaskStatus.RUNNING
+            self.control.set()  # Allow the task execution
+
+    def stop(self):
+        self.status = TaskStatus.STOPPED
+        self.control.set()  # If paused, unblock to proceed to stop

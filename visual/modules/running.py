@@ -115,17 +115,39 @@ class run_ui:
     # def show_run_metrics(self):
     #     self.experiment.run_experiment()
     def draw_controller(self):
-        with ui.row().classes('w-full'):
+        with rxui.grid(columns=len(self.experiment.task_queue)+1).classes('w-full'):
             with ui.column().classes('w-full'):
-                be_ref = to_ref(False)
-                b_btn = ui.button('开始运行', on_click=lambda: _run(b_btn, ))
-                e_btn = ui.button('结束运行', on_click=lambda: _run(b_btn, e_btn)).visible(False)
-                def _run():
-                    self.experiment.run_experiment()
-                    btn1.visible(False)
-                    btn2.visible(True)
-            ui.button('全部暂停', on_click=lambda: self.experiment.run_experiment())
-            ui.button('全部恢复', on_click=lambda: self.experiment.run_experiment()).visible(False)
+                rxui.label('全部任务')
+                be_ref = to_ref(True)
+                pc_ref = to_ref(True)
+                rxui.button('开始运行', on_click=lambda: _run()).bind_visible(lambda: be_ref.value)
+                rxui.button('暂停运行', on_click=lambda: _pause()).bind_visible(lambda: pc_ref.value)
+                rxui.button('继续运行', on_click=lambda: _resume()).bind_visible(lambda: not pc_ref.value)
+                async def _run():
+                    be_ref.value = False
+                    await self.experiment.run_experiment()
+                def _pause():
+                    for control in self.experiment.task_control.values():
+                        control.clear()
+                    pc_ref.value = False
+                def _resume():
+                    for control in self.experiment.task_control.values():
+                        control.set()
+                    pc_ref.value = True
+
+            if self.experiment.run_mode != 'serial':
+                for tid in self.experiment.task_control:
+                    with ui.column().classes('w-full'):
+                        rxui.label(self.task_names[tid])
+                        pc_ref = to_ref(True)
+                        rxui.button('暂停', on_click=lambda tid=tid, pc_ref=pc_ref: _pause(tid, pc_ref)).bind_visible(lambda pc_ref=pc_ref: pc_ref.value)
+                        rxui.button('继续', on_click=lambda tid=tid, pc_ref=pc_ref: _resume(tid, pc_ref)).bind_visible(lambda pc_ref=pc_ref: not pc_ref.value)
+                        def _pause(tid, ref):
+                            self.experiment.task_control[tid].clear()
+                            ref.value = False
+                        def _resume(tid, ref):
+                            self.experiment.task_control[tid].set()
+                            ref.value = True
 
     def draw_infos(self):
         # 任务状态、信息曲线图实时展
@@ -346,80 +368,80 @@ class run_ui:
         }
 
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from time import sleep
-from nicegui import ui, run
-from ex4nicegui import deep_ref, rxui, to_ref
-
-
-data_ref = {
-    "0": deep_ref([]),
-    "1": deep_ref([]),
-    "2": deep_ref([]),
-}
-
-
-def opt():
-    return {
-        "xAxis": {
-            "type": "category",
-            # "data": ['轮次' + str(i) for i in range(rounds)],
-        },
-        "yAxis": {
-            "type": "value",
-        },
-        "legend": {"data": [tid for tid in data_ref]},
-        "series": [
-            {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
-            for tid in data_ref
-        ],
-    }
-
-
-run.thread_pool = ThreadPoolExecutor(max_workers=3)
-task_control = {}
-for tid in data_ref:
-    task_control[tid] = threading.Event()
-    task_control[tid].set()  # 确保初始为非暂停状态
-task_status = {tid: "running" for tid in data_ref}   # 可能的状态：running, paused, stopped
-
-async def _run():
-    tasks = [
-        asyncio.create_task(run.io_bound(run_task, tid, idx + 1))
-        for idx, tid in enumerate(data_ref.keys())
-    ]
-
-    ui.notify(f"开始任务")
-
-    for coro in asyncio.as_completed(tasks):
-        tid = await coro
-        ui.notify(f"线程 {tid} 运行完成")
-        # data_ref[tid].value.append(int(tid))
-
-
-async def run_task(tid, sleep_time=1):
-    for i in range(5):
-        if task_control[tid].is_set():
-            data_ref[tid].clear()  # 清空状态
-            print(f"Task {tid} stopped and cleared. Restarting...")
-            task_stop_signals[tid].clear()  # 重置结束信号
-            await run_task(tid, sleep_time)  # 重新开始任务
-            return
-        # 假设的任务执行逻辑
-        print(f"Task {tid} is running...")
-        data_ref[tid].append(int(tid) + 1)
-        sleep(sleep_time)
-    print(f"Task {tid} completed.")
-
-
-rxui.button("开始运行", on_click=lambda: _run())
-
-for tid in data_ref:
-    rxui.label(data_ref[tid]).tailwind("text-center")
-    rxui.button("暂停运行", on_click=lambda: pause_event.clear())
-    rxui.button("恢复运行", on_click=lambda: pause_event.set())
-rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
-
-
-ui.run(port=9999)
+# import asyncio
+# from concurrent.futures import ThreadPoolExecutor
+# from time import sleep
+# from nicegui import ui, run
+# from ex4nicegui import deep_ref, rxui, to_ref
+#
+#
+# data_ref = {
+#     "0": deep_ref([]),
+#     "1": deep_ref([]),
+#     "2": deep_ref([]),
+# }
+#
+#
+# def opt():
+#     return {
+#         "xAxis": {
+#             "type": "category",
+#             # "data": ['轮次' + str(i) for i in range(rounds)],
+#         },
+#         "yAxis": {
+#             "type": "value",
+#         },
+#         "legend": {"data": [tid for tid in data_ref]},
+#         "series": [
+#             {"name": tid, "type": "line", "data": list(data_ref[tid].value)}
+#             for tid in data_ref
+#         ],
+#     }
+#
+#
+# run.thread_pool = ThreadPoolExecutor(max_workers=3)
+# task_control = {}
+# for tid in data_ref:
+#     task_control[tid] = threading.Event()
+#     task_control[tid].set()  # 确保初始为非暂停状态
+# task_status = {tid: "running" for tid in data_ref}   # 可能的状态：running, paused, stopped
+#
+# async def _run():
+#     tasks = [
+#         asyncio.create_task(run.io_bound(run_task, tid, idx + 1))
+#         for idx, tid in enumerate(data_ref.keys())
+#     ]
+#
+#     ui.notify(f"开始任务")
+#
+#     for coro in asyncio.as_completed(tasks):
+#         tid = await coro
+#         ui.notify(f"线程 {tid} 运行完成")
+#         # data_ref[tid].value.append(int(tid))
+#
+#
+# async def run_task(tid, sleep_time=1):
+#     for i in range(5):
+#         if task_control[tid].is_set():
+#             data_ref[tid].clear()  # 清空状态
+#             print(f"Task {tid} stopped and cleared. Restarting...")
+#             task_stop_signals[tid].clear()  # 重置结束信号
+#             await run_task(tid, sleep_time)  # 重新开始任务
+#             return
+#         # 假设的任务执行逻辑
+#         print(f"Task {tid} is running...")
+#         data_ref[tid].append(int(tid) + 1)
+#         sleep(sleep_time)
+#     print(f"Task {tid} completed.")
+#
+#
+# rxui.button("开始运行", on_click=lambda: _run())
+#
+# for tid in data_ref:
+#     rxui.label(data_ref[tid]).tailwind("text-center")
+#     rxui.button("暂停运行", on_click=lambda: pause_event.clear())
+#     rxui.button("恢复运行", on_click=lambda: pause_event.set())
+# rxui.echarts(lambda: opt(), not_merge=False).classes("w-full")
+#
+#
+# ui.run(port=9999)
