@@ -123,57 +123,96 @@ class run_ui:
     # def show_run_metrics(self):
     #     self.experiment.run_experiment()
     def draw_controller(self):
-        with rxui.grid(columns=len(self.experiment.task_queue) + 1).classes('w-full'):
-            with ui.column().classes('w-full'):
-                rxui.label('全部任务')
-                be_ref = to_ref(True)
-                pc_ref = to_ref(True)
-                rxui.button('开始运行', on_click=lambda: _run()).bind_visible(lambda: be_ref.value)
-                rxui.button('重置任务', on_click=lambda e: _restart(e)).bind_visible(lambda: not be_ref.value)
-                rxui.button('暂停运行', on_click=lambda: _pause()).bind_visible(lambda: pc_ref.value)
-                rxui.button('继续运行', on_click=lambda: _resume()).bind_visible(lambda: not pc_ref.value)
+        with rxui.card().classes('w-full'):
+            pool_ref = to_ref(True)
+            rxui.button('进入任务池', on_click=lambda: _pool()).bind_visible(lambda: pool_ref.value)
+            async def _pool():
+                pool_ref.value=False
+                await self.experiment.run_experiment()
+            with rxui.grid(columns=len(self.experiment.task_queue) + 1).classes('w-full').bind_visible(lambda: not pool_ref.value):
+                with ui.column().classes('w-full'):
+                    rxui.label('全部任务')
+                    be_ref = to_ref(True)
+                    pc_ref = to_ref(True)
+                    with rxui.grid(columns=2).classes('w-full'):
+                        rxui.button('开始运行', on_click=lambda: _run()).bind_visible(lambda: be_ref.value)
+                        rxui.button('重置任务', on_click=lambda e: _restart(e)).bind_visible(lambda: not be_ref.value)
+                        rxui.button('取消任务', on_click=lambda: _cancel()).bind_visible(lambda: not be_ref.value)
+                        rxui.button('结束任务', on_click=lambda: _end()).bind_visible(lambda: not be_ref.value)
+                        rxui.button('暂停运行', on_click=lambda: _pause()).bind_visible(lambda: not be_ref.value and pc_ref.value)
+                        rxui.button('继续运行', on_click=lambda: _resume()).bind_visible(lambda: not be_ref.value and not pc_ref.value)
+                    def _run():
+                        be_ref.value = False
+                        for control in self.experiment.task_control.values():
+                            control[1] = 'running'
+                            control[0].set()
+                    def _pause():
+                        for control in self.experiment.task_control.values():
+                            control[0].clear()
+                            control[1] = 'pause'
+                        pc_ref.value = False
+                    def _resume():
+                        for control in self.experiment.task_control.values():
+                            control[1] = 'running'
+                            control[0].set()
+                        pc_ref.value = True
+                    def _restart(e):
+                        btn: ui.button = e.sender
+                        btn.disable()  # 这样如果任务还没能接收，也会提前告知任务
+                        for control in self.experiment.task_control.values():
+                            control[0].clear()  # 先将任务暂停
+                            control[1] = 'restart'  # 告知每个任务，当前为重启状态
+                            control[0].set()  # 再将任务重启
+                        btn.enable()
+                    def _cancel():
+                        be_ref.value = True
+                        for control in self.experiment.task_control.values():
+                            control[0].clear()  # 先将任务暂停
+                            control[1] = 'cancel'  # 告知每个任务，当前为取消状态
+                            control[0].set()  # 再将任务重启
+                        pool_ref.value = True
+                    def _end():
+                        be_ref.value = True
+                        for control in self.experiment.task_control.values():
+                            control[0].clear()  # 先将任务暂停
+                            control[1] = 'end'  # 告知每个任务，当前为结束状态
+                            control[0].set()  # 再将任务重启
+                        pool_ref.value = True
 
-                async def _run():
-                    be_ref.value = False
-                    await self.experiment.run_experiment()
-
-                def _pause():
-                    for control in self.experiment.task_control.values():
-                        control[0].clear()
-                    pc_ref.value = False
-
-                def _resume():
-                    for control in self.experiment.task_control.values():
-                        control[0].set()
-                    pc_ref.value = True
-
-                def _restart(e):
-                    btn: ui.button = e.sender
-                    btn.disable()  # 这样如果任务还没能接收，也会提前告知任务
-                    for control in self.experiment.task_control.values():
-                        control[0].clear()  # 先将任务暂停
-                        control[1] = 'restart'  # 告知每个任务，当前为重启状态
-                        control[0].set()  # 再将任务重启
-
-                    btn.enable()
-
-            if self.experiment.run_mode != 'serial':
-                for tid in self.experiment.task_control:
-                    with ui.column().classes('w-full'):
-                        rxui.label(self.task_names[tid])
-                        pc_ref = to_ref(True)
-                        rxui.button('暂停', on_click=lambda tid=tid, pc_ref=pc_ref: _pause(tid, pc_ref)).bind_visible(
-                            lambda pc_ref=pc_ref: pc_ref.value)
-                        rxui.button('继续', on_click=lambda tid=tid, pc_ref=pc_ref: _resume(tid, pc_ref)).bind_visible(
-                            lambda pc_ref=pc_ref: not pc_ref.value)
-
-                        def _pause(tid, ref):
-                            self.experiment.task_control[tid][0].clear()
-                            ref.value = False
-
-                        def _resume(tid, ref):
-                            self.experiment.task_control[tid][0].set()
-                            ref.value = True
+                if self.experiment.run_mode != 'serial':
+                    for tid in self.experiment.task_control:
+                        with ui.grid(columns=2).classes('w-full'):
+                            rxui.label(self.task_names[tid])
+                            pc_ref = to_ref(True)
+                            rxui.button('暂停', on_click=lambda tid=tid, pc_ref=pc_ref: _pause(tid, pc_ref)).bind_visible(
+                                lambda pc_ref=pc_ref: pc_ref.value)
+                            rxui.button('继续', on_click=lambda tid=tid, pc_ref=pc_ref: _resume(tid, pc_ref)).bind_visible(
+                                lambda pc_ref=pc_ref: not pc_ref.value)
+                            rxui.button('重启', on_click=lambda e, tid=tid, pc_ref=pc_ref: _restart(tid, e)).bind_visible(
+                                lambda pc_ref=pc_ref: not pc_ref.value)
+                            rxui.button('取消', on_click=lambda e, tid=tid, pc_ref=pc_ref: _restart(tid, e)).bind_visible(
+                                lambda pc_ref=pc_ref: not pc_ref.value)
+                            rxui.button('结束', on_click=lambda e, tid=tid, pc_ref=pc_ref: _restart(tid, e)).bind_visible(
+                                lambda pc_ref=pc_ref: not pc_ref.value)
+                            def _pause(tid, ref):
+                                self.experiment.task_control[tid][0].clear()
+                                ref.value = False
+                            def _resume(tid, ref):
+                                self.experiment.task_control[tid][0].set()
+                                ref.value = True
+                            def _restart(tid, e):
+                                btn: ui.button = e.sender
+                                btn.disable()  # 这样如果任务还没能接收，也会提前告知任务
+                                self.experiment.task_control[tid][0].clear()
+                                self.experiment.task_control[tid][1] = 'restart'  # 告知每个任务，当前为重启状态
+                                self.experiment.task_control[tid][0].set()  # 再将任务重启
+                                btn.enable()
+                            def _cancel(tid, ref):
+                                self.experiment.task_control[tid][0].set()
+                                ref.value = True
+                            def _end(tid, ref):
+                                self.experiment.task_control[tid][0].set()
+                                ref.value = True
 
     def draw_infos(self):
         # 任务状态、信息曲线图实时展
@@ -192,18 +231,18 @@ class run_ui:
                                                 pro_ref = self.infos_ref[info_spot][info_name][tid]
                                                 pro_max = self.experiment.task_queue[tid].args.round
                                                 rxui.circular_progress(show_value=False,
-                                                                       value=lambda: list(pro_ref.value)[-1] if len(
+                                                                       value=lambda pro_ref=pro_ref: list(pro_ref.value)[-1] if len(
                                                                            pro_ref.value) > 0 else 0,
                                                                        max=pro_max)
                                                 rxui.label(
-                                                    text=lambda: str(list(pro_ref.value)[-1]) if len(
+                                                    text=lambda pro_ref=pro_ref: str(list(pro_ref.value)[-1]) if len(
                                                         pro_ref.value) > 0 else '0' + '/' + str(pro_max))
                                 elif info_name == 'text':
                                     with rxui.column().classes('w-full'):
                                         for tid in self.infos_ref[info_spot][info_name]:
                                             tex_ref = self.infos_ref[info_spot][info_name][tid]
                                             rxui.textarea(label=self.task_names[tid],
-                                                          value=lambda: '\n'.join(list(tex_ref.value))).classes(
+                                                          value=lambda tex_ref=tex_ref: '\n'.join(list(tex_ref.value))).classes(
                                                 'w-full').props(add='outlined readonly rows=10')
 
                 elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）

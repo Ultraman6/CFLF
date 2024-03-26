@@ -160,22 +160,26 @@ class ExperimentManager:
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
                 self.task_info_refs[task_id] = self.adj_info_ref(args)
+                self.task_control[task_id] = [threading.Event() if self.run_mode != 'process' else multiprocessing.Event(), 'init']
                 self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
                 task_id += 1
-        self.get_control()
+            # self.get_control()
 
-    def get_control(self):
-        if self.run_mode == 'serial':
-            self.task_control[-1] = [threading.Event(), 'running']
-            self.task_control[-1][0].set()
-        elif self.run_mode == 'thread':
-            for tid in self.task_queue:
-                self.task_control[tid] = [threading.Event(), 'running']
-                self.task_control[tid][0].set()
-        elif self.run_mode == 'process':
-            for tid in self.task_queue:
-                self.task_control[tid] = [multiprocessing.Event(), 'running']
-                self.task_control[tid][0].set()
+    # def get_control(self):
+    #     for tid in self.task_queue:
+    #         self.task_control[tid] = [threading.Event(), 'running']
+    #         self.task_control[tid][0].set()
+    #     if self.run_mode == 'serial':
+    #         self.task_control[-1] = [threading.Event(), 'running']
+    #         self.task_control[-1][0].set()
+    #     elif self.run_mode == 'thread':
+    #         for tid in self.task_queue:
+    #             self.task_control[tid] = [threading.Event(), 'running']
+    #             self.task_control[tid][0].set()
+    #     elif self.run_mode == 'process':
+    #         for tid in self.task_queue:
+    #             self.task_control[tid] = [multiprocessing.Event(), 'running']
+    #             self.task_control[tid][0].set()
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -316,7 +320,7 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref', self.task_control[-1])
+            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref', self.task_control[tid])
             print(f"任务 {tid} 运行完成")
 
     async def execute_thread(self):

@@ -55,36 +55,61 @@ class BaseServer:
         for client in self.client_list:  # 遍历每个客户，改变其所属的数据
             client.update_data(self.train_loaders[new_idx])
 
-    def train(self, control=None):
-        pbar = tqdm(total=self.args.round, desc=self.task.task_name, position=self.task.task_id, leave=False)
-        while self.round_idx <= self.args.round:
-            if self.round_idx == 0:
-                self.global_initialize()
-                self.round_idx += 1  # 更新 round_idx
-                continue
-            if control is not None:
-                control[0].wait()  # 控制器同步等待
-                # 检查是否需要重启任务
-                if control[1] == "restart":
-                    print("重启任务...")
-                    self.task.clear_informer()  # 清空记录
-                    self.round_idx = 0  # 重置 round_idx 为 0
-                    init_model = self.task.model.state_dict()
-                    self.global_params = copy.deepcopy(init_model)  # 重置全局模型参数
-                    for cid in range(self.args.num_clients):
-                        self.local_params[cid] = copy.deepcopy(init_model)  # 重置本地模型参数
-                    pbar.n = 0  # 重置进度条
-                    pbar.refresh()
-                    control[1] = "running"  # 重置控制器状态,告诉自己已经得知并准备开始执行
-                    continue  # 跳过当前循环，由于round_idx为0，外层循环将重新开始
-            self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
-            self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
-            self.task.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
-            self.execute_iteration()
-            self.global_update()
-            self.global_record()
-            pbar.update(1)  # 更新进度条
-            self.round_idx += 1  # 更新 round_idx
+    # 此方法表示每个算法的迭代过程，子类可以自定义该迭代本体及其所需的部件
+    def iter(self):
+        self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
+        self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
+        self.task.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
+        self.execute_iteration()
+        self.global_update()
+        self.global_record()
+
+    # def train(self, control=None):
+    #     pbar = tqdm(total=self.args.round, desc=self.task.task_name, position=self.task.task_id, leave=False)
+    #     while self.round_idx <= self.args.round:
+    #         if self.round_idx == 0:
+    #             self.global_initialize()
+    #             self.round_idx += 1  # 更新 round_idx
+    #             continue
+    #         if control is not None:
+    #             control[0].wait()  # 控制器同步等待
+    #             # 检查是否需要重启任务
+    #             if control[1] == "restart":
+    #                 print("重启任务...")
+    #                 self.task.clear_informer()  # 清空记录
+    #                 self.round_idx = 0  # 重置 round_idx 为 0
+    #                 init_model = self.task.model.state_dict()
+    #                 self.model_trainer.set_model_params(copy.deepcopy(init_model))  # 重置全局模型参数
+    #                 for cid in range(self.args.num_clients):
+    #                     self.local_params[cid] = copy.deepcopy(init_model)  # 重置本地模型参数
+    #                 pbar.n = 0  # 重置进度条
+    #                 pbar.refresh()
+    #                 control[1] = "running"  # 重置控制器状态,告诉自己已经得知并准备开始执行
+    #                 continue  # 跳过当前循环，由于round_idx为0，外层循环将重新开始
+    #             elif control[1] == "cancel":
+    #                 print("取消任务...")
+    #                 self.task.clear_informer()  # 清空记录
+    #                 pbar.close()  # 完成后关闭进度条
+    #                 control[0].set()
+    #                 control[1] = "running"
+    #                 return 'cancel'
+    #             elif control[1] == "end":
+    #                 print("结束任务...")
+    #                 self.task.clear_informer()  # 清空记录
+    #                 pbar.close()  # 完成后关闭进度条
+    #                 control[0].set()
+    #                 control[1] = "running"
+    #                 return 'end'
+    #         self.task.set_statue('text', "################Communication round : {}".format(self.round_idx))
+    #         self.client_sampling(list(range(self.args.num_clients)), self.args.num_clients)
+    #         self.task.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
+    #         self.execute_iteration()
+    #         self.global_update()
+    #         self.global_record()
+    #         pbar.update(1)  # 更新进度条
+    #         self.round_idx += 1  # 更新 round_idx
+    #     pbar.close()  # 完成后关闭进度条
+    #     return 'success'
 
     def client_sampling(self, cid_list, num_to_selected, scores=None):  # 记录客户历史选中次数，不再是静态方法
         self.client_indexes.clear()
