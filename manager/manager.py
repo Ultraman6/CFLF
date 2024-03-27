@@ -1,14 +1,11 @@
 import asyncio
 import copy
 import itertools
-import multiprocessing
-import pickle
-import threading
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
-from ex4nicegui import deep_ref, to_ref
-from nicegui import run, ui
+from ex4nicegui import deep_ref
+from nicegui import run
 from data.get_data import get_dataloaders
 from manager.control import TaskController
 from manager.mapping import algorithm_mapping
@@ -90,9 +87,9 @@ class ExperimentManager:
 
         self.model_global = None
         self.dataloaders_global = None
-        self.task_queue = {}
-        self.task_info_refs = {}
-        self.task_control = {}  # 插件-任务控制器
+        self.task_queue = {}      # 任务对象容器
+        self.task_info_refs = {}  # 任务信息容器
+        self.task_control = {}    # 插件-任务控制器
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -268,10 +265,7 @@ class ExperimentManager:
         return task.task_id
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
-        info_ref = {}
-        info_ref['global'] = {}
-        info_ref['local'] = {}
-        info_ref['statue'] = {}
+        info_ref = {'statue': {}, 'global': {}, 'local': {}}   # 这里决定ui模块的顺序
         for key in global_info_dicts['info']:
             info_ref['global'][key] = {}
             for k in global_info_dicts['type']:
@@ -313,20 +307,12 @@ class ExperimentManager:
 
     # 消息队列一个就够了
     async def execute_process(self):
-        # num_tasks = len(self.task_queue)
-        # manager = multiprocessing.Manager()
-        # queue = manager.Queue()
-        # queue_statuse = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
             asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid]))
             for tid in self.task_queue
         ]
-        # 等待监控任务完成
-        # 创建一个包含所有队列监听任务的列表
-        # 等待所有队列监听任务完成
         await asyncio.gather(*[self.monitor_queue(control.informer) for control in self.task_control.values()])
-        # 等待所有工作任务完成，处理可能的异常
         for coro in asyncio.as_completed(futures):
             try:
                 tid = await coro
@@ -336,10 +322,7 @@ class ExperimentManager:
 
     async def monitor_queue(self, queue):
         """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
-        # completions = 0
         loop = asyncio.get_running_loop()
-        # while completions < num_workers
-        # print(queue)
         while True:
             # 异步等待queue.get()
             task_id, message = await loop.run_in_executor(None, queue.get)

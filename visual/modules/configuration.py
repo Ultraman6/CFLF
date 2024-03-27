@@ -93,8 +93,9 @@ class config_ui:
         print(self.noise_mapping_ref.value)
 
     async def han_fold_choice(self, key):
+        origin = self.algo_ref.value[key]
         path = await app.native.main_window.create_file_dialog(20)
-        self.algo_ref.value['root'][key] = path if path else '未选择'
+        self.algo_ref.value[key] = path if path else origin
 
     def scan_local_gpu(self):
         # 检查CUDA GPU设备
@@ -113,11 +114,11 @@ class config_ui:
                 with ui.card().tight():
                     ui.label('数据集存放路径')
                     rxui.button(text=my_vmodel(self.algo_ref.value, 'dataset_root'), icon='file',
-                                on_click=lambda: self.han_fold_choice('dataset'))
+                                on_click=lambda: self.han_fold_choice('dataset_root'))
                 with ui.card().tight():
                     ui.label('结果存放路径')
                     rxui.button(text=my_vmodel(self.algo_ref.value, 'result_root'), icon='file',
-                                on_click=lambda: self.han_fold_choice('result'))
+                                on_click=lambda: self.han_fold_choice('result_root'))
                 ui.button('配置算法模板', on_click=lambda: panels.set_value('配置算法模板'))
                 ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
                 with lazy_tab_panels().classes('w-full') as panels:

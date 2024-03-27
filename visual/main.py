@@ -47,7 +47,7 @@ class MainWindow:
         self.tabs.move(header)
         left_drawer = ui.left_drawer().classes('bg-blue-100')
         self.sub_tabs.move(left_drawer)
-        with lazy_tab_panels(self.sub_tabs).classes('w-full') as panels:
+        with lazy_tab_panels(self.sub_tabs).classes('w-half') as panels:
             for key, value in self.tab_mapping.items():
                 for v in value:
                     panel = panels.tab_panel(v)
@@ -63,7 +63,7 @@ class MainWindow:
 # Initialize and run the main window
 main_window = MainWindow()
 main_window.create_main_window()
-ui.run(native=False)
+ui.run(native=True)
 
 # if __name__ == '__main__':
 #     freeze_support()

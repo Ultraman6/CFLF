@@ -8,10 +8,6 @@ from tqdm import tqdm
 from manager.control import TaskController
 from util.drawing import create_result
 
-inform_dicts = {
-    'global': {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']},
-    'local': {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-}
 
 def clear_ref(info_dict):
     for v in info_dict.values():
@@ -69,7 +65,6 @@ class Task:
         return 'success'
 
     def watch_control(self, algo):
-        print(self.control.get_status())
         self.control._wait()  # 控制器同步等待
         # 检查是否需要重启任务
         if self.control.check_status("restart"):

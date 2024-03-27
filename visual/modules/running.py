@@ -60,7 +60,7 @@ def color(value):
 
 
 type_dict = {'global': {'metric': ['Loss', 'Accuracy'], 'util': 'Time'}, 'local': ['avg_loss', 'learning_rate']}
-
+statue_dict = {'progress': '进度信息', 'text': '日志信息'}
 
 def clear_ref(info_dict):
     for v in info_dict.values():
@@ -119,14 +119,15 @@ class run_ui:
         self.draw_infos()
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
-    @ui.refreshable_method
     def draw_controller(self):
         run_mode = self.experiment.run_mode != 'serial'
         num_to_control = len(self.experiment.task_control)
         with rxui.card().classes('w-full'):
+            rxui.label('控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
+                                                        'bg-red-800', 'text-white', 'font-semibold', 'rounded-lg',
+                                                        'shadow-md', 'hover:bg-blue-700')
             pool_ref = to_ref(True)
             rxui.button('进入任务池', on_click=lambda: _pool()).bind_visible(lambda: pool_ref.value)
-
             async def _pool():
                 pool_ref.value = False
                 close_num.value = 0
@@ -296,7 +297,7 @@ class run_ui:
                     with rxui.column().classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
                             with rxui.column().classes('w-full'):
-                                rxui.label(info_name).tailwind('mx-auto', 'w-1/2')
+                                rxui.label(statue_dict[info_name]).tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-white-500', 'text-black', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
                                 if info_name == 'progress':
                                     with rxui.grid(columns=5).classes('w-full'):
                                         for tid in self.infos_ref[info_spot][info_name]:
@@ -314,7 +315,7 @@ class run_ui:
                                                         list(pro_ref.value)[-1]) if len(
                                                         pro_ref.value) > 0 else '0') + '/' + str(pro_max))
                                 elif info_name == 'text':
-                                    with rxui.column().classes('w-full'):
+                                    with rxui.grid(columns=2).classes('w-full'):
                                         for tid in self.infos_ref[info_spot][info_name]:
                                             tex_ref = self.infos_ref[info_spot][info_name][tid]
                                             rxui.textarea(label=self.task_names[tid],
@@ -323,16 +324,16 @@ class run_ui:
                                                 'w-full').props(add='outlined readonly rows=10')
 
                 elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
-                    rxui.label('全局信息').tailwind('mx-auto', 'w-1/2')
+                    rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
                     with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
                             self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
                 elif info_spot == 'local':
                     print(self.infos_ref[info_spot])
                     with rxui.column().classes('w-full'):
-                        rxui.label('局部信息').tailwind('mx-auto', 'w-1/2')
+                        rxui.label('局部信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
                         for tid in self.infos_ref[info_spot]:
-                            rxui.label(self.task_names[tid])
+                            rxui.label(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             self.control_local_echarts(self.infos_ref[info_spot][tid])
 
     def control_global_echarts(self, info_name, infos_dicts):
@@ -343,7 +344,7 @@ class run_ui:
                 'w-full')
 
     def control_local_echarts(self, infos_dicts):
-        with rxui.grid(columns=1).classes('w-full'):
+        with rxui.grid(columns=2).classes('w-full'):
             for info_name in infos_dicts:
                 with rxui.column().classes('w-full'):
                     mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])

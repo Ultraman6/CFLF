@@ -1,20 +1,11 @@
-import ctypes
 import multiprocessing
 import threading
 from multiprocessing import Manager
-from multiprocessing.managers import BaseManager
-
-from ex4nicegui import deep_ref
 
 inform_dicts = {
     'global': {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']},
     'local': {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
 }
-
-# 由于多进程原因，ref存储从task层移植到manager层中
-global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
-local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-statuse_dicts = ['progress', 'text']
 
 def clear_ref(info_dict):
     for v in info_dict.values():
@@ -118,13 +109,3 @@ class TaskController:
             clear_ref(self.informer)
         else:
             self.informer.put((self.task_id, 'clear'))
-
-
-# def can_be_pickled(obj):
-#     try:
-#         pickle.dumps(obj)
-#         return True
-#     except pickle.PicklingError:
-#         return False
-#
-# can_be_pickled(TaskController)
