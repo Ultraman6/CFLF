@@ -1,3 +1,5 @@
+from multiprocessing import freeze_support
+
 from nicegui import ui, run
 from visual.modules.configuration import config_ui
 from visual.pages.epxeriment import experiment_page
@@ -58,8 +60,12 @@ class MainWindow:
                         ui.notify(f"创建页面:{name}")
                         # self.unit_mapping[name]()
 
-
 # Initialize and run the main window
-main_window = MainWindow()
-main_window.create_main_window()
-ui.run(native=False)
+def main():
+    main_window = MainWindow()
+    main_window.create_main_window()
+    ui.run(native=False)
+
+if __name__ == '__main__':
+    freeze_support()
+    main()

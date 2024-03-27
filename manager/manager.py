@@ -2,6 +2,7 @@ import asyncio
 import copy
 import itertools
 import multiprocessing
+import pickle
 import threading
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
@@ -9,6 +10,7 @@ import torch
 from ex4nicegui import deep_ref, to_ref
 from nicegui import run, ui
 from data.get_data import get_dataloaders
+from manager.control import TaskController, TaskControllerManager
 from manager.mapping import algorithm_mapping
 from model.Initialization import model_creator
 from util.drawing import plot_results, create_result
@@ -90,7 +92,7 @@ class ExperimentManager:
         self.dataloaders_global = None
         self.task_queue = {}
         self.task_info_refs = {}
-        self.task_control = {}
+        self.task_control = {}  # 插件-任务控制器
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -159,27 +161,10 @@ class ExperimentManager:
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
-                self.task_info_refs[task_id] = self.adj_info_ref(args)
-                self.task_control[task_id] = [threading.Event() if self.run_mode != 'process' else multiprocessing.Event(), 'init']
-                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device)
+                self.task_info_refs[task_id] = self.adj_info_ref(args) # 最终数据绑定对象
+                self.task_control[task_id] = TaskController(task_id, self.run_mode, self.task_info_refs[task_id])  # control会根据mode决定是否接收ref
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device, self.task_control[task_id])
                 task_id += 1
-            # self.get_control()
-
-    # def get_control(self):
-    #     for tid in self.task_queue:
-    #         self.task_control[tid] = [threading.Event(), 'running']
-    #         self.task_control[tid][0].set()
-    #     if self.run_mode == 'serial':
-    #         self.task_control[-1] = [threading.Event(), 'running']
-    #         self.task_control[-1][0].set()
-    #     elif self.run_mode == 'thread':
-    #         for tid in self.task_queue:
-    #             self.task_control[tid] = [threading.Event(), 'running']
-    #             self.task_control[tid][0].set()
-    #     elif self.run_mode == 'process':
-    #         for tid in self.task_queue:
-    #             self.task_control[tid] = [multiprocessing.Event(), 'running']
-    #             self.task_control[tid][0].set()
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
     def get_global_loader_infos(self):
@@ -275,12 +260,12 @@ class ExperimentManager:
 
 
     @staticmethod
-    def run_task(task, informer=None, mode='none', control=None):
+    def run_task(task):
         """
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        task.run(informer, mode, control)
+        task.run()  # 从此任务类无需知晓具体的控制模式
         return task.task_id
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
@@ -302,16 +287,6 @@ class ExperimentManager:
             info_ref['statue'][k] = deep_ref([])
         return info_ref
 
-    # 暂时只能用异步消息队列
-    # def adj_statues_ref(self):  # 细腻度的绑定，直接和每个参数进行绑定
-    #     # manager = multiprocessing.Manager()
-    #     statue_ref = {}
-    #     for k in statuse_dicts:
-    #         # queue = manager.Queue()
-    #         # statue_ref[k] = queue
-    #         statue_ref[k] = to_ref(0)
-    #     return statue_ref
-
     def control_same(self):
         if self.same['model']:
             self.model_global = model_creator(self.args_template)
@@ -320,15 +295,14 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid], self.task_info_refs[tid], 'ref', self.task_control[tid])
+            self.run_task(self.task_queue[tid])
             print(f"任务 {tid} 运行完成")
 
     async def execute_thread(self):
         # 使用 ThreadPoolExecutor
         run.thread_pool = ThreadPoolExecutor(max_workers=int(self.run_config['max_threads']))
         futures = [
-            asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid],
-                                             self.task_info_refs[tid], 'ref', self.task_control[tid]))
+            asyncio.create_task(run.io_bound(self.run_task, self.task_queue[tid]))
             for tid in self.task_queue
         ]
         for coro in asyncio.as_completed(futures):
@@ -346,11 +320,13 @@ class ExperimentManager:
         # queue_statuse = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [
-            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid], queue, 'queue', self.task_control[tid]))
+            asyncio.create_task(run.cpu_bound(self.run_task, self.task_queue[tid]))
             for tid in self.task_queue
         ]
         # 等待监控任务完成
-        await asyncio.create_task(self.monitor_queue(queue, num_tasks))
+        # 创建一个包含所有队列监听任务的列表
+        # 等待所有队列监听任务完成
+        await asyncio.gather(*[self.monitor_queue(control.informer) for control in self.task_control.values()])
         # 等待所有工作任务完成，处理可能的异常
         for coro in asyncio.as_completed(futures):
             try:
@@ -359,15 +335,17 @@ class ExperimentManager:
             except Exception as e:
                 print(f"Task执行过程中发生异常: {e}")
 
-    async def monitor_queue(self, queue,  num_workers):
+    async def monitor_queue(self, queue):
         """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
-        completions = 0
+        # completions = 0
         loop = asyncio.get_running_loop()
-        while completions < num_workers:
+        # while completions < num_workers
+        # print(queue)
+        while True:
             # 异步等待queue.get()
             task_id, message = await loop.run_in_executor(None, queue.get)
             if message == "done":
-                completions += 1
+                return
             elif message == "clear":
                 clear_ref(self.task_info_refs[task_id])
             else:
