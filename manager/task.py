@@ -69,10 +69,10 @@ class Task:
         return 'success'
 
     def watch_control(self, algo):
+        print(self.control.get_status())
         self.control._wait()  # 控制器同步等待
         # 检查是否需要重启任务
-        print(self.control.status)
-        if self.control.status == "restart":
+        if self.control.check_status("restart"):
             print("重启任务...")
             self.control.clear_informer()  # 清空记录
             algo.round_idx = 0  # 重置 round_idx 为 0
@@ -80,14 +80,14 @@ class Task:
             algo.model_trainer.set_model_params(copy.deepcopy(init_model))  # 重置全局模型参数
             for cid in range(self.args.num_clients):
                 algo.local_params[cid] = copy.deepcopy(init_model)  # 重置本地模型参数
-            self.control.status = 'running'  # 否则下一次暂停变重启
+            self.control.set_status('running')  # 否则下一次暂停变重启
             return 0  # 跳过当前循环，由于round_idx为0，外层循环将重新开始
-        elif self.control.status == "cancel":
+        elif self.control.check_status("cancel"):
             print("取消任务...")     # 需要清空记录
             self.control.clear_informer()
             self.control._clear()
             return 'cancel'
-        elif self.control.status == "end":
+        elif self.control.check_status("end"):
             print("结束任务...")  # 结束任务不清空记录
             self.control._clear()
             return 'end'

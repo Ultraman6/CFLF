@@ -10,7 +10,7 @@ import torch
 from ex4nicegui import deep_ref, to_ref
 from nicegui import run, ui
 from data.get_data import get_dataloaders
-from manager.control import TaskController, TaskControllerManager
+from manager.control import TaskController
 from manager.mapping import algorithm_mapping
 from model.Initialization import model_creator
 from util.drawing import plot_results, create_result
@@ -146,7 +146,6 @@ class ExperimentManager:
             algo_class = self.judge_algo(algo_name)
             # 确定哪些参数是有多个配置的
             params_with_multiple_options = {param: len(values) > 1 for param, values in variations.items()}
-
             for param_dict in itertools.product(*variations.values()):
                 param_combination = dict(zip(variations.keys(), param_dict))
                 args = copy.deepcopy(self.args_template)
@@ -314,9 +313,9 @@ class ExperimentManager:
 
     # 消息队列一个就够了
     async def execute_process(self):
-        num_tasks = len(self.task_queue)
-        manager = multiprocessing.Manager()
-        queue = manager.Queue()
+        # num_tasks = len(self.task_queue)
+        # manager = multiprocessing.Manager()
+        # queue = manager.Queue()
         # queue_statuse = manager.Queue()
         run.process_pool = ProcessPoolExecutor(max_workers=int(self.run_config['max_processes']))
         futures = [

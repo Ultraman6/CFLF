@@ -61,11 +61,10 @@ class MainWindow:
                         # self.unit_mapping[name]()
 
 # Initialize and run the main window
-def main():
-    main_window = MainWindow()
-    main_window.create_main_window()
-    ui.run(native=False)
+main_window = MainWindow()
+main_window.create_main_window()
+ui.run(native=False)
 
-if __name__ == '__main__':
-    freeze_support()
-    main()
+# if __name__ == '__main__':
+#     freeze_support()
+#     main()

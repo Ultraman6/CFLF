@@ -1,9 +1,7 @@
+import ctypes
 import multiprocessing
-import pickle
 import threading
-from enum import Enum, auto
-from functools import wraps
-from multiprocessing import freeze_support, current_process
+from multiprocessing import Manager
 from multiprocessing.managers import BaseManager
 
 from ex4nicegui import deep_ref
@@ -18,7 +16,6 @@ global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
 local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
 statuse_dicts = ['progress', 'text']
 
-
 def clear_ref(info_dict):
     for v in info_dict.values():
         if type(v) == dict:
@@ -26,45 +23,25 @@ def clear_ref(info_dict):
         else:
             v.value.clear()
 
-class SingletonManager(BaseManager): pass
-
-_singleton_manager_instance = None
-
-def get_manager():
-    global _singleton_manager_instance
-    if _singleton_manager_instance is None:
-        if current_process().name == 'MainProcess':
-            _singleton_manager_instance = SingletonManager()
-            _singleton_manager_instance.start()
-    return _singleton_manager_instance
-
-def auto_shared(cls):
-    """
-    装饰器，标记类以便在主进程中自动注册到Manager。
-    """
-    cls._is_auto_shared = True  # 标记类，稍后注册
-
-    @wraps(cls)
-    class Wrapper:
-        def __new__(cls, *args, **kwargs):
-            manager = get_manager()
-            # 确保类已注册
-            if hasattr(cls, '_is_auto_shared') and not manager is None:
-                manager.register(cls.__name__, cls, exposed=dir(cls))  # 注册类
-                delattr(cls, '_is_auto_shared')  # 避免重复注册
-            return getattr(manager, cls.__name__)(*args, **kwargs)
-
-    return Wrapper
 # 注册自定义类到Manager中
-@auto_shared
 class TaskController:
+
     def __init__(self, tid, mode, informer=None):
         self.task_id = tid  # 任务ID
-        self.status = 'init'  # 任务初始状态
+        self.status = Manager().Value('temp', 'init')  # 任务初始状态
         self.mode = mode
         self.informer = None  # 任务绑定信息(ref or queue)
         self.control = None  # 任务控制器
         self.han_inf_con(informer)
+
+    def set_status(self, value):
+        self.status.value = value
+
+    def get_status(self):
+        return self.status.value
+
+    def check_status(self, value):
+        return self.status.value == value
 
     def han_inf_con(self, informer):
         if self.mode != 'process':
@@ -85,26 +62,26 @@ class TaskController:
         self.control.clear()
 
     def start(self) -> None:
-        self.status = 'running'
+        self.status.value = 'running'
         self.control.set()
 
     def pause(self) -> None:
         self.control.clear()  # Block the task execution
-        self.status = 'pause'
+        self.status.value = 'pause'
 
     def restart(self) -> None:
         self.control.clear()  # 先将任务暂停
-        self.status = 'restart'  # 告知每个任务，当前为重启状态
+        self.status.value = 'restart'  # 告知每个任务，当前为重启状态
         self.control.set()  # 再将任务重启
 
     def cancel(self) -> None:
         self.control.clear()  # 先将任务暂停
-        self.status = 'cancel'  # 告知每个任务，当前为重启状态
+        self.status.value = 'cancel'  # 告知每个任务，当前为重启状态
         self.control.set()  # 再将任务重启
 
     def end(self) -> None:
         self.control.clear()  # 先将任务暂停
-        self.status = 'end'  # 告知每个任务，当前为重启状态
+        self.status.value = 'end'  # 告知每个任务，当前为重启状态
         self.control.set()  # 再将任务重启
 
     # 此value包含了type
@@ -142,9 +119,6 @@ class TaskController:
         else:
             self.informer.put((self.task_id, 'clear'))
 
-
-if __name__ == '__main__':
-    freeze_support()
 
 # def can_be_pickled(obj):
 #     try:
