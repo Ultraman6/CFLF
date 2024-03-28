@@ -4,7 +4,7 @@ import itertools
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
-from ex4nicegui import deep_ref
+from ex4nicegui import deep_ref, to_raw
 from nicegui import run
 from data.get_data import get_dataloaders
 from manager.control import TaskController
@@ -62,12 +62,22 @@ def run_task(attr, queue=None):
     #     result = task.run(ref=self.task_info_refs[tid])
     return task.task_id, result
 
+
 def clear_ref(info_dict):
     for v in info_dict.values():
         if type(v) == dict:
             clear_ref(v)
         else:
             v.value.clear()
+
+def copy_raw_ref(info_dict, copy_dict):
+    for k, v in info_dict.items():
+        if type(v) == dict:
+            copy_dict[k] = {}
+            copy_raw_ref(v, copy_dict[k])
+        else:
+            copy_dict[k] = to_raw(v.value)
+
 
 # 先创建实验、选择算法，然后选择参数，然后选择运行方式（可以选择参数微调(任务参数)、参数独立）
 # 实验管理类需要的参数：是否使用相同的数据、模型、种子、实验名称、参数模板、参数变式
@@ -87,9 +97,9 @@ class ExperimentManager:
 
         self.model_global = None
         self.dataloaders_global = None
-        self.task_queue = {}      # 任务对象容器
+        self.task_queue = {}  # 任务对象容器
         self.task_info_refs = {}  # 任务信息容器
-        self.task_control = {}    # 插件-任务控制器
+        self.task_control = {}  # 插件-任务控制器
         self.results = {}
 
     def judge_algo(self, algorithm_name):
@@ -157,9 +167,11 @@ class ExperimentManager:
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
-                self.task_info_refs[task_id] = self.adj_info_ref(args) # 最终数据绑定对象
-                self.task_control[task_id] = TaskController(task_id, self.run_mode, self.task_info_refs[task_id])  # control会根据mode决定是否接收ref
-                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device, self.task_control[task_id])
+                self.task_info_refs[task_id] = self.adj_info_ref(args)  # 最终数据绑定对象
+                self.task_control[task_id] = TaskController(task_id, self.run_mode,
+                                                            self.task_info_refs[task_id])  # control会根据mode决定是否接收ref
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device,
+                                                self.task_control[task_id])
                 task_id += 1
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
@@ -177,7 +189,7 @@ class ExperimentManager:
                 noise_dis.append(train_loaders[cid].dataset.noise_info[label])
             dataloader_infos['train']['each'][label] = (train_label_dis, noise_dis)
             dataloader_infos['valid']['each'][label] = (
-            [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+                [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
         dataloader_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
         dataloader_infos['valid']['all']['total'].append(valid_loader.dataset.len)
         for cid in range(num_clients):
@@ -218,7 +230,7 @@ class ExperimentManager:
                     noise_dis.append(train_loaders[cid].dataset.noise_info[label])
                 task_infos['train']['each'][label] = (train_label_dis, noise_dis)
                 task_infos['valid']['each'][label] = (
-                [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
+                    [valid_loader.dataset.sample_info[label], ], [valid_loader.dataset.noise_info[label], ])
             task_infos['valid']['all']['noise'].append(valid_loader.dataset.noise_len)
             task_infos['valid']['all']['total'].append(valid_loader.dataset.len)
             for cid in range(num_clients):
@@ -254,6 +266,15 @@ class ExperimentManager:
         else:
             raise ValueError('Execution mode not recognized.')
 
+        for tid in self.task_info_refs:  # 处理结果
+            self.results[tid] = self.convert_result(tid)
+
+    def convert_result(self, tid):
+        result = {}
+        copy_raw_ref(self.task_info_refs[tid], result)
+        result.pop('statue')  # 去除状态信息
+        print(result)
+        return result
 
     @staticmethod
     def run_task(task):
@@ -261,11 +282,11 @@ class ExperimentManager:
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        task.run()  # 从此任务类无需知晓具体的控制模式
-        return task.task_id
+        res = task.run()  # 从此任务类无需知晓具体的控制模式
+        return task.task_id, res
 
     def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
-        info_ref = {'statue': {}, 'global': {}, 'local': {}}   # 这里决定ui模块的顺序
+        info_ref = {'statue': {}, 'global': {}, 'local': {}}  # 这里决定ui模块的顺序
         for key in global_info_dicts['info']:
             info_ref['global'][key] = {}
             for k in global_info_dicts['type']:
@@ -278,6 +299,7 @@ class ExperimentManager:
                     info_ref['local'][key][k][cid] = deep_ref([])
         for k in statuse_dicts:
             info_ref['statue'][k] = deep_ref([])
+
         return info_ref
 
     def control_same(self):
@@ -288,7 +310,8 @@ class ExperimentManager:
 
     def execute_serial(self):
         for tid in self.task_queue:
-            self.run_task(self.task_queue[tid])
+            tid, res = self.run_task(self.task_queue[tid])
+            # if res == 'success' or res == 'end':
             print(f"任务 {tid} 运行完成")
 
     async def execute_thread(self):
@@ -360,5 +383,3 @@ class ExperimentManager:
         if not os.path.exists(root_save_path):
             os.makedirs(root_save_path)
         return root_save_path
-
-

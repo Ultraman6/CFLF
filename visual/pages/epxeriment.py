@@ -1,4 +1,6 @@
 from nicegui import ui, run
+
+from visual.modules.consequence import res_ui
 from visual.modules.preview import preview_ui
 from visual.modules.running import run_ui
 from visual.parts.lazy_stepper import lazy_stepper
@@ -57,11 +59,20 @@ class experiment_page:
             @step_run.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
-                # with ui.card().classes('w-full'):  # 刷新API有问题，但仍可使
                 self.get_run_ui()
+                with ui.stepper_navigation():
+                    ui.button('Next', on_click=self.task_fusion_step)
+                    ui.button('Back', on_click=self.stepper.previous).props('flat')
+
+            step_run = self.stepper.step('结果分析')
+            @step_run.build_fn
+            def _(name: str):
+                ui.notify(f"创建页面:{name}")
+                self.get_res_ui()
                 with ui.stepper_navigation():
                     ui.button('Done', on_click=lambda: ui.notify('Yay!', type='positive'))
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
+
 
     @ui.refreshable_method
     def get_pre_ui(self):
@@ -70,6 +81,10 @@ class experiment_page:
     @ui.refreshable_method
     def get_run_ui(self):
         self.run_ui = run_ui(self.pre_ui.experiment)
+
+    @ui.refreshable_method
+    def get_res_ui(self):
+        self.run_ui = res_ui(self.pre_ui.experiment)
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()

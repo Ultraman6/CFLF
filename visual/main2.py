@@ -1,66 +1,33 @@
-from multiprocessing.managers import BaseManager
-import multiprocessing
+from ex4nicegui.reactive import rxui
+from nicegui import ui
 
-# 全局Manager实例
-global_manager = None
+def add_row():
+    with ui.item(on_click=lambda: ui.notify('Selected contact 1')) as row:
+        with ui.item_section().props('avatar'):
+            ui.icon('person')
+        with ui.item_section():
+            ui.item_label('Nice Guy')
+            ui.item_label('name').props('caption')
+        with ui.item_section().props('side').on('click', lambda row=row: row.delete()):
+            ui.icon('delete')
+    row.move(lister)
 
+def delete_row(row):
+    row.delete()
 
-def register_to_manager(cls):
-    """
-    装饰器: 自动注册类到全局Manager，并提供一个创建实例的代理工厂函数。
-    """
+with ui.list().props('bordered separator') as lister:
+    ui.item_label('Contacts').props('header').classes('text-bold')
+    ui.separator()
+    for i in range(5):
+        with ui.item(on_click=lambda: ui.notify('Selected contact 1')) as row:
+            with ui.item_section().props('avatar'):
+                ui.icon('person')
+            with ui.item_section():
+                ui.item_label('Nice Guy')
+                ui.item_label('name').props('caption')
+            with ui.item_section().props('side').on('click', lambda row=row: row.delete()):
+                ui.icon('delete')
 
-    def get_proxy(*args, **kwargs):
-        """
-        代理工厂函数: 创建并返回目标类的一个代理实例。
-        """
-        global global_manager
-        # 确保Manager已启动
-        if global_manager is None:
-            # 创建并启动Manager
-            BaseManager.register(cls.__name__, cls)
-            global_manager = BaseManager()
-            global_manager.start()
-        else:
-            # 确保类已注册
-            if cls.__name__ not in global_manager._registry:
-                BaseManager.register(cls.__name__, cls)
+ui.button('Add Contact', on_click=lambda: add_row())
 
-        manager_cls = getattr(global_manager, cls.__name__)
-        return manager_cls(*args, **kwargs)
-
-    # 将代理工厂函数绑定到目标类
-    cls.get_proxy = staticmethod(get_proxy)
-
-    return cls
-
-
-@register_to_manager
-class MyClass:
-    def __init__(self, value):
-        self.value = value
-
-    def get_value(self):
-        return self.value
-
-    def set_value(self, value):
-        self.value = value
-
-
-def worker(proxy):
-    print("Value in subprocess:", proxy.get_value())
-    proxy.set_value(10)
-    print("New value in subprocess:", proxy.get_value())
-
-
-if __name__ == "__main__":
-    multiprocessing.freeze_support()  # Windows平台需要
-    proxy_instance = MyClass.get_proxy(5)
-    print("Initial value in main process:", proxy_instance.get_value())
-
-    p = multiprocessing.Process(target=worker, args=(proxy_instance,))
-    p.start()
-    p.join()
-
-    # 注意: 由于代理对象的限制，子进程中的更改可能不会反映到主进程
-    print("Value in main process after subprocess:", proxy_instance.get_value())
+ui.run()

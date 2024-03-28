@@ -108,7 +108,7 @@ class config_ui:
 
     # 创建参数配置界面，包实验配置、算法配置
     def create_config_ui(self):
-        with ui.grid(columns=1):
+        with ui.grid(columns=1).classes('w-full'):
             rxui.input(label='实验名称', value=my_vmodel(self.exp_ref.value, 'name'))
             with ui.row():
                 with ui.card().tight():

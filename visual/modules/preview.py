@@ -226,13 +226,13 @@ class preview_ui:
     def __init__(self, exp_args, algo_args):
         self.exp_args = exp_args
         self.algo_args = algo_args
-        with ui.row():
+        with ui.row().classes('w-full'):
             with ui.dialog() as dialog, ui.card():
                 for key, value in self.algo_args.items():
                     ui.label(f'{key}: {value}')
             ui.button('展示算法模板', on_click=dialog.open)
             ui.button('保存算法模板', on_click=self.save_algo_args)
-        with ui.row():
+        with ui.row().classes('w-full'):
             with ui.dialog() as dialog, ui.card():
                 for key, value in self.exp_args.items():
                     if key == 'algo_params':

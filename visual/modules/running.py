@@ -80,7 +80,11 @@ class run_ui:
         self.experiment = experiment
         self.infos_ref = {}
         self.task_names = {}
+        self.handle_task_info()
+        self.draw_controller()
+        self.draw_infos()
 
+    def handle_task_info(self):
         for tid in self.experiment.task_info_refs:
             for info_spot in self.experiment.task_info_refs[tid]:  # 首先明确每个任务存有何种信息(这里只记录到参数名，后面处理x类型/客户id)
                 if info_spot not in self.infos_ref:
@@ -111,12 +115,8 @@ class run_ui:
                     for info_name in self.experiment.task_info_refs[tid][info_spot]:
                         if info_name not in self.infos_ref[info_spot]:
                             self.infos_ref[info_spot][info_name] = {}
-                        self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][
-                            info_name]
+                        self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][info_name]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
-
-        self.draw_controller()
-        self.draw_infos()
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
     def draw_controller(self):
@@ -144,7 +144,7 @@ class run_ui:
             with rxui.grid(columns=len(self.experiment.task_queue) + 1).classes('w-full').bind_visible(
                     lambda: not pool_ref.value):
                 with ui.column().classes('w-full'):
-                    rxui.label('全部任务')
+                    rxui.label('全部任务').tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                     be_ref = to_ref(False)
                     pc_ref = to_ref(True)
                     with rxui.grid(columns=2).classes('w-full'):
@@ -227,7 +227,7 @@ class run_ui:
                         pc_refs.append(to_ref(True))
                     for tid in self.experiment.task_control:
                         with ui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid])
+                            rxui.label(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             with rxui.grid(columns=2).classes('w-full').bind_visible(
                                     lambda tid=tid: all_refs[int(tid)].value):
                                 rxui.button('开始', on_click=lambda tid=tid, be_ref=be_ref: _run_i(tid)).bind_visible(
