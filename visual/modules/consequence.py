@@ -11,10 +11,15 @@ class res_ui:
         self.infos_dict = {}
         self.task_names = {}
         self.handle_task_info()
+        self.save_root = to_ref('../../results')
         with rxui.card().classes('w-full'):
-            rxui.label('历史控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
+            rxui.label('结果信息控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
                                                 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
                                                 'hover:bg-blue-700')
+            with ui.card().tight():
+                ui.label('结果存取路径')
+                rxui.button(text=self.save_root, icon='file',
+                            on_click=lambda: self.han_fold_choice())
             with ui.list().props('bordered separator') as lister:
                 ui.item_label('Contacts').props('header').classes('text-bold')
                 ui.separator()
@@ -25,14 +30,22 @@ class res_ui:
                         with ui.item_section():
                             ui.item_label(self.task_names[tid])
                         with ui.item_section().props('side').on('click',
+                                                                lambda row=row, tid=tid: self.save_res(row, tid)):
+                            ui.icon('save')
+                        with ui.item_section().props('side').on('click',
                                                                 lambda row=row, tid=tid: self.delete_res(row, tid)):
                             ui.icon('delete')
             ui.button('Add Contact', on_click=lambda: self.add_res(lister))
         self.draw_res()
 
-    # def show_his_res(self):
-    #     choice_item =
-    #     return choice_item
+    async def han_fold_choice(self):
+        origin = self.save_root.value
+        path = await app.native.main_window.create_file_dialog(20)
+        self.save_root.value = path if path else origin
+
+    # 结果保存API
+    def save_res(self, row, tid):
+        ui.notify('Save the result of Task' + str(tid))
 
     def add_res(self, lister):
         tid = len(self.task_names)

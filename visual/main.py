@@ -1,5 +1,4 @@
 from multiprocessing import freeze_support
-
 from nicegui import ui, run
 from visual.modules.configuration import config_ui
 from visual.pages.epxeriment import experiment_page

@@ -52,10 +52,6 @@ class config_ui:
         self.algo_params = self.exp_args['algo_params']
 
         self.algo_args = vars(args_parser())
-        # self.algo_ref = deep_ref(self.algo_args)  # 前端控制dict的变化,两个mapping单独监控
-        # self.class_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['class_mapping'])))
-        # self.sample_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['sample_mapping'])))
-        # self.noise_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['noise_mapping'])))
         self.handle_convert()
         on(lambda: self.algo_ref.value['num_clients'])(self.watch_client_num)
         on(lambda: self.algo_ref.value['dataset'])(self.watch_dataset)
