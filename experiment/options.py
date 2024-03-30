@@ -296,13 +296,13 @@ def args_parser():
     running_environment.add_argument(
         '--dataset_root',
         type=str,
-        default='../../datasets',
+        default='../datasets',
         help='dataset root folder'
     )
     running_environment.add_argument(
         '--result_root',
         type=str,
-        default='../../result',
+        default='../result',
         help='result root folder'
     )
     running_environment.add_argument(

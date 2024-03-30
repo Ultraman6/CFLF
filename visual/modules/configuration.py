@@ -151,12 +151,6 @@ class config_ui:
                 rxui.checkbox(text='相同初始模型', value=my_vmodel(self.exp_ref.value['same'], 'model'))
                 rxui.checkbox(text='相同数据划分', value=my_vmodel(self.exp_ref.value['same'], 'data'))
 
-    def create_red_config(self):  # chuan
-        dialog = ui.dialog()
-        with ui.card().classes('w-full') as card:
-            ui.label('算法冗余参数设置')
-        card.move(dialog)
-        return dialog
 
     def create_template_config(self):
         # is_common_set = to_ref(False)
@@ -316,7 +310,6 @@ class config_ui:
                                 @rxui.vfor(self.noise_mapping_ref, key='id')
                                 def _(store: rxui.VforStore[Dict]):
                                     item = store.get()
-                                    # value = rxui.vmodel(item.value['value'])  # 标签噪声只关注占比
                                     with ui.column():
                                         rxui.label('客户'+item.value['id'])
                                         with ui.grid(columns=2):
