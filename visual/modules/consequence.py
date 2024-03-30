@@ -1,7 +1,10 @@
 # 任务运行结果界面
+import time
+from datetime import datetime
+
 from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
-from nicegui import ui, app
+from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
 from manager.save import TaskResultManager
 
@@ -12,10 +15,19 @@ class res_ui:
         self.experiment = experiment  # 此时的管理类已经拥有了任务执行结果
         self.infos_dict = {}  # 无任何响应式
         self.task_names = {}
+        self.rows = deep_ref([])
         self.handle_task_info()
         self.save_root = to_ref('../results')
         self.res_reader = TaskResultManager(self.save_root.value)
         self.create_dialog()  # 阅读初始的历史结果
+
+        columns = [
+            {'name': 'id', 'field': 'id', 'label': '编号', 'sortable': True},
+            {'name': 'type', 'field': 'type', 'label': '类型', 'sortable': True},
+            {'name': 'time', 'field': 'time', 'label': '任务时间', 'sortable': True},
+            {'name': 'name', 'field': 'name', 'label': '任务名称', 'editable': True},
+            {'name': 'options', 'field': 'options', 'label': '选项', 'editable': False}
+        ]
 
         with rxui.card().classes('w-full'):
             rxui.label('结果信息控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
@@ -25,22 +37,28 @@ class res_ui:
                 ui.label('结果存取路径')
                 rxui.button(text=self.save_root, icon='file',
                             on_click=lambda: self.han_fold_choice())
-            with ui.list().props('bordered separator') as self.lister:
-                ui.item_label('Contacts').props('header').classes('text-bold')
-                ui.separator()
-                for tid in self.task_names:
-                    with ui.item(on_click=lambda: ui.notify('Selected contact 1')) as row:
-                        with ui.item_section().props('avatar'):
-                            ui.icon('time')
-                        with ui.item_section():
-                            ui.item_label(self.task_names[tid])
-                        with ui.item_section().props('side').on('click', lambda tid=tid: self.save_res(tid)).tooltip("保存"):
-                            ui.icon('save')
-                        with ui.item_section().props('side').on('click', lambda row=row, tid=tid: self.delete_res(row, tid)).tooltip("删除"):
-                            ui.icon('delete')
-            ui.button('Add Contact', on_click=lambda: self.dialog.open())
+            table = rxui.table(columns=columns, rows=self.rows, row_key="id")
+            table.add_slot('body-cell-options', r'''
+                <q-td key="options" :props="props">
+                    <q-btn outline size="sm" color="red" round dense icon="delete"
+                        @click="() => $parent.$emit('delete', props.row)">
+                        <q-tooltip>删除</q-tooltip>
+                    </q-btn> 
+                    <q-btn v-if="props.row.type=='新'" outline size="sm" color="green" round dense icon="save"
+                        @click="() => $parent.$emit('save', props.row)"
+                        >
+                        <q-tooltip>保存</q-tooltip>
+                    </q-btn>
+                </q-td>
+            ''')
+            table.on("delete", self.delete_res)
+            table.on("save", self.save_res)
+
+            ui.button('添加任务结果', on_click=lambda: self.dialog.open())
+
         self.draw_res()
 
+    @refreshable_method
     def create_dialog(self):
         with ui.dialog() as self.dialog, ui.card():
             with rxui.column():
@@ -48,16 +66,16 @@ class res_ui:
                     rxui.label('无历史结果')
                 else:
                     for task_info in self.res_reader.his_list:
-                            (
-                                rxui.label('日期：' + task_info['time'] + ' 任务名：' + task_info['name'])
-                                .on("click", lambda task_info=task_info: self.add_res(self.res_reader.load_task_result(task_info['file_name'])))
-                                .tooltip("点击选择")
-                                .tailwind.cursor("pointer")
-                                .outline_color("blue-100")
-                                .outline_width("4")
-                                .outline_style("double")
-                                .padding("p-1")
-                            )
+                        (
+                            rxui.label('日期：' + task_info['time'] + ' 任务名：' + task_info['name'])
+                            .on("click", lambda task_info=task_info: self.add_res(self.res_reader.load_task_result(task_info['file_name'])))
+                            .tooltip("点击选择")
+                            .tailwind.cursor("pointer")
+                            .outline_color("blue-100")
+                            .outline_width("4")
+                            .outline_style("double")
+                            .padding("p-1")
+                        )
 
     async def han_fold_choice(self):
         origin = self.save_root.value
@@ -66,33 +84,26 @@ class res_ui:
         self.res_reader.set_save_dir(self.save_root.value)
 
     # 结果保存API
-    def save_res(self, tid):
-        print(self.task_names[tid])
-        print(self.experiment.results[tid])
-        self.res_reader.save_task_result(self.task_names[tid], self.experiment.results[tid])
-        self.create_dialog()
-        ui.notify('Save the result of Task' + str(tid))
+    def save_res(self, e: events.GenericEventArguments):
+        idx = e.args["id"]  # 保存不需要直到顺序id
+        self.rows.value[idx]['type'] = '新(已保存)'
+        self.res_reader.save_task_result(self.task_names[idx], e.args["time"], self.experiment.results[idx])
+        self.res_reader.read_pkl_files()
+        self.create_dialog.refresh()
+        ui.notify('Save the result of Task' + str(idx))
 
-    def delete_res(self, row, tid):
-        self.delete_info(tid)
+    def delete_res(self, e: events.GenericEventArguments):
+        idx = [index for index, row in enumerate(self.rows.value) if row["id"] == e.args["id"]][0]
+        self.delete_info(e.args["id"])
         self.draw_res.refresh()  # 刷新图表
-        row.delete()
+        self.rows.value.pop(idx)
 
     def add_res(self, task_info):
         tid = len(self.task_names)
         self.add_info(tid, task_info['info'])
-        self.task_names[tid] = task_info['name']+task_info['time']
-        with ui.item(on_click=lambda: ui.notify('Selected contact 1')) as row:
-            with ui.item_section().props('avatar'):
-                ui.icon('time')
-                ui.item_label(task_info['time'])
-            with ui.item_section():
-                ui.icon('name')
-                ui.item_label(task_info['name'])
-            with ui.item_section().props('side').on('click', lambda row=row, tid=tid: self.delete_res(row, tid)):
-                ui.icon('delete')
+        self.task_names[tid] = task_info['name'] + task_info['time']
+        self.rows.value.append({'id': tid, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
         self.draw_res.refresh()  # 刷新图表
-        row.move(self.lister)
 
     def delete_info(self, tid):
         # 处理全局信息
@@ -110,6 +121,7 @@ class res_ui:
         # 处理局部信息
         if 'local' in self.infos_dict and tid in self.infos_dict['local']:
             del self.infos_dict['local'][tid]
+        del self.task_names[tid]
 
     def add_info(self, tid, task_info):
         # 遍历传入的信息变量
@@ -170,8 +182,8 @@ class res_ui:
                                 self.infos_dict[info_spot][tid][info_name][info_type] = {}
                             self.infos_dict[info_spot][tid][info_name][info_type] = \
                                 self.experiment.results[tid][info_spot][info_name][info_type]
-
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
+            self.rows.value.append({'id': tid, 'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'name': self.task_names[tid], 'type': '新'})
 
     @refreshable_method
     def draw_res(self):
