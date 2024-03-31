@@ -23,7 +23,7 @@ def convert_time_format(time_str):
 
 
 # 需要规定好信息存储的字段信息
-class TaskResultManager:
+class ReadManager:
     def __init__(self, save_dir):
         self.save_dir = save_dir
         # 确保保存目录存在，如果不存在，则创建它
@@ -33,6 +33,7 @@ class TaskResultManager:
 
     def set_save_dir(self, save_dir):
         self.save_dir = save_dir
+        self.read_pkl_files()
 
     def save_task_result(self, task_name, time, result):
         # 构建文件名
@@ -44,8 +45,10 @@ class TaskResultManager:
             pickle.dump(result, file)
         absolute_path = os.path.abspath(file_path)
         print(f"Saved: {absolute_path}")
+        self.read_pkl_files()
 
     def read_pkl_files(self):
+        self.his_list.clear()
         absolute_path = os.path.abspath(self.save_dir)
         print(f"Read: {absolute_path}")
         for file in os.listdir(self.save_dir):

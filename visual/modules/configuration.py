@@ -3,12 +3,16 @@ import argparse
 import copy
 import json
 import time
+from datetime import datetime
 from typing import Dict
 import torch
 from ex4nicegui import deep_ref, to_ref, on, to_raw, batch
 from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, ref, is_ref
 from nicegui import ui, app, events
+from nicegui.functions.refreshable import refreshable_method
+
+from manager.save import ReadManager
 from visual.parts.lazy_table import algo_table
 from visual.parts.constant import datasets, models, init_mode, loss_function, optimizer, sgd, adam, scheduler, step, \
     exponential, \
@@ -40,28 +44,43 @@ def my_vmodel(data, key):
         data[key] = new
     return to_ref_wrapper(lambda: data[key], setter)
 
+
 # 创建界面并维护args(单个算法)
 class config_ui:
     def __init__(self):
-        s_time = time.time()
         self.unit_dict = {}
         self.mapping_default = [3, 1000, 0.2, 0.2]
 
         self.exp_args = exp_args_template
         self.exp_ref = deep_ref(self.exp_args)
-        self.algo_params = self.exp_args['algo_params']
 
         self.algo_args = vars(args_parser())
-        self.handle_convert()
+        self.handle_convert_algo()
         on(lambda: self.algo_ref.value['num_clients'])(self.watch_client_num)
         on(lambda: self.algo_ref.value['dataset'])(self.watch_dataset)
         self.create_config_ui()
 
-    def handle_convert(self):
-        self.class_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['class_mapping'])))
-        self.sample_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['sample_mapping'])))
-        self.noise_mapping_ref = deep_ref(convert_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True))
-        print(self.noise_mapping_ref.value)
+    def read_template(self, template):
+        for k, v in template['info'].items():
+            self.algo_ref.value[k] = v  # 只能修改ref的值，不能修改原始数据否则不响应
+        self.algo_ref.value['class_mapping'] = convert_to_list(json.loads(self.algo_args['class_mapping']))
+        self.algo_ref.value['sample_mapping'] = convert_to_list(json.loads(self.algo_args['sample_mapping']))
+        self.algo_ref.value['noise_mapping'] = convert_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True)
+
+    def read_algorithm(self, algo_param_rows):
+        print(algo_param_rows['info'])
+        for k, v in algo_param_rows['info'].items():
+            if k == 'algo_params':
+                for item in v:
+                    self.exp_ref.value['algo_params'].append(item)
+            else:
+                self.exp_ref.value[k] = v
+
+
+    def handle_convert_algo(self):
+        self.algo_args['class_mapping'] = convert_to_list(json.loads(self.algo_args['class_mapping']))
+        self.algo_args['sample_mapping'] = convert_to_list(json.loads(self.algo_args['sample_mapping']))
+        self.algo_args['noise_mapping'] = convert_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True)
         self.algo_args['gaussian'] = {'mean': self.algo_args['gaussian'][0], 'std': self.algo_args['gaussian'][1]}
         self.algo_ref = deep_ref(self.algo_args)
 
@@ -73,25 +92,26 @@ class config_ui:
         @batch
         def _():
             num_now = to_raw(self.algo_ref.value['num_clients'])
-            num_real = len(self.class_mapping_ref.value)
+            num_real = len(self.algo_ref.value['class_mapping'])
             while num_real < num_now:
-                self.class_mapping_ref.value.append({'id': str(num_real), 'value': self.mapping_default[0]})
-                self.sample_mapping_ref.value.append({'id': str(num_real), 'value': self.mapping_default[1]})
+                self.algo_ref.value['class_mapping'].append({'id': str(num_real), 'value': self.mapping_default[0]})
+                self.algo_ref.value['sample_mapping'].append({'id': str(num_real), 'value': self.mapping_default[1]})
                 num_real += 1
             while num_real > num_now:
-                self.class_mapping_ref.value.pop()
-                self.sample_mapping_ref.value.pop()
+                self.algo_ref.value['class_mapping'].pop()
+                self.algo_ref.value['sample_mapping'].pop()
                 num_real -= 1
 
     def handle_add_noise(self):
-        num_real = len(self.noise_mapping_ref.value)
-        self.noise_mapping_ref.value.append({'id': str(num_real), 'value': {'mean': self.mapping_default[2], 'std': self.mapping_default[3]}})
-        print(self.noise_mapping_ref.value)
+        num_real = len(self.algo_ref.value['noise_mapping'])
+        self.algo_ref.value['noise_mapping'].append({'id': str(num_real), 'value': {'mean': self.mapping_default[2], 'std': self.mapping_default[3]}})
+        print(self.algo_ref.value['noise_mapping'])
 
     async def han_fold_choice(self, key):
         origin = self.algo_ref.value[key]
         path = await app.native.main_window.create_file_dialog(20)
         self.algo_ref.value[key] = path if path else origin
+
 
     def scan_local_gpu(self):
         # 检查CUDA GPU设备
@@ -143,18 +163,116 @@ class config_ui:
 
     # 此方法用于定义算法选择与冗余参数配置界面
     def create_algo_config(self):
-        # is_algo_set = to_ref(False)
-        # rxui.checkbox('设置算法冗余参数', value=is_algo_set) .bind_visible(lambda: is_algo_set.value)
+        with ui.row():
+            save_root = to_ref('../files/configs/algorithm')
+            cof_reader = ReadManager(save_root.value)
+            with rxui.card().tight():
+                rxui.label('算法配置存放路径')
+                rxui.button(text=save_root, icon='file',
+                            on_click=lambda: save_fold_choice())
+            async def save_fold_choice():
+                origin = save_root.value
+                path = await app.native.main_window.create_file_dialog(20)
+                save_root.value = path if path else origin
+                cof_reader.set_save_dir(save_root.value)
+                gen_his_list.refresh()
+            @refreshable_method
+            def gen_his_list():
+                with rxui.grid(columns=1):
+                    if len(cof_reader.his_list) == 0:
+                        rxui.label('无历史信息')
+                    else:
+                        for cof_info in cof_reader.his_list:
+                            with rxui.row():
+                                (
+                                    rxui.label('日期：' + cof_info['time'] + ' 实验名：' + cof_info['name'])
+                                    .on("click", lambda cof_info=cof_info: self.read_algorithm(
+                                        cof_reader.load_task_result(cof_info['file_name'])))
+                                    .tooltip("点击选择")
+                                    .tailwind.cursor("pointer")
+                                    .outline_color("blue-100")
+                                    .outline_width("4")
+                                    .outline_style("double")
+                                    .padding("p-1")
+                                )
+                                rxui.button(icon='delete',
+                                            on_click=lambda cof_info=cof_info: delete(cof_info['file_name']))
+                                def delete(filename):
+                                    cof_reader.delete_task_result(filename)
+                                    cof_reader.read_pkl_files()
+                                    gen_his_list.refresh()
+
+            rxui.button('历史算法配置', on_click=lambda: show_his_template())
+            def show_his_template():
+                with ui.dialog() as dialog, ui.card():
+                    gen_his_list()
+                dialog.open()
+            rxui.button('保存算法配置', on_click=lambda: han_save())
+            def han_save():
+                cof_reader.save_task_result(self.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), self.exp_args)
+                gen_his_list.refresh()
         with rxui.column():
-            algo_table(rows=self.algo_params)
+            algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
             with rxui.grid(columns=2):
                 rxui.checkbox(text='相同初始模型', value=my_vmodel(self.exp_ref.value['same'], 'model'))
                 rxui.checkbox(text='相同数据划分', value=my_vmodel(self.exp_ref.value['same'], 'data'))
 
 
     def create_template_config(self):
-        # is_common_set = to_ref(False)
-        # rxui.checkbox('设置算法参数模板', value=is_common_set) .bind_visible(lambda: is_common_set.value)
+        with ui.row():
+            save_root = to_ref('../files/configs/template')
+            cof_reader = ReadManager(save_root.value)
+            with rxui.card().tight():
+                rxui.label('模板配置存放路径')
+                rxui.button(text=save_root, icon='file',
+                            on_click=lambda: save_fold_choice())
+            async def save_fold_choice():
+                origin = save_root.value
+                path = await app.native.main_window.create_file_dialog(20)
+                save_root.value = path if path else origin
+                cof_reader.set_save_dir(save_root.value)
+                gen_his_list.refresh()
+            @refreshable_method
+            def gen_his_list():
+                with rxui.grid(columns=1):
+                    if len(cof_reader.his_list) == 0:
+                        rxui.label('无历史信息')
+                    else:
+                        for cof_info in cof_reader.his_list:
+                            with rxui.row():
+                                (
+                                    rxui.label('日期：' + cof_info['time'] + ' 实验名：' + cof_info['name'])
+                                    .on("click", lambda cof_info=cof_info: self.read_template(
+                                        cof_reader.load_task_result(cof_info['file_name'])))
+                                    .tooltip("点击选择")
+                                    .tailwind.cursor("pointer")
+                                    .outline_color("blue-100")
+                                    .outline_width("4")
+                                    .outline_style("double")
+                                    .padding("p-1")
+                                )
+                                rxui.button(icon='delete',
+                                            on_click=lambda cof_info=cof_info: delete(cof_info['file_name']))
+                                def delete(filename):
+                                    cof_reader.delete_task_result(filename)
+                                    cof_reader.read_pkl_files()
+                                    gen_his_list.refresh()
+
+            rxui.button('历史模板配置', on_click=lambda: show_his_template())
+            def show_his_template():
+                with ui.dialog() as dialog, ui.card():
+                    gen_his_list()
+                dialog.open()
+
+            rxui.button('保存模板配置', on_click=lambda: han_save())
+            def han_save():
+                algo_args = copy.deepcopy(self.algo_args)
+                algo_args['class_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['class_mapping']))
+                algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['sample_mapping']))
+                algo_args['noise_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['noise_mapping'], is_noise=True))
+                cof_reader.save_task_result(self.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), algo_args)
+                gen_his_list.refresh()
+
         with rxui.column():
             with ui.tabs().classes('w-full') as tabs:
                 dl_module = ui.tab('深度学习配置')
@@ -264,7 +382,7 @@ class config_ui:
                                             value=my_vmodel(self.algo_ref.value, 'class_per_client'), format='%.0f')
                             with rxui.grid(columns=5).bind_visible(
                                     lambda: self.algo_ref.value['data_type'] == 'custom_class'):
-                                @rxui.vfor(self.class_mapping_ref, key='id')
+                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'class_mapping'), key='id')
                                 def _(store: rxui.VforStore[Dict]):
                                     item = store.get()
                                     rxui.number(label='客户'+item.value['id'], value=my_vmodel(item.value, 'value'), format='%.0f')
@@ -281,7 +399,7 @@ class config_ui:
                                             value=my_vmodel(self.algo_ref.value, 'imbalance_alpha'), format='%.4f')
                             with rxui.grid(columns=5).bind_visible(
                                     lambda: self.algo_ref.value['num_type'] == 'custom_each'):
-                                @rxui.vfor(self.sample_mapping_ref, key='id')
+                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'sample_mapping'), key='id')
                                 def _(store: rxui.VforStore[Dict]):
                                     item = store.get()
                                     rxui.number(label='客户'+item.value['id'], value=my_vmodel(item.value, 'value'), format='%.0f')
@@ -296,18 +414,17 @@ class config_ui:
                                             value=my_vmodel(self.algo_ref.value['gaussian'], 'std'), format='%.3f')
                             with rxui.grid(columns=5).bind_visible(
                                     lambda: self.algo_ref.value['noise_type'] == 'custom_label'):
-                                @rxui.vfor(self.noise_mapping_ref, key='id')
+                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'noise_mapping'), key='id')
                                 def _(store: rxui.VforStore[Dict]):
                                     item = store.get()
-                                    # value = rxui.vmodel(item.value['value'])  # 标签噪声只关注占比
                                     with ui.column():
                                         rxui.label('客户'+item.value['id'])
                                         rxui.number(label='占比', value=my_vmodel(item.value['value'], 'mean'), format='%.3f')
-                                        ui.button("删除", on_click=lambda: self.noise_mapping_ref.value.remove(item.value))
+                                        ui.button("删除", on_click=lambda: self.algo_ref.value['noise_mapping'].remove(item.value))
                                 ui.button("追加", on_click=self.handle_add_noise)
                             with rxui.grid(columns=5).bind_visible(
                                     lambda: self.algo_ref.value['noise_type'] == 'custom_feature'):
-                                @rxui.vfor(self.noise_mapping_ref, key='id')
+                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'noise_mapping'), key='id')
                                 def _(store: rxui.VforStore[Dict]):
                                     item = store.get()
                                     with ui.column():
@@ -315,7 +432,7 @@ class config_ui:
                                         with ui.grid(columns=2):
                                             rxui.number(label='占比', value=my_vmodel(item.value['value'], 'mean'), format='%.3f')
                                             rxui.number(label='强度', value=my_vmodel(item.value['value'], 'std'), format='%.3f')
-                                        ui.button("删除", on_click=lambda: self.noise_mapping_ref.value.remove(item.value))
+                                        ui.button("删除", on_click=lambda: self.algo_ref.value['noise_mapping'].remove(item.value))
                                 ui.button("追加", on_click=self.handle_add_noise)
 
     def get_fusion_args(self):
@@ -323,9 +440,9 @@ class config_ui:
         exp_args = copy.deepcopy(self.exp_args)
         exp_args['algo_params'] = [item for item in exp_args['algo_params'] if 'algo' in item]
         algo_args = copy.deepcopy(self.algo_args)
-        algo_args['class_mapping'] = json.dumps(convert_to_dict(self.class_mapping_ref.value))
-        algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.sample_mapping_ref.value))
-        algo_args['noise_mapping'] = json.dumps(convert_to_dict(self.noise_mapping_ref.value, is_noise=True))
+        algo_args['class_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['class_mapping']))
+        algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['sample_mapping']))
+        algo_args['noise_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['noise_mapping'], is_noise=True))
         algo_args['gaussian'] = (algo_args['gaussian']['mean'], algo_args['gaussian']['std'])
         print(algo_args)
         return algo_args, exp_args

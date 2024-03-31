@@ -302,7 +302,7 @@ def args_parser():
     running_environment.add_argument(
         '--result_root',
         type=str,
-        default='../result',
+        default='../files/result',
         help='result root folder'
     )
     running_environment.add_argument(

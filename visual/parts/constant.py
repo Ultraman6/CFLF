@@ -13,14 +13,6 @@ init_mode = {"default": '默认', "xaiver_uniform": 'xaiver均匀分布', "kaimi
 loss_function = {'ce': '交叉熵', 'bce': '二值交叉熵', 'mse': '均方误差'}
 
 optimizer = ['sgd', 'adam']
-# optimizer_params = {
-#     'sgd':{'momentum': {'name': '动量因子', 'format': '%.3f'},
-#            'weight_decay': {'name': '衰减步长因子', 'format': '%.5f'}},
-#     'adam':{'weight_decay':{'name': '衰减步长因子', 'format': '%.4f'},
-#             'beta1': {'name': '一阶矩估计的指数衰减率', 'format': '%.4f'},
-#             'beta2': {'name': '二阶矩估计的指数衰减率', 'format': '%.4f'},
-#             'epsilon': {'name': '平衡因子', 'format': '%.8f'}}
-# }
 sgd = {'momentum': {'name': '动量因子', 'format': '%.3f'},
        'weight_decay': {'name': '衰减步长因子', 'format': '%.5f'}}
 adam = {'weight_decay': {'name': '衰减步长因子', 'format': '%.4f'},
@@ -127,9 +119,16 @@ exp_args_template = {
     }
 }
 # ['id': 0, 'params']
-running_mode = {'serial': '顺序串行', 'thread': '线程并行', 'process': '进程并行'}
+running_mode = {'serial': '顺序串行', 'thread': '线程并行'}
 thread = {'max_threads': {'name': '最大线程数', 'format': '%.0f'}}
 process = {'max_processes': {'name': '最大进程数', 'format': '%.0f'}}
+
+dl_params = {
+
+}
+fl_params = {
+
+}
 
 algo_params = {
     'common': {

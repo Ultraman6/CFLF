@@ -6,7 +6,7 @@ from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
-from manager.save import TaskResultManager
+from manager.save import ReadManager
 
 
 class res_ui:
@@ -17,8 +17,8 @@ class res_ui:
         self.task_names = {}
         self.rows = deep_ref([])
         self.handle_task_info()
-        self.save_root = to_ref('../results')
-        self.res_reader = TaskResultManager(self.save_root.value)
+        self.save_root = to_ref('../files/results')
+        self.res_reader = ReadManager(self.save_root.value)
         self.create_dialog()  # 阅读初始的历史结果
 
         columns = [
@@ -66,16 +66,23 @@ class res_ui:
                     rxui.label('无历史结果')
                 else:
                     for task_info in self.res_reader.his_list:
-                        (
-                            rxui.label('日期：' + task_info['time'] + ' 任务名：' + task_info['name'])
-                            .on("click", lambda task_info=task_info: self.add_res(self.res_reader.load_task_result(task_info['file_name'])))
-                            .tooltip("点击选择")
-                            .tailwind.cursor("pointer")
-                            .outline_color("blue-100")
-                            .outline_width("4")
-                            .outline_style("double")
-                            .padding("p-1")
-                        )
+                        with rxui.row():
+                            (
+                                rxui.label('日期：' + task_info['time'] + ' 任务名：' + task_info['name'])
+                                .on("click", lambda task_info=task_info: self.add_res(self.res_reader.load_task_result(task_info['file_name'])))
+                                .tooltip("点击选择")
+                                .tailwind.cursor("pointer")
+                                .outline_color("blue-100")
+                                .outline_width("4")
+                                .outline_style("double")
+                                .padding("p-1")
+                            )
+                            rxui.button(icon='delete', on_click=lambda task_info=task_info: delete(task_info['file_name']))
+                            def delete(filename):
+                                self.res_reader.delete_task_result(filename)
+                                self.res_reader.read_pkl_files()
+                                self.create_dialog.refresh()
+                                self.dialog.open()
 
     async def han_fold_choice(self):
         origin = self.save_root.value
@@ -88,7 +95,6 @@ class res_ui:
         idx = e.args["id"]  # 保存不需要直到顺序id
         self.rows.value[idx]['type'] = '新(已保存)'
         self.res_reader.save_task_result(self.task_names[idx], e.args["time"], self.experiment.results[idx])
-        self.res_reader.read_pkl_files()
         self.create_dialog.refresh()
         ui.notify('Save the result of Task' + str(idx))
 
