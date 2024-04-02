@@ -44,6 +44,7 @@ class algo_table:
     def __init__(self, rows, tem_args):  # row 不传绑定
         self.devices = scan_local_device()
         self.tem_args = tem_args
+        # print(self.tem_args['class_mapping'])
         self.rows = rows
         columns = [
             {"name": "id", "label": "编号", "field": "id", 'align': 'center'},
@@ -138,10 +139,9 @@ class algo_table:
                 row["type"] = e.args["type"]  # 假设e.args["value"]包含选定的类型
                 row["spot"] = e.args["spot"]
                 row["algo"] = e.args["algo"]
-                row['params'].clear()
-                row['params'] = {'device': 'cpu', 'gpu': '0', 'seed': [1]}
-                for k, v in self.tem_args.items():
-                    row['params'][k] = [v, ]
+                for k in row['params']:
+                    if k not in self.tem_args and k not in algo_params['common']:
+                        del row['params'][k]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["type"]) + "类型")
         self.table.element.update()  # 这里会更新slot内部的样式
@@ -151,10 +151,9 @@ class algo_table:
             if row["id"] == e.args["id"]:
                 row["spot"] = e.args["spot"]  # 更新算法名称
                 row["algo"] = e.args["algo"]
-                row['params'].clear()
-                row['params'] = {'device': 'cpu', 'gpu': '0', 'seed': [1]}
-                for k, v in self.tem_args.items():
-                    row['params'][k] = [v, ]
+                for k in row['params']:
+                    if k not in self.tem_args and k not in algo_params['common']:
+                        del row['params'][k]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["spot"]) + "场景")
         self.table.element.update()  # 这里会更新slot内部的样式
@@ -165,15 +164,13 @@ class algo_table:
                 row["algo"] = e.args["algo"]  # 更新算法名称
                 # 新加入 同时也要更新冗余参数信息(列表形式)
                 algo_param = algo_params[row["algo"]]
-                row['params'].clear()
-                row['params'] = {'device': 'cpu', 'gpu': '0', 'seed': [1]}
+                for k in row['params']:
+                    if k not in self.tem_args and k not in algo_params['common']:
+                        del row['params'][k]
                 for key, item in algo_param.items():
                     row['params'][key] = [item['default'], ]
-                for k, v in self.tem_args.items():
-                    row['params'][k] = [v, ]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["algo"]) + "算法")
-                print(row['params'])
         self.table.element.update()  # 这里会更新slot内部的样式
 
     def delete(self, e: events.GenericEventArguments) -> None:
@@ -195,47 +192,51 @@ class algo_table:
     def add_row(self) -> None:
         new_id = max((dx["id"] for dx in self.rows.value), default=-1) + 1
         new_info = {'id': new_id, 'params': {'device': 'cpu', 'gpu': '0', 'seed': [1]}}
+        for k, v in self.tem_args.items():
+            new_info['params'][k] = [v, ]
         self.rows.value.append(new_info)
         ui.notify(f"Added new row with ID {new_id}")
         self.table.element.update()
 
     def create_red_items(self, rid: int):  # 创建冗余参数配置grid
         row_ref = deep_ref(self.rows.value[rid]['params'])
-        print(row_ref.value)
+
         @on(lambda: list(row_ref.value['num_clients'])[-1])
         def _():
             @batch
             def _():
-                num_now = to_raw(row_ref.value['num_clients'][-1])
-                num_real = len(row_ref.value['class_mapping'])
+                num_now = row_ref.value['num_clients'][-1]
+                num_real = len(row_ref.value['class_mapping'][-1])
                 while num_real < num_now:
-                    row_ref.value['class_mapping'].append({'id': str(num_real), 'value': self.mapping_default[0]})
-                    row_ref.value['sample_mapping'].append({'id': str(num_real), 'value': self.mapping_default[1]})
+                    row_ref.value['class_mapping'][-1].append({'id': str(num_real), 'value': self.mapping_default[0]})
+                    row_ref.value['sample_mapping'][-1].append({'id': str(num_real), 'value': self.mapping_default[1]})
                     num_real += 1
                 while num_real > num_now:
-                    row_ref.value['class_mapping'].pop()
-                    row_ref.value['sample_mapping'].pop()
+                    row_ref.value['class_mapping'][-1].pop()
+                    row_ref.value['sample_mapping'][-1].pop()
                     num_real -= 1
 
-        with ui.dialog().on('hide', lambda: self.table.element.update()).classes('w-full') as dialog, ui.card().classes(
-                'w-full'):
+        with ui.dialog().on('hide', lambda: self.table.element.update()).classes('w-full').props('maximized') as dialog, ui.card().classes('w-full'):
+            rxui.button('关闭窗口', on_click=lambda: dialog.close())
             with ui.tabs().classes('w-full') as tabs:
                 dl_module = ui.tab('深度学习配置')
                 fl_module = ui.tab('联邦学习配置')
                 ta_module = ui.tab('任务参数配置')
-            with lazy_tab_panels(tabs, value=ta_module).classes('w-full') as panels:
-                panel = panels.tab_panel(dl_module)
 
+            with lazy_tab_panels(tabs).classes('w-full') as panels:
+                panel = panels.tab_panel(dl_module)
                 @panel.build_fn
                 def _(pan_name: str):
                     with ui.grid(columns=5):
                         with ui.card().tight():
                             params_tab(name='数据集', nums=my_vmodel(row_ref.value, 'dataset'), type='choice',
                                        format=None, options=datasets, default=self.tem_args['dataset'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['dataset'])[-1] == 'synthetic'):
+                            with rxui.column().bind_visible(
+                                    lambda: list(row_ref.value['dataset'])[-1] == 'synthetic'):
                                 params_tab(name='分布均值', nums=my_vmodel(row_ref.value, 'mean'), type='number',
                                            format='%.3f', options=None, default=self.tem_args['mean'])
-                                params_tab(name='分布方差', nums=my_vmodel(row_ref.value, 'variance'), type='number',
+                                params_tab(name='分布方差', nums=my_vmodel(row_ref.value, 'variance'),
+                                           type='number',
                                            format='%.3f', options=None, default=self.tem_args['variance'])
                                 params_tab(name='输入维度(特征)', nums=my_vmodel(row_ref.value, 'dimension'),
                                            type='number',
@@ -260,7 +261,8 @@ class algo_table:
                             params_tab(name='优化器', nums=my_vmodel(row_ref.value, 'optimizer'), type='choice',
                                        format=None, options=optimizer, default=self.tem_args['optimizer'])
                             with rxui.column().bind_visible(lambda: list(row_ref.value['optimizer'])[-1] == 'sgd'):
-                                params_tab(name='动量因子', nums=my_vmodel(row_ref.value, 'momentum'), type='number',
+                                params_tab(name='动量因子', nums=my_vmodel(row_ref.value, 'momentum'),
+                                           type='number',
                                            format='%.3f', options=None, default=self.tem_args['momentum'])
                                 params_tab(name='衰减步长因子', nums=my_vmodel(row_ref.value, 'weight_decay'),
                                            type='number',
@@ -282,7 +284,8 @@ class algo_table:
                             params_tab(name='优化策略', nums=my_vmodel(row_ref.value, 'scheduler'), type='choice',
                                        format=None, options=scheduler, default=self.tem_args['scheduler'])
                             with rxui.column().bind_visible(lambda: list(row_ref.value['scheduler'])[-1] == 'step'):
-                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'), type='number',
+                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'),
+                                           type='number',
                                            format='%.0f', options=None, default=self.tem_args['lr_decay_step'])
                                 params_tab(name='衰减因子', nums=my_vmodel(row_ref.value, 'lr_decay_rate'),
                                            type='number',
@@ -290,7 +293,8 @@ class algo_table:
 
                             with rxui.column().bind_visible(
                                     lambda: list(row_ref.value['scheduler'])[-1] == 'exponential'):
-                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'), type='number',
+                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'),
+                                           type='number',
                                            format='%.0f', options=None, default=self.tem_args['lr_decay_step'])
                                 params_tab(name='衰减因子', nums=my_vmodel(row_ref.value, 'lr_decay_rate'),
                                            type='number',
@@ -298,27 +302,30 @@ class algo_table:
 
                             with rxui.column().bind_visible(
                                     lambda: list(row_ref.value['scheduler'])[-1] == 'cosineAnnealing'):
-                                params_tab(name='最大迭代次数', nums=my_vmodel(row_ref.value, 't_max'), type='number',
+                                params_tab(name='最大迭代次数', nums=my_vmodel(row_ref.value, 't_max'),
+                                           type='number',
                                            format='%.0f', options=None, default=self.tem_args['t_max'])
-                                params_tab(name='最小学习率', nums=my_vmodel(row_ref.value, 'lr_min'), type='number',
+                                params_tab(name='最小学习率', nums=my_vmodel(row_ref.value, 'lr_min'),
+                                           type='number',
                                            format='%.6f', options=None, default=self.tem_args['lr_min'])
 
                         with rxui.card().tight():
                             is_grad_norm = to_ref(row_ref.value['grad_norm'][-1] > 0)
                             rxui.switch('开启梯度标准化', value=is_grad_norm)
                             with rxui.column().bind_visible(lambda: is_grad_norm.value):
-                                params_tab(name='标准化系数', nums=my_vmodel(row_ref.value, 'grad_norm'), type='number',
+                                params_tab(name='标准化系数', nums=my_vmodel(row_ref.value, 'grad_norm'),
+                                           type='number',
                                            format='%.4f', options=None, default=self.tem_args['grad_norm'])
 
                         with rxui.card().tight():
                             is_grad_clip = to_ref(row_ref.value['grad_norm'][-1] > 0)
                             rxui.switch('开启梯度裁剪', value=is_grad_clip)
                             with rxui.column().bind_visible(lambda: is_grad_clip.value):
-                                params_tab(name='裁剪系数', nums=my_vmodel(row_ref.value, 'grad_clip'), type='number',
+                                params_tab(name='裁剪系数', nums=my_vmodel(row_ref.value, 'grad_clip'),
+                                           type='number',
                                            format='%.4f', options=None, default=self.tem_args['grad_clip'])
 
                 panel = panels.tab_panel(fl_module)
-
                 @panel.build_fn
                 def _(pan_name: str):
                     ui.notify(f"创建页面:{pan_name}")
@@ -334,61 +341,82 @@ class algo_table:
                         params_tab(name='本地训练模式', nums=my_vmodel(row_ref.value, 'train_mode'), type='choice',
                                    format=None, options=running_mode, default=self.tem_args['train_mode'])
                         with rxui.column().bind_visible(lambda: list(row_ref.value['train_mode'])[-1] == 'thread'):
-                            params_tab(name='最大线程数', nums=my_vmodel(row_ref.value, 'max_threads'), type='number',
+                            params_tab(name='最大线程数', nums=my_vmodel(row_ref.value, 'max_threads'),
+                                       type='number',
                                        format='%.0f', options=None, default=self.tem_args['max_threads'])
                         with rxui.column().bind_visible(lambda: list(row_ref.value['train_mode'])[-1] == 'process'):
-                            params_tab(name='最大进程数', nums=my_vmodel(row_ref.value, 'max_processes'), type='number',
+                            params_tab(name='最大进程数', nums=my_vmodel(row_ref.value, 'max_processes'),
+                                       type='number',
                                        format='%.0f', options=None, default=self.tem_args['max_processes'])
-                        params_tab(name='开启本地测试', nums=my_vmodel(row_ref.value, 'max_processes'), type='check',
+
+                        params_tab(name='开启本地测试', nums=my_vmodel(row_ref.value, 'local_test'),type='check',
                                    format=None, options=None, default=self.tem_args['local_test'])
+                        params_tab(name='标签分布方式', nums=my_vmodel(row_ref.value, 'data_type'),type='choice',
+                                   format=None, options=data_type, default=self.tem_args['data_type'])
+                        params_tab(name='样本分布方式', nums=my_vmodel(row_ref.value, 'num_type'),
+                                   type='choice',
+                                   format=None, options=num_type, default=self.tem_args['num_type'])
+                        params_tab(name='噪声分布方式', nums=my_vmodel(row_ref.value, 'noise_type'),
+                                   type='choice',
+                                   format=None, options=noise_type, default=self.tem_args['noise_type'])
 
-                    with ui.grid(columns=1).classes('w-full'):
-                        with ui.column().classes('w-full'):
-                            params_tab(name='标签分布方式', nums=my_vmodel(row_ref.value, 'max_processes'),type='choice',
-                                       format=None, options=data_type, default=self.tem_args['data_type'])
-                            with rxui.column().bind_visible(
-                                    lambda: list(row_ref.value['data_type'])[-1] == 'dirichlet'):
-                                params_tab(name='狄拉克分布的异构程度', nums=my_vmodel(row_ref.value, 'dir_alpha'),type='number',
-                                           format='%.4f', options=None, default=self.tem_args['dir_alpha'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['data_type'])[-1] == 'shards'):
-                                params_tab(name='本地类别数(公共)', nums=my_vmodel(row_ref.value, 'class_per_client'),type='number',
-                                           format='%.0f', options=None, default=self.tem_args['class_per_client'])
-                            with rxui.grid(columns=5).bind_visible(lambda: list(row_ref.value['data_type'])[-1] == 'custom_class'):
-                                params_tab(name='本地类别数(个人)', nums=my_vmodel(row_ref.value, 'class_mapping'), type='list',
-                                           format='%.0f', options=None, default=self.tem_args['class_mapping'])
+                    with ui.grid(columns=2).classes('w-full justify-around items-end'):
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['data_type'])[-1] == 'dirichlet'):
+                            params_tab(name='狄拉克分布的异构程度', nums=my_vmodel(row_ref.value, 'dir_alpha'),
+                                       type='number',
+                                       format='%.4f', options=None, default=self.tem_args['dir_alpha'])
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['data_type'])[-1] == 'shards'):
+                            params_tab(name='本地类别数(公共)',
+                                       nums=my_vmodel(row_ref.value, 'class_per_client'),
+                                       type='number',
+                                       format='%.0f', options=None, default=self.tem_args['class_per_client'])
+                        with rxui.column().bind_visible(lambda: list(row_ref.value['data_type'])[-1] == 'custom_class'):
+                            params_tab(name='本地类别数(个人)', nums=my_vmodel(row_ref.value, 'class_mapping'),
+                                       type='list',
+                                       format='%.0f', options=None, default=self.tem_args['class_mapping'])
 
-                        with ui.column().classes('w-full'):
-                            params_tab(name='样本分布方式', nums=my_vmodel(row_ref.value, 'num_type'),type='choice',
-                                       format=None, options=num_type, default=self.tem_args['num_type'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['num_type'])[-1] == 'custom_single'):
-                                params_tab(name='本地样本数(公共)', nums=my_vmodel(row_ref.value, 'sample_per_client'),type='number',
-                                           format='%.0f', options=None, default=self.tem_args['sample_per_client'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['num_type'])[-1] == 'imbalance_control'):
-                                params_tab(name='不平衡系数', nums=my_vmodel(row_ref.value, 'imbalance_alpha'),type='number',
-                                           format='%.4f', options=None, default=self.tem_args['imbalance_alpha'])
-                            with rxui.grid(columns=5).bind_visible(lambda: list(row_ref.value['num_type'])[-1] == 'custom_each'):
-                                params_tab(name='本地样本数(个人)', nums=my_vmodel(row_ref.value, 'sample_mapping'), type='list',
-                                           format='%.0f', options=None, default=self.tem_args['sample_mapping'])
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['num_type'])[-1] == 'custom_single'):
+                            params_tab(name='本地样本数(公共)',
+                                       nums=my_vmodel(row_ref.value, 'sample_per_client'),
+                                       type='number',
+                                       format='%.0f', options=None, default=self.tem_args['sample_per_client'])
 
-                        with ui.column().classes('w-full'):
-                            params_tab(name='噪声分布方式', nums=my_vmodel(row_ref.value, 'noise_type'),type='choice',
-                                       format=None, options=noise_type, default=self.tem_args['noise_type'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['noise_type'])[-1] == 'gaussian'):
-                                params_tab(name='高斯分布均值', nums=my_vmodel(row_ref.value['gaussian'], 'mean'),type='number',
-                                           format='%.3f', options=None, default=self.tem_args['gaussian'])
-                                params_tab(name='高斯分布方差', nums=my_vmodel(row_ref.value['gaussian'], 'std'),type='number',
-                                           format='%.3f', options=None, default=self.tem_args['gaussian'])
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['num_type'])[-1] == 'imbalance_control'):
+                            params_tab(name='不平衡系数', nums=my_vmodel(row_ref.value, 'imbalance_alpha'),
+                                       type='number',
+                                       format='%.4f', options=None, default=self.tem_args['imbalance_alpha'])
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['num_type'])[-1] == 'custom_each'):
+                            params_tab(name='本地样本数(个人)', nums=my_vmodel(row_ref.value, 'sample_mapping'),
+                                       type='list',
+                                       format='%.0f', options=None, default=self.tem_args['sample_mapping'])
 
-                            with rxui.grid(columns=5).bind_visible(lambda: list(row_ref.value['noise_type'])[-1] == 'custom_label'):
-                                params_tab(name='自定义标签噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'), type='dict',
-                                           format='%.3f', options=None, default=self.tem_args['noise_mapping'], name_dict={'mead': '占比'})
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['noise_type'])[-1] == 'gaussian'):
+                            params_tab(name='高斯分布系数', nums=my_vmodel(row_ref.value, 'gaussian'),
+                                       type='label',
+                                       format='%.3f', options=None, default=self.tem_args['gaussian'],
+                                       name_dict={'mean': '均值', 'std': '方差'})
 
-                            with rxui.grid(columns=5).bind_visible(lambda: list(row_ref.value['noise_type'])[-1] == 'custom_feature'):
-                                params_tab(name='自定义特征噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'), type='dict',
-                                           format='%.3f', options=None, default=self.tem_args['noise_mapping'], name_dict={'mean': '占比', 'std': '占比'})
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['noise_type'])[-1] == 'custom_label'):
+                            params_tab(name='自定义标签噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'),
+                                       type='dict',
+                                       format='%.3f', options=None, default=self.tem_args['noise_mapping'],
+                                       name_dict={'mean': '占比'})
+
+                        with rxui.column().bind_visible(
+                                lambda: list(row_ref.value['noise_type'])[-1] == 'custom_feature'):
+                            params_tab(name='自定义特征噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'),
+                                       type='dict',
+                                       format='%.3f', options=None, default=self.tem_args['noise_mapping'],
+                                       name_dict={'mean': '占比', 'std': '占比'})
 
                 panel = panels.tab_panel(ta_module)
-
                 @panel.build_fn
                 def _(pan_name: str):
                     with rxui.grid(columns=5):
@@ -413,17 +441,18 @@ class algo_table:
                                         params_tab(name=name, nums=my_vmodel(row_ref.value, 'seed'), type=type,
                                                    format=format, options=options,
                                                    default=algo_params['common'][key]['default'])
-
                                     else:
-                                        algo = self.rows.value[rid]['algo']
-                                        if key in algo_params[algo]:
-                                            name = algo_params[algo][key]['name']
-                                            type = algo_params[algo][key]['type']
-                                            format = algo_params[algo][key]['format']
-                                            options = algo_params[algo][key]['options']
-                                            params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
-                                                       format=format, options=options,
-                                                       default=algo_params[algo][key]['default'])
+                                        if 'algo' in self.rows.value[rid]:
+                                            algo = self.rows.value[rid]['algo']
+                                            if algo:
+                                                if key in algo_params[algo]:
+                                                    name = algo_params[algo][key]['name']
+                                                    type = algo_params[algo][key]['type']
+                                                    format = algo_params[algo][key]['format']
+                                                    options = algo_params[algo][key]['options']
+                                                    params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
+                                                               format=format, options=options,
+                                                               default=algo_params[algo][key]['default'])
                     ui.notify(f"创建页面:{name}")
 
         self.dialog_list[rid] = dialog

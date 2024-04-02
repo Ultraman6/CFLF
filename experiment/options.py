@@ -127,12 +127,7 @@ def args_parser():
         default=0,
         help='gradient clipping coefficient >0 means open gradient clipping, clipping range [-grad_clip, grad_clip]'
     )
-    parser.add_argument(
-        '--standalone',
-        default=True,
-        type=bool,
-        help='standalone training with main algorithm'
-    )
+
     # 分区2：联邦学习配置
     federated_learning = parser.add_argument_group('Federated Learning Configurations')
     federated_learning.add_argument(
@@ -164,6 +159,12 @@ def args_parser():
         type=bool,
         default=False,
         help='whether to use local test set'
+    )
+    parser.add_argument(
+        '--standalone',
+        default=True,
+        type=bool,
+        help='standalone training with main algorithm'
     )
     federated_learning.add_argument(
         '--valid_ratio',
@@ -241,7 +242,7 @@ def args_parser():
         help='type of noise distribution'
     )
     federated_learning.add_argument(
-        '--gaussian',
+        '--gaussian_params',
         type=list,
         default=[0.1, 0.1],
         help='Gaussian noise distribution for noise_type'

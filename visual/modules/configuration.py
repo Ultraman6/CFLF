@@ -14,29 +14,32 @@ from nicegui.functions.refreshable import refreshable_method
 
 from manager.save import ReadManager
 from visual.parts.lazy_table import algo_table
-from visual.parts.constant import datasets, models, init_mode, loss_function, optimizer, sgd, adam, scheduler, step, \
+from visual.parts.constant import init_mode, loss_function, optimizer, sgd, adam, scheduler, step, \
     exponential, \
     cosineAnnealing, data_type, dirichlet, shards, custom_class, num_type, custom_single, imbalance_control, device, \
-    thread, process, running_mode, synthetic, reward_mode, time_mode, exp_args_template, noise_type
+    thread, process, running_mode, reward_mode, time_mode, exp_args_template, noise_type, dl_configs, models, fl_configs
 from experiment.options import args_parser
 from visual.parts.lazy_panels import lazy_tab_panels
 
 
-def convert_to_list(mapping, is_noise=False):
+def convert_to_list(mapping, mapping_dict):
     mapping_list = []
     for key, value in mapping.items():
-        if is_noise:
-            value = {'mean': value[0], 'std': value[1]}
-        mapping_list.append({'id': key, 'value': value})
+        in_dict = {'id': key}
+        if type(value) is not list:
+            value = (value,)
+        for i, k in enumerate(mapping_dict):
+            in_dict[k] = value[i]
+        mapping_list.append(in_dict)
     return mapping_list
 
-def convert_to_dict(mapping_list, is_noise=False):
+def convert_to_dict(mapping_list, mapping_dict):
     mapping = {}
     for item in mapping_list:
-        if is_noise:
-            mapping[item['id']] = (item['value']['mean'], item['value']['std'])
-        else:
-            mapping[item['id']] = item['value']
+        in_dict = None
+        for k in mapping_dict:
+            in_dict = in_dict, item[k]
+        mapping[item['id']] = in_dict
     return mapping
 
 def my_vmodel(data, key):
@@ -55,8 +58,8 @@ class config_ui:
         self.exp_ref = deep_ref(self.exp_args)
 
         self.algo_args = vars(args_parser())
-        self.handle_convert_algo()
-        on(lambda: self.algo_ref.value['num_clients'])(self.watch_client_num)
+        self.algo_ref = deep_ref(self.algo_args)
+        # on(lambda: self.algo_ref.value['num_clients'])(self.watch_from)
         on(lambda: self.algo_ref.value['dataset'])(self.watch_dataset)
         self.create_config_ui()
 
@@ -76,36 +79,32 @@ class config_ui:
             else:
                 self.exp_ref.value[k] = v
 
-
-    def handle_convert_algo(self):
-        self.algo_args['class_mapping'] = convert_to_list(json.loads(self.algo_args['class_mapping']))
-        self.algo_args['sample_mapping'] = convert_to_list(json.loads(self.algo_args['sample_mapping']))
-        self.algo_args['noise_mapping'] = convert_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True)
-        self.algo_args['gaussian'] = {'mean': self.algo_args['gaussian'][0], 'std': self.algo_args['gaussian'][1]}
-        self.algo_ref = deep_ref(self.algo_args)
-
     def watch_dataset(self):  # 用于根据数据集改变模型
         if self.algo_ref.value['model'] not in models[self.algo_ref.value['dataset']]:
             self.algo_ref.value['model'] = None
 
-    def watch_client_num(self):
+    def watch_from(self, key1, key2, params):
         @batch
         def _():
-            num_now = to_raw(self.algo_ref.value['num_clients'])
-            num_real = len(self.algo_ref.value['class_mapping'])
+            num_now = to_raw(self.algo_ref.value[key1])
+            num_real = len(self.algo_ref.value[key2])
+            print(num_now, num_real)
             while num_real < num_now:
-                self.algo_ref.value['class_mapping'].append({'id': str(num_real), 'value': self.mapping_default[0]})
-                self.algo_ref.value['sample_mapping'].append({'id': str(num_real), 'value': self.mapping_default[1]})
+                in_dict = {'id': str(num_real)}
+                for k, v in params.items():
+                    in_dict[k] = v['default']
+                self.algo_ref.value[key2].append(in_dict)
                 num_real += 1
             while num_real > num_now:
-                self.algo_ref.value['class_mapping'].pop()
-                self.algo_ref.value['sample_mapping'].pop()
+                self.algo_ref.value[key2].pop()
                 num_real -= 1
 
-    def handle_add_noise(self):
-        num_real = len(self.algo_ref.value['noise_mapping'])
-        self.algo_ref.value['noise_mapping'].append({'id': str(num_real), 'value': {'mean': self.mapping_default[2], 'std': self.mapping_default[3]}})
-        print(self.algo_ref.value['noise_mapping'])
+    def handle_add_mapping(self, key, params):
+        num_real = len(self.algo_ref.value[key])
+        in_dict = {'id': str(num_real)}
+        for k, v in params.items():
+            in_dict[k] = v['default']
+        self.algo_ref.value[key].append(in_dict)
 
     async def han_fold_choice(self, key):
         origin = self.algo_ref.value[key]
@@ -212,7 +211,7 @@ class config_ui:
                 cof_reader.save_task_result(self.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), self.exp_args)
                 gen_his_list.refresh()
         with rxui.column():
-            algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
+            # algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
             with rxui.grid(columns=2):
                 rxui.checkbox(text='相同初始模型', value=my_vmodel(self.exp_ref.value['same'], 'model'))
                 rxui.checkbox(text='相同数据划分', value=my_vmodel(self.exp_ref.value['same'], 'data'))
@@ -279,161 +278,71 @@ class config_ui:
                 fl_module = ui.tab('联邦学习配置')
             with lazy_tab_panels(tabs, value=dl_module).classes('w-full'):
                 with ui.tab_panel(dl_module):
-                    with ui.grid(columns=5):
-                        with ui.card().tight():
-                            rxui.select(options=datasets, value=my_vmodel(self.algo_ref.value, 'dataset'),
-                                        label='数据集')
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['dataset'] == 'synthetic'):
-                                rxui.number(label='分布均值', value=my_vmodel(self.algo_ref.value, 'mean'),
-                                            format='%.3f')
-                                rxui.number(label='分布方差', value=my_vmodel(self.algo_ref.value, 'variance'),
-                                            format='%.3f')
-                                rxui.number(label='输入维度(特征)', value=my_vmodel(self.algo_ref.value, 'dimension'),
-                                            format='%.0f')
-                                rxui.number(label='输入维度(类别)', value=my_vmodel(self.algo_ref.value, 'num_class'),
-                                            format='%.0f')
+                    with ui.grid(columns=5).classes('w-full'):
+                        for key, value in dl_configs.items():
+                            with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
+                                if 'options' in value:
+                                    rxui.select(options=value['options'], value=my_vmodel(self.algo_ref.value, key), label=value['name']).classes('w-full')
+                                elif 'format' in value:
+                                    rxui.number(label=value['name'], value=my_vmodel(self.algo_ref.value, key), format=value['format']).classes('w-full')
+                                if 'metrics' in value:
+                                    for k, v in value['metrics'].items():
+                                        with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: self.algo_ref.value[key] == k):
+                                            for k1, v1 in v.items():
+                                                rxui.number(label=v1['name'], value=my_vmodel(self.algo_ref.value, k1), format=v1['format']).classes('w-full')
+                            if 'inner' in value:
+                                for key1, value1 in value['inner'].items():
+                                    with rxui.card().tight().classes('w-full').tooltip(value1['help'] if 'help' in value1 else None):
+                                        if 'options' in value1:
+                                            rxui.select(options=lambda key=key, value1=value1: value1['options'][self.algo_ref.value[key]], value=my_vmodel(self.algo_ref.value, key1), label=value1['name']).classes('w-full')
 
-                        rxui.select(options=lambda: models[self.algo_ref.value['dataset']],
-                                    value=my_vmodel(self.algo_ref.value, 'model'), label='模型')
-                        rxui.number(label='批量大小', value=my_vmodel(self.algo_ref.value, 'batch_size'),
-                                    format='%.0f')
-                        rxui.select(label='参数初始化模式', options=init_mode,
-                                    value=my_vmodel(self.algo_ref.value, 'init_mode'))
-                        rxui.number(label='学习率', value=my_vmodel(self.algo_ref.value, 'learning_rate'),
-                                    format='%.4f')
-                        rxui.select(label='损失函数', options=loss_function,
-                                    value=my_vmodel(self.algo_ref.value, 'loss_function'))
-                        with rxui.card().tight():
-                            rxui.select(label='优化器', options=optimizer,
-                                        value=my_vmodel(self.algo_ref.value, 'optimizer'))
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['optimizer'] == 'sgd'):
-                                rxui.number(label='动量因子', value=my_vmodel(self.algo_ref.value, 'momentum'),
-                                            format='%.3f')
-                                rxui.number(label='衰减步长因子',
-                                            value=my_vmodel(self.algo_ref.value, 'weight_decay'), format='%.5f')
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['optimizer'] == 'adam'):
-                                rxui.number(label='衰减步长因子',
-                                            value=my_vmodel(self.algo_ref.value, 'weight_decay'), format='%.4f')
-                                rxui.number(label='一阶矩估计的指数衰减率',
-                                            value=my_vmodel(self.algo_ref.value, 'beta1'), format='%.4f')
-                                rxui.number(label='二阶矩估计的指数衰减率',
-                                            value=my_vmodel(self.algo_ref.value, 'beta2'), format='%.4f')
-                                rxui.number(label='平衡因子', value=my_vmodel(self.algo_ref.value, 'epsilon'),
-                                            format='%.8f')
-                        with rxui.card().tight():
-                            rxui.select(label='优化策略', options=scheduler,
-                                        value=my_vmodel(self.algo_ref.value, 'scheduler'))
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['scheduler'] == 'step'):
-                                rxui.number(label='步长', value=my_vmodel(self.algo_ref.value, 'lr_decay_step'),
-                                            format='%.0f')
-                                rxui.number(label='衰减因子', value=my_vmodel(self.algo_ref.value, 'lr_decay_rate'),
-                                            format='%.4f')
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['scheduler'] == 'exponential'):
-                                rxui.number(label='步长', value=my_vmodel(self.algo_ref.value, 'lr_decay_step'),
-                                            format='%.0f')
-                                rxui.number(label='衰减因子', value=my_vmodel(self.algo_ref.value, 'lr_decay_rate'),
-                                            format='%.4f')
-                            with rxui.column().bind_visible(
-                                    lambda: self.algo_ref.value['scheduler'] == 'cosineAnnealing'):
-                                rxui.number(label='最大迭代次数', value=my_vmodel(self.algo_ref.value, 't_max'),
-                                            format='%.0f')
-                                rxui.number(label='最小学习率', value=my_vmodel(self.algo_ref.value, 'lr_min'),
-                                            format='%.6f')
-                        with rxui.card().tight():
-                            is_grad_norm = to_ref(self.algo_ref.value['grad_norm'] > 0)
-                            rxui.switch('开启梯度标准化', value=is_grad_norm)
-                            rxui.number(label='标准化系数', value=my_vmodel(self.algo_ref.value, 'grad_norm'),
-                                        format='%.4f').bind_visible(lambda: is_grad_norm.value)
-                        with ui.card().tight():
-                            is_grad_clip = to_ref(self.algo_ref.value['grad_clip'] > 0)
-                            rxui.switch('开启梯度裁剪', value=is_grad_clip)
-                            rxui.number(label='裁剪系数', value=my_vmodel(self.algo_ref.value, 'grad_clip'),
-                                        format='%.4f').bind_visible(lambda: is_grad_clip.value)
+
                 with ui.tab_panel(fl_module):
                     with ui.grid(columns=5).classes('w-full'):
-                        rxui.number(label='全局通信轮次数', value=my_vmodel(self.algo_ref.value, 'round'),
-                                    format='%.0f')
-                        rxui.number(label='本地训练轮次数', value=my_vmodel(self.algo_ref.value, 'epoch'),
-                                    format='%.0f')
-                        rxui.number(label='客户总数', value=my_vmodel(self.algo_ref.value, 'num_clients'),
-                                    format='%.0f', step=1, min=1)
-                        rxui.number(label='验证集比例', value=my_vmodel(self.algo_ref.value, 'valid_ratio'),
-                                    format='%.4f')
-                        rxui.select(label='本地训练模式', options=running_mode,
-                                    value=my_vmodel(self.algo_ref.value, 'train_mode'))
-                        with rxui.column().bind_visible(lambda: self.algo_ref.value['train_mode'] == 'thread'):
-                            rxui.number(label='最大线程数',
-                                        value=my_vmodel(self.algo_ref.value, 'max_threads'),
-                                        format='%.0f')
-                        with rxui.column().bind_visible(lambda: self.algo_ref.value['train_mode'] == 'process'):
-                            rxui.number(label='最大进程数',
-                                        value=my_vmodel(self.algo_ref.value, 'max_processes'),
-                                        format='%.0f')
-                        rxui.checkbox(text='开启本地测试', value=my_vmodel(self.algo_ref.value, 'local_test'))
-                    with ui.grid(columns=1).classes('w-full'):
-                        with ui.column().classes('w-full'):
-                            rxui.select(label='标签分布方式', options=data_type,
-                                        value=my_vmodel(self.algo_ref.value, 'data_type')).classes('min-w-[150px]')
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['data_type'] == 'dirichlet'):
-                                rxui.number(label='狄拉克分布的异构程度',
-                                            value=my_vmodel(self.algo_ref.value, 'dir_alpha'), format='%.4f')
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['data_type'] == 'shards'):
-                                rxui.number(label='本地类别数(公共)',
-                                            value=my_vmodel(self.algo_ref.value, 'class_per_client'), format='%.0f')
-                            with rxui.grid(columns=5).bind_visible(
-                                    lambda: self.algo_ref.value['data_type'] == 'custom_class'):
-                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'class_mapping'), key='id')
-                                def _(store: rxui.VforStore[Dict]):
-                                    item = store.get()
-                                    rxui.number(label='客户'+item.value['id'], value=my_vmodel(item.value, 'value'), format='%.0f')
-
-                        with ui.column().classes('w-full'):
-                            rxui.select(label='样本分布方式', options=num_type,
-                                        value=my_vmodel(self.algo_ref.value, 'num_type'))
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['num_type'] == 'custom_single'):
-                                rxui.number(label='本地样本数(公共)',
-                                            value=my_vmodel(self.algo_ref.value, 'sample_per_client'), format='%.0f')
-                            with rxui.column().bind_visible(
-                                    lambda: self.algo_ref.value['num_type'] == 'imbalance_control'):
-                                rxui.number(label='不平衡系数',
-                                            value=my_vmodel(self.algo_ref.value, 'imbalance_alpha'), format='%.4f')
-                            with rxui.grid(columns=5).bind_visible(
-                                    lambda: self.algo_ref.value['num_type'] == 'custom_each'):
-                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'sample_mapping'), key='id')
-                                def _(store: rxui.VforStore[Dict]):
-                                    item = store.get()
-                                    rxui.number(label='客户'+item.value['id'], value=my_vmodel(item.value, 'value'), format='%.0f')
-
-                        with ui.column().classes('w-full'):
-                            rxui.select(label='噪声分布方式', options=noise_type,
-                                        value=my_vmodel(self.algo_ref.value, 'noise_type'))
-                            with rxui.column().bind_visible(lambda: self.algo_ref.value['noise_type'] == 'gaussian'):
-                                rxui.number(label='高斯分布均值',
-                                            value=my_vmodel(self.algo_ref.value['gaussian'], 'mean'), format='%.3f')
-                                rxui.number(label='高斯分布方差',
-                                            value=my_vmodel(self.algo_ref.value['gaussian'], 'std'), format='%.3f')
-                            with rxui.grid(columns=5).bind_visible(
-                                    lambda: self.algo_ref.value['noise_type'] == 'custom_label'):
-                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'noise_mapping'), key='id')
-                                def _(store: rxui.VforStore[Dict]):
-                                    item = store.get()
-                                    with ui.column():
-                                        rxui.label('客户'+item.value['id'])
-                                        rxui.number(label='占比', value=my_vmodel(item.value['value'], 'mean'), format='%.3f')
-                                        ui.button("删除", on_click=lambda: self.algo_ref.value['noise_mapping'].remove(item.value))
-                                ui.button("追加", on_click=self.handle_add_noise)
-                            with rxui.grid(columns=5).bind_visible(
-                                    lambda: self.algo_ref.value['noise_type'] == 'custom_feature'):
-                                @rxui.vfor(my_vmodel(self.algo_ref.value, 'noise_mapping'), key='id')
-                                def _(store: rxui.VforStore[Dict]):
-                                    item = store.get()
-                                    with ui.column():
-                                        rxui.label('客户'+item.value['id'])
-                                        with ui.grid(columns=2):
-                                            rxui.number(label='占比', value=my_vmodel(item.value['value'], 'mean'), format='%.3f')
-                                            rxui.number(label='强度', value=my_vmodel(item.value['value'], 'std'), format='%.3f')
-                                        ui.button("删除", on_click=lambda: self.algo_ref.value['noise_mapping'].remove(item.value))
-                                ui.button("追加", on_click=self.handle_add_noise)
+                        for key, value in fl_configs.items():
+                            with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
+                                if 'options' in value:
+                                    rxui.select(options=value['options'], value=my_vmodel(self.algo_ref.value, key), label=value['name']).classes('w-full')
+                                elif 'format' in value:
+                                    rxui.number(label=value['name'], value=my_vmodel(self.algo_ref.value, key), format=value['format']).classes('w-full')
+                                if 'metrics' in value:
+                                    for k, v in value['metrics'].items():
+                                        with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: self.algo_ref.value[key] == k):
+                                            for k1, v1 in v.items():
+                                                if 'dict' in v1:
+                                                    new_dict = {}
+                                                    for i, k2 in enumerate(v1['dict']):
+                                                        new_dict[k2] = self.algo_args[k1][i]
+                                                    self.algo_args[k1] = new_dict
+                                                    self.algo_ref.value[k1] = self.algo_args[k1]
+                                                    rxui.label(v1['name'])
+                                                    for k2, v2 in v1['dict'].items():
+                                                        rxui.number(label=v2['name'], value=my_vmodel(self.algo_ref.value[k1], k2), format=v2['format'])
+                                                elif 'mapping' in v1:
+                                                    rxui.label(v1['name'])
+                                                    if type(self.algo_args[k1]) is not list:
+                                                        self.algo_args[k1] = convert_to_list(json.loads(self.algo_args[k1]), v1['mapping'])
+                                                        self.algo_ref.value[k1] = self.algo_args[k1]
+                                                    if 'watch' in v1:
+                                                        print(k1, v1)
+                                                        on(lambda v1=v1: self.algo_ref.value[v1['watch']])(self.watch_from(v1['watch'], k1, v1['mapping']))
+                                                    with rxui.grid(columns=5):
+                                                        @rxui.vfor(my_vmodel(self.algo_ref.value, k1), key='id')
+                                                        def _(store: rxui.VforStore[Dict]):
+                                                            item = store.get()
+                                                            for k2, v2 in v1['mapping'].items():
+                                                                rxui.number(label='客户' + item.value['id'] + v2['name'], value=my_vmodel(item.value, k2), format=v2['format'])
+                                                            if 'watch' not in v1:
+                                                                ui.button("删除", on_click=lambda: self.algo_ref.value[k1].remove(item.value))
+                                                        if 'watch' not in v1:
+                                                            ui.button("追加", on_click=self.handle_add_mapping(k1, v1['mapping']))
+                                                else:
+                                                    try:
+                                                        rxui.number(label=v1['name'],
+                                                                    value=my_vmodel(self.algo_ref.value, k1),
+                                                                    format=v1['format']).classes('w-full')
+                                                    except Exception as e:
+                                                        print(f"发生异常: {e}, k1的值为: {k1}")
 
     def get_fusion_args(self):
         # 方法1: 使用列表推导保留有 'algo' 键的字典

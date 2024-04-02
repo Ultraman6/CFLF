@@ -62,7 +62,7 @@ class MainWindow:
 # Initialize and run the main window
 main_window = MainWindow()
 main_window.create_main_window()
-ui.run()
+ui.run(port=8082)
 
 # if __name__ == '__main__':
 #     freeze_support()

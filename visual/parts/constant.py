@@ -1,4 +1,172 @@
 # 公共配置：深度学习、联邦学习、可视化等常量配置
+dl_configs = {
+    "dataset": {
+        'name': '数据集', 'help': '深度学习数据集',
+        'options': ["mnist", "fmnist", "femnist", "cifar10", "cinic10", "shakespare", "synthetic"],
+        'metrics': {
+            'synthetic': {
+                    'mean': {"name": '均值', 'format': '%.3f'},
+                    'variance': {"name": '方差', 'format': '%.3f'},
+                    'dimension': {"name": '输入维度(特征)', 'format': '%.0f'},
+                    'num_class': {'name': '输出维度(类别)', 'format': '%.0f'}
+            }
+        },
+        'inner': {
+            "model": {
+                'name': '模型',
+                'help': '深度学习模型',
+                'options': {
+                    'mnist': ['lenet', 'cnn'],
+                    'fmnist': ['vgg', 'cnn'],
+                    'femnist': ['alexnet ', 'cnn'],
+                    'cifar10': ['cnn', 'cnn_complex', 'resnet18'],
+                    'cifar100': ['resnet18', 'cnn_complex', 'cnn'],
+                    'cinic10': ['cnn_complex', 'cnn', 'resnet18'],
+                    'shakespare': ['rnn', 'lstm'],
+                    'synthetic': ['mlp', 'logistic']
+                }
+            }
+        }
+    },
+    "optimizer": {
+        'name': '优化器',
+        'help': '深度学习优化器',
+        'options': ['sgd', 'adam'],
+        'metrics': {
+            'sgd': {
+                'momentum': {'name': '动量因子', 'format': '%.3f'},
+                'weight_decay': {'name': '衰减步长因子', 'format': '%.5f'}
+            },
+            'adam': {
+                'weight_decay': {'name': '衰减步长因子', 'format': '%.4f'},
+                'beta1': {'name': '一阶矩估计的指数衰减率', 'format': '%.4f'},
+                'beta2': {'name': '二阶矩估计的指数衰减率', 'format': '%.4f'},
+                'epsilon': {'name': '平衡因子', 'format': '%.8f'}
+            }
+        }
+    },
+    "scheduler": {
+        'name': '优化策略',
+        'help': '深度学习优化策略',
+        'options': {'none': '无策略', 'step': '步长策略', 'exponential': '指数策略', 'cosineAnnealing': '余弦退火策略'},
+        'metrics': {
+            "step": {
+                'lr_decay_step': {'name': '步长', 'format': '%.0f'},
+                'lr_decay_rate': {'name': '衰减因子', 'format': '%.4f'}
+            },
+            "exponential": {
+                'lr_decay_step': {'name': '步长', 'format': '%.0f'},
+                'lr_decay_rate': {'name': '衰减因子', 'format': '%.4f'}
+            },
+            "cosineAnnealing": {
+                't_max': {'name': '最大迭代次数', 'format': '%.0f'},
+                'lr_min': {'name': '最小学习率', 'format': '%.6f'}
+            }
+        }
+    },
+    'batch_size': {'name': '批次大小', 'format': '%.0f', 'help': '训练/测试批次大小'},
+    'init_mode': {
+        'name': '初始化方式',
+        'help': '深度模型初始化方式',
+        'options': {
+            'default': '默认', 'xaiver_uniform': 'xaiver均匀分布',
+            'kaiming_uniform': 'kaiming均匀分布', 'kaiming_normal': 'kaiming正态分布',
+            'xavier_normal': 'xavier正态分布'
+        }
+    },
+    'learning_rate': {'name': '学习率', 'format': '%.4f', 'help': '模型训练学习率'},
+    'loss_function': {'name': '损失函数', 'options': {'ce': '交叉熵', 'bce': '二值交叉熵', 'mse': '均方误差'}, 'help': '模型训练损失函数'},
+    'grad_norm': {'name': '标准化系数', 'format': '%.4f', 'help': '梯度标准化，为0不开启'},
+    'grad_clip': {'name': '裁剪范围', 'format': '%.4f', 'help': '梯度裁剪，为0不开启'},
+}
+
+fl_configs = {
+    'round': {'name': '全局通信轮次数', 'format': '%.0f', 'help': '请大于0'},
+    'epoch': {'name': '本地训练轮次数', 'format': '%.0f', 'help': '请大于0'},
+    'num_clients': {'name': '客户总数', 'format': '%.0f', 'help': '请大于0'},
+    'valid_ratio': {'name': '验证集比例', 'format': '%.4f', 'help': '大于0,小于等于1'},
+    'train_mode': {'name': '本地训练模式', 'help': '客户训练过程的执行方式',
+       'options': {'serial': '顺序串行', 'thread': '线程并行'},
+       'metrics': {
+           "thread": {'max_threads': {'name': '最大进程数', 'format': '%.0f'}}
+       }
+    },
+    'local_test': {'name': '开启本地测试', 'help': '开启与否'},
+    'standalone': {'name': '开启standalone', 'help': '开启与否'},
+    'data_type': { 'name': '标签分布方式', 'help': '数据的横向划分',
+         'options': {'homo': '同构划分', 'dirichlet': '狄拉克分布划分','shards': '碎片划分', 'custom_class': '自定义类别划分'},
+         'metrics': {
+            'dirichlet':{
+                'dir_alpha':{'name': '狄拉克分布的异构程度', 'format': '%.4f'}
+            },
+            'shards': {
+                 'class_per_client': {'name': '本地类别数(公共)', 'format': '%.0f'}
+            },
+            'custom_class':{
+                'class_mapping': {
+                    'name': '标签分布',
+                    'mapping': {
+                        'label': {'name': '标签量', 'default': 3, 'format': '%.0f'}
+                    },
+                    'watch': 'num_clients'
+                },
+            }
+         }
+    },
+    'num_type': {'name': '样本分布方式', 'help': '数据的纵向划分',
+          'options': {'average': '平均分配', 'random': '随机分配', 'custom_single': '自定义单个分配',
+                        'custom_each': '自定义每个分配', 'imbalance_control': '不平衡性分配'},
+          'metrics': {
+              'imbalance_control': {
+                  'imbalance_alpha': {'name': '不平衡系数', 'format': '%.4f'}
+              },
+              'custom_single': {
+                  'sample_per_client': {'name': '本地样本数(公共)', 'format': '%.0f'}
+              },
+              'custom_each': {
+                  'sample_mapping': {
+                      'name': '样本分布',
+                      'mapping': {
+                          'num': {'name': '样本量', 'default': 1000, 'format': '%.0f'}
+                      },
+                      'watch': 'num_clients'
+                  }
+              }
+          }
+    },
+    'noise_type': {'name': '噪声分布方式', 'help': '数据的噪声划分',
+          'options': {'none': '无噪声', 'gaussian': '高斯噪声分布(特征)', 'custom_label': '自定义噪声(标签)',
+                      'custom_feature': '自定义噪声(特征)'},
+          'metrics': {
+              'gaussian': {
+                  'gaussian_params':{
+                      'name': '高斯分布参数',
+                      'dict': {
+                          'mean': {'name': '均值', 'format': '%.3f', 'default': 0.5},
+                          'std': {'name': '方差', 'format': '%.3f', 'default': 0.5}
+                      }
+                  }
+              },
+              'custom_feature': {
+                  'noise_mapping': {
+                      'name': '噪声分布',
+                      'mapping': {
+                          'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'},
+                          'intensity': {'name': '强度', 'default': 0.5, 'format': '%.3f'}
+                      },
+                  }
+              },
+              'custom_label': {
+                  'noise_mapping': {
+                      'name': '噪声分布',
+                      'mapping': {
+                          'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'}
+                      },
+                  }
+              },
+          }
+    },
+}
 datasets = ["mnist", "fmnist", "femnist", "cifar10", "cinic10", "shakespare", "synthetic"]
 synthetic = {'mean': {"name": '均值', 'format': '%.3f'}, 'variance': {"name": '方差', 'format': '%.3f'},
              'dimension': {"name": '输入维度(特征)', 'format': '%.0f'},
@@ -28,8 +196,7 @@ cosineAnnealing = {'t_max': {'name': '最大迭代次数', 'format': '%.0f'},
                    'lr_min': {'name': '最小学习率', 'format': '%.6f'}}
 
 data_type = {'homo': '同构划分', 'dirichlet': '狄拉克分布划分',
-             'shards': '碎片划分', 'custom_class': '自定义类别划分',
-             'noise_feature': '特征噪声划分', 'noise_label': '标签噪声划分'}
+             'shards': '碎片划分', 'custom_class': '自定义类别划分'}
 dirichlet = {'dir_alpha': {'name': '狄拉克分布的异构程度', 'format': '%.4f'}}
 shards = {'class_per_client': {'name': '本地类别数(公共)', 'format': '%.0f'}}
 custom_class = {'class_mapping': {'name': '本地类别数(个人)', 'format': '%.0f', 'item': 1000}}
@@ -123,17 +290,11 @@ running_mode = {'serial': '顺序串行', 'thread': '线程并行'}
 thread = {'max_threads': {'name': '最大线程数', 'format': '%.0f'}}
 process = {'max_processes': {'name': '最大进程数', 'format': '%.0f'}}
 
-dl_params = {
-
-}
-fl_params = {
-
-}
-
 algo_params = {
     'common': {
         'seed': {'name': '随机种子', 'format': '%.0f', 'type': 'number', 'default': 1, 'options': None},
         'device': {'name': '设备', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
+        'gpu': {'name': '显卡', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
     },
     'fedavg': {
         'gamma': {'name': '质量评估超参数', 'format': '%.4f', 'type': 'number', 'default': 0.1, 'options': None},
@@ -149,14 +310,3 @@ algo_params = {
         'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
     }
 }
-
-legend_dict = [
-    {
-        'name': '总数',
-        'icon': 'circle',
-    },
-    {
-        'name': '噪声',
-        'icon': 'circle',
-    }
-]

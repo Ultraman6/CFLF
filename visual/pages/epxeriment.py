@@ -1,3 +1,4 @@
+from ex4nicegui.reactive import rxui
 from nicegui import ui, run
 
 from visual.modules.consequence import res_ui
