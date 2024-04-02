@@ -1,15 +1,17 @@
 import platform
+from functools import partial
 
 import torch
 from cpuinfo import cpuinfo
 from ex4nicegui import to_raw, deep_ref, to_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, events
-from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, datasets, models, \
-    algo_params, init_mode, loss_function, optimizer, scheduler, running_mode, data_type, num_type, noise_type
+from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, \
+    algo_params,\
+    dl_configs, fl_configs
 from visual.parts.lazy_panels import lazy_tab_panels
 from visual.parts.params_tab import params_tab
-from ex4nicegui.utils.signals import to_ref_wrapper, batch, on
+from ex4nicegui.utils.signals import to_ref_wrapper, on
 
 algo_param_mapping = {
     'number': ui.number,
@@ -201,20 +203,18 @@ class algo_table:
     def create_red_items(self, rid: int):  # 创建冗余参数配置grid
         row_ref = deep_ref(self.rows.value[rid]['params'])
 
-        @on(lambda: list(row_ref.value['num_clients'])[-1])
-        def _():
-            @batch
-            def _():
-                num_now = row_ref.value['num_clients'][-1]
-                num_real = len(row_ref.value['class_mapping'][-1])
-                while num_real < num_now:
-                    row_ref.value['class_mapping'][-1].append({'id': str(num_real), 'value': self.mapping_default[0]})
-                    row_ref.value['sample_mapping'][-1].append({'id': str(num_real), 'value': self.mapping_default[1]})
-                    num_real += 1
-                while num_real > num_now:
-                    row_ref.value['class_mapping'][-1].pop()
-                    row_ref.value['sample_mapping'][-1].pop()
-                    num_real -= 1
+        def watch_from(key1, key2, params):
+            num_now = to_raw(row_ref.value[key1][-1])
+            num_real = len(row_ref.value[key2][-1])
+            while num_real < num_now:
+                in_dict = {'id': str(num_real)}
+                for k, v in params.items():
+                    in_dict[k] = v['default']
+                row_ref.value[key2][-1].append(in_dict)
+                num_real += 1
+            while num_real > num_now:
+                row_ref.value[key2][-1].pop()
+                num_real -= 1
 
         with ui.dialog().on('hide', lambda: self.table.element.update()).classes('w-full').props('maximized') as dialog, ui.card().classes('w-full'):
             rxui.button('关闭窗口', on_click=lambda: dialog.close())
@@ -227,194 +227,59 @@ class algo_table:
                 panel = panels.tab_panel(dl_module)
                 @panel.build_fn
                 def _(pan_name: str):
-                    with ui.grid(columns=5):
-                        with ui.card().tight():
-                            params_tab(name='数据集', nums=my_vmodel(row_ref.value, 'dataset'), type='choice',
-                                       format=None, options=datasets, default=self.tem_args['dataset'])
-                            with rxui.column().bind_visible(
-                                    lambda: list(row_ref.value['dataset'])[-1] == 'synthetic'):
-                                params_tab(name='分布均值', nums=my_vmodel(row_ref.value, 'mean'), type='number',
-                                           format='%.3f', options=None, default=self.tem_args['mean'])
-                                params_tab(name='分布方差', nums=my_vmodel(row_ref.value, 'variance'),
-                                           type='number',
-                                           format='%.3f', options=None, default=self.tem_args['variance'])
-                                params_tab(name='输入维度(特征)', nums=my_vmodel(row_ref.value, 'dimension'),
-                                           type='number',
-                                           format='%.0f', options=None, default=self.tem_args['dimension'])
-                                params_tab(name='输入维度(类别)', nums=my_vmodel(row_ref.value, 'num_class'),
-                                           type='number',
-                                           format='%.0f', options=None, default=self.tem_args['num_class'])
-
-                        params_tab(name='模型', nums=my_vmodel(row_ref.value, 'model'), type='choice',
-                                   format=None, options=lambda: models[list(row_ref.value['dataset'])[-1]],
-                                   default=self.tem_args['model'])
-                        params_tab(name='批量大小', nums=my_vmodel(row_ref.value, 'batch_size'), type='number',
-                                   format='%.0f', options=None, default=self.tem_args['batch_size'])
-                        params_tab(name='参数初始化模式', nums=my_vmodel(row_ref.value, 'init_mode'), type='choice',
-                                   format='%.0f', options=init_mode, default=self.tem_args['init_mode'])
-                        params_tab(name='学习率', nums=my_vmodel(row_ref.value, 'learning_rate'), type='number',
-                                   format='%.4f', options=None, default=self.tem_args['batch_size'])
-                        params_tab(name='损失函数', nums=my_vmodel(row_ref.value, 'loss_function'), type='choice',
-                                   format=None, options=loss_function, default=self.tem_args['loss_function'])
-
-                        with rxui.card().tight():
-                            params_tab(name='优化器', nums=my_vmodel(row_ref.value, 'optimizer'), type='choice',
-                                       format=None, options=optimizer, default=self.tem_args['optimizer'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['optimizer'])[-1] == 'sgd'):
-                                params_tab(name='动量因子', nums=my_vmodel(row_ref.value, 'momentum'),
-                                           type='number',
-                                           format='%.3f', options=None, default=self.tem_args['momentum'])
-                                params_tab(name='衰减步长因子', nums=my_vmodel(row_ref.value, 'weight_decay'),
-                                           type='number',
-                                           format='%.5f', options=None, default=self.tem_args['weight_decay'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['optimizer'])[-1] == 'adam'):
-                                params_tab(name='衰减步长因子', nums=my_vmodel(row_ref.value, 'weight_decay'),
-                                           type='number',
-                                           format='%.5f', options=None, default=self.tem_args['weight_decay'])
-                                params_tab(name='一阶矩估计的指数衰减率', nums=my_vmodel(row_ref.value, 'beta1'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['beta1'])
-                                params_tab(name='二阶矩估计的指数衰减率', nums=my_vmodel(row_ref.value, 'beta2'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['beta2'])
-                                params_tab(name='平衡因子', nums=my_vmodel(row_ref.value, 'epsilon'), type='number',
-                                           format='%.8f', options=None, default=self.tem_args['epsilon'])
-
-                        with rxui.card().tight():
-                            params_tab(name='优化策略', nums=my_vmodel(row_ref.value, 'scheduler'), type='choice',
-                                       format=None, options=scheduler, default=self.tem_args['scheduler'])
-                            with rxui.column().bind_visible(lambda: list(row_ref.value['scheduler'])[-1] == 'step'):
-                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'),
-                                           type='number',
-                                           format='%.0f', options=None, default=self.tem_args['lr_decay_step'])
-                                params_tab(name='衰减因子', nums=my_vmodel(row_ref.value, 'lr_decay_rate'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['lr_decay_rate'])
-
-                            with rxui.column().bind_visible(
-                                    lambda: list(row_ref.value['scheduler'])[-1] == 'exponential'):
-                                params_tab(name='步长', nums=my_vmodel(row_ref.value, 'lr_decay_step'),
-                                           type='number',
-                                           format='%.0f', options=None, default=self.tem_args['lr_decay_step'])
-                                params_tab(name='衰减因子', nums=my_vmodel(row_ref.value, 'lr_decay_rate'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['lr_decay_rate'])
-
-                            with rxui.column().bind_visible(
-                                    lambda: list(row_ref.value['scheduler'])[-1] == 'cosineAnnealing'):
-                                params_tab(name='最大迭代次数', nums=my_vmodel(row_ref.value, 't_max'),
-                                           type='number',
-                                           format='%.0f', options=None, default=self.tem_args['t_max'])
-                                params_tab(name='最小学习率', nums=my_vmodel(row_ref.value, 'lr_min'),
-                                           type='number',
-                                           format='%.6f', options=None, default=self.tem_args['lr_min'])
-
-                        with rxui.card().tight():
-                            is_grad_norm = to_ref(row_ref.value['grad_norm'][-1] > 0)
-                            rxui.switch('开启梯度标准化', value=is_grad_norm)
-                            with rxui.column().bind_visible(lambda: is_grad_norm.value):
-                                params_tab(name='标准化系数', nums=my_vmodel(row_ref.value, 'grad_norm'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['grad_norm'])
-
-                        with rxui.card().tight():
-                            is_grad_clip = to_ref(row_ref.value['grad_norm'][-1] > 0)
-                            rxui.switch('开启梯度裁剪', value=is_grad_clip)
-                            with rxui.column().bind_visible(lambda: is_grad_clip.value):
-                                params_tab(name='裁剪系数', nums=my_vmodel(row_ref.value, 'grad_clip'),
-                                           type='number',
-                                           format='%.4f', options=None, default=self.tem_args['grad_clip'])
+                    with ui.grid(columns=5).classes('w-full'):
+                            for key, value in dl_configs.items():
+                                with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
+                                    if 'options' in value:
+                                        params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='choice',
+                                                   options=value['options'], default=self.tem_args['dataset'])
+                                    elif 'format' in value:
+                                        params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),
+                                                   type='number', format=value['format'],  default=self.tem_args[key])
+                                    if 'metrics' in value:
+                                        for k, v in value['metrics'].items():
+                                            with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                                for k1, v1 in v.items():
+                                                    params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='number',
+                                                               format=v1['format'], default=self.tem_args['mean'])
+                                if 'inner' in value:
+                                    for key1, value1 in value['inner'].items():
+                                        with rxui.card().tight().classes('w-full').tooltip(value1['help'] if 'help' in value1 else None):
+                                            if 'options' in value1:
+                                                params_tab(name=value1['name'], nums=my_vmodel(row_ref.value, key1), type='choice',
+                                                           options=lambda key=key, value1=value1: value1['options'][list(row_ref.value[key])[-1]],
+                                                           default=self.tem_args[key1])
 
                 panel = panels.tab_panel(fl_module)
                 @panel.build_fn
                 def _(pan_name: str):
                     ui.notify(f"创建页面:{pan_name}")
-                    with ui.grid(columns=5).classes('w-full'):
-                        params_tab(name='全局通信轮次数', nums=my_vmodel(row_ref.value, 'round'), type='number',
-                                   format='%.0f', options=None, default=self.tem_args['round'])
-                        params_tab(name='本地训练轮次数', nums=my_vmodel(row_ref.value, 'epoch'), type='number',
-                                   format='%.0f', options=None, default=self.tem_args['epoch'])
-                        params_tab(name='客户总数', nums=my_vmodel(row_ref.value, 'num_clients'), type='number',
-                                   format='%.0f', options=None, default=self.tem_args['num_clients'])
-                        params_tab(name='验证集比例', nums=my_vmodel(row_ref.value, 'valid_ratio'), type='number',
-                                   format='%.4f', options=None, default=self.tem_args['valid_ratio'])
-                        params_tab(name='本地训练模式', nums=my_vmodel(row_ref.value, 'train_mode'), type='choice',
-                                   format=None, options=running_mode, default=self.tem_args['train_mode'])
-                        with rxui.column().bind_visible(lambda: list(row_ref.value['train_mode'])[-1] == 'thread'):
-                            params_tab(name='最大线程数', nums=my_vmodel(row_ref.value, 'max_threads'),
-                                       type='number',
-                                       format='%.0f', options=None, default=self.tem_args['max_threads'])
-                        with rxui.column().bind_visible(lambda: list(row_ref.value['train_mode'])[-1] == 'process'):
-                            params_tab(name='最大进程数', nums=my_vmodel(row_ref.value, 'max_processes'),
-                                       type='number',
-                                       format='%.0f', options=None, default=self.tem_args['max_processes'])
+                    with ui.grid(columns=3).classes('w-full'):
+                        for key, value in fl_configs.items():
+                            with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
+                                if 'options' in value:
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),type='choice',options=value['options'], default=self.tem_args[key])
+                                elif 'format' in value:
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='number',format=value['format'], default=self.tem_args[key])
+                                else:
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),type='check', default=self.tem_args[key])
+                                if 'metrics' in value:
+                                    for k, v in value['metrics'].items():
+                                        with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                            for k1, v1 in v.items():
+                                                def show_metric(k1, v1):
+                                                    if 'dict' in v1:
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='dict',  default=self.tem_args[k1], info_dict=v1['dict'])
+                                                    elif 'mapping' in v1:
+                                                        if 'watch' in v1:
+                                                            on(lambda v1=v1: list(row_ref.value[v1['watch']])[-1])(
+                                                                partial(watch_from, key1=v1['watch'], key2=k1, params=v1['mapping'])
+                                                            )
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='mapping', default=self.tem_args[k1], info_dict=v1)
+                                                    else:
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='number', default=self.tem_args[k1], format=v1['format'])
 
-                        params_tab(name='开启本地测试', nums=my_vmodel(row_ref.value, 'local_test'),type='check',
-                                   format=None, options=None, default=self.tem_args['local_test'])
-                        params_tab(name='标签分布方式', nums=my_vmodel(row_ref.value, 'data_type'),type='choice',
-                                   format=None, options=data_type, default=self.tem_args['data_type'])
-                        params_tab(name='样本分布方式', nums=my_vmodel(row_ref.value, 'num_type'),
-                                   type='choice',
-                                   format=None, options=num_type, default=self.tem_args['num_type'])
-                        params_tab(name='噪声分布方式', nums=my_vmodel(row_ref.value, 'noise_type'),
-                                   type='choice',
-                                   format=None, options=noise_type, default=self.tem_args['noise_type'])
-
-                    with ui.grid(columns=2).classes('w-full justify-around items-end'):
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['data_type'])[-1] == 'dirichlet'):
-                            params_tab(name='狄拉克分布的异构程度', nums=my_vmodel(row_ref.value, 'dir_alpha'),
-                                       type='number',
-                                       format='%.4f', options=None, default=self.tem_args['dir_alpha'])
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['data_type'])[-1] == 'shards'):
-                            params_tab(name='本地类别数(公共)',
-                                       nums=my_vmodel(row_ref.value, 'class_per_client'),
-                                       type='number',
-                                       format='%.0f', options=None, default=self.tem_args['class_per_client'])
-                        with rxui.column().bind_visible(lambda: list(row_ref.value['data_type'])[-1] == 'custom_class'):
-                            params_tab(name='本地类别数(个人)', nums=my_vmodel(row_ref.value, 'class_mapping'),
-                                       type='list',
-                                       format='%.0f', options=None, default=self.tem_args['class_mapping'])
-
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['num_type'])[-1] == 'custom_single'):
-                            params_tab(name='本地样本数(公共)',
-                                       nums=my_vmodel(row_ref.value, 'sample_per_client'),
-                                       type='number',
-                                       format='%.0f', options=None, default=self.tem_args['sample_per_client'])
-
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['num_type'])[-1] == 'imbalance_control'):
-                            params_tab(name='不平衡系数', nums=my_vmodel(row_ref.value, 'imbalance_alpha'),
-                                       type='number',
-                                       format='%.4f', options=None, default=self.tem_args['imbalance_alpha'])
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['num_type'])[-1] == 'custom_each'):
-                            params_tab(name='本地样本数(个人)', nums=my_vmodel(row_ref.value, 'sample_mapping'),
-                                       type='list',
-                                       format='%.0f', options=None, default=self.tem_args['sample_mapping'])
-
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['noise_type'])[-1] == 'gaussian'):
-                            params_tab(name='高斯分布系数', nums=my_vmodel(row_ref.value, 'gaussian'),
-                                       type='label',
-                                       format='%.3f', options=None, default=self.tem_args['gaussian'],
-                                       name_dict={'mean': '均值', 'std': '方差'})
-
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['noise_type'])[-1] == 'custom_label'):
-                            params_tab(name='自定义标签噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'),
-                                       type='dict',
-                                       format='%.3f', options=None, default=self.tem_args['noise_mapping'],
-                                       name_dict={'mean': '占比'})
-
-                        with rxui.column().bind_visible(
-                                lambda: list(row_ref.value['noise_type'])[-1] == 'custom_feature'):
-                            params_tab(name='自定义特征噪声', nums=my_vmodel(row_ref.value, 'noise_mapping'),
-                                       type='dict',
-                                       format='%.3f', options=None, default=self.tem_args['noise_mapping'],
-                                       name_dict={'mean': '占比', 'std': '占比'})
+                                                show_metric(k1, v1)
 
                 panel = panels.tab_panel(ta_module)
                 @panel.build_fn

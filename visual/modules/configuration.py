@@ -11,18 +11,15 @@ from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, ref, is_ref
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
-
+from functools import partial
 from manager.save import ReadManager
 from visual.parts.lazy_table import algo_table
-from visual.parts.constant import init_mode, loss_function, optimizer, sgd, adam, scheduler, step, \
-    exponential, \
-    cosineAnnealing, data_type, dirichlet, shards, custom_class, num_type, custom_single, imbalance_control, device, \
-    thread, process, running_mode, reward_mode, time_mode, exp_args_template, noise_type, dl_configs, models, fl_configs
+from visual.parts.constant import  running_mode, exp_args_template, dl_configs, fl_configs
 from experiment.options import args_parser
 from visual.parts.lazy_panels import lazy_tab_panels
 
 
-def convert_to_list(mapping, mapping_dict):
+def convert_dict_to_list(mapping, mapping_dict):
     mapping_list = []
     for key, value in mapping.items():
         in_dict = {'id': key}
@@ -33,14 +30,30 @@ def convert_to_list(mapping, mapping_dict):
         mapping_list.append(in_dict)
     return mapping_list
 
-def convert_to_dict(mapping_list, mapping_dict):
+def convert_list_to_dict(mapping_list, mapping_dict):
     mapping = {}
     for item in mapping_list:
-        in_dict = None
-        for k in mapping_dict:
-            in_dict = in_dict, item[k]
-        mapping[item['id']] = in_dict
+        if len(mapping_dict) == 1:
+            for k in mapping_dict:
+                mapping[item['id']] = item[k]
+        else:
+            in_list = []
+            for k in mapping_dict:
+                in_list.append(item[k])
+            mapping[item['id']] = tuple(in_list)
     return mapping
+
+def convert_tuple_to_dict(mapping, mapping_dict):
+    new_dict = {}
+    for i, k in enumerate(mapping_dict):
+        new_dict[k] = mapping[i]
+    return new_dict
+
+def convert_dict_to_tuple(mapping):
+    new_list = []
+    for k, v in mapping.items():
+        new_list.append(v)
+    return tuple(new_list)
 
 def my_vmodel(data, key):
     def setter(new):
@@ -59,16 +72,16 @@ class config_ui:
 
         self.algo_args = vars(args_parser())
         self.algo_ref = deep_ref(self.algo_args)
-        # on(lambda: self.algo_ref.value['num_clients'])(self.watch_from)
-        on(lambda: self.algo_ref.value['dataset'])(self.watch_dataset)
+        self.mapping_info = {}
+        self.dict_info = []
         self.create_config_ui()
 
     def read_template(self, template):
         for k, v in template['info'].items():
             self.algo_ref.value[k] = v  # 只能修改ref的值，不能修改原始数据否则不响应
-        self.algo_ref.value['class_mapping'] = convert_to_list(json.loads(self.algo_args['class_mapping']))
-        self.algo_ref.value['sample_mapping'] = convert_to_list(json.loads(self.algo_args['sample_mapping']))
-        self.algo_ref.value['noise_mapping'] = convert_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True)
+        self.algo_ref.value['class_mapping'] = convert_dict_to_list(json.loads(self.algo_args['class_mapping']))
+        self.algo_ref.value['sample_mapping'] = convert_dict_to_list(json.loads(self.algo_args['sample_mapping']))
+        self.algo_ref.value['noise_mapping'] = convert_dict_to_list(json.loads(self.algo_args['noise_mapping']), is_noise=True)
 
     def read_algorithm(self, algo_param_rows):
         print(algo_param_rows['info'])
@@ -79,25 +92,18 @@ class config_ui:
             else:
                 self.exp_ref.value[k] = v
 
-    def watch_dataset(self):  # 用于根据数据集改变模型
-        if self.algo_ref.value['model'] not in models[self.algo_ref.value['dataset']]:
-            self.algo_ref.value['model'] = None
-
-    def watch_from(self, key1, key2, params):
-        @batch
-        def _():
-            num_now = to_raw(self.algo_ref.value[key1])
-            num_real = len(self.algo_ref.value[key2])
-            print(num_now, num_real)
-            while num_real < num_now:
-                in_dict = {'id': str(num_real)}
-                for k, v in params.items():
-                    in_dict[k] = v['default']
-                self.algo_ref.value[key2].append(in_dict)
-                num_real += 1
-            while num_real > num_now:
-                self.algo_ref.value[key2].pop()
-                num_real -= 1
+    def watch_from(self, s, key1, key2, params):
+        num_now = to_raw(self.algo_ref.value[key1])
+        num_real = len(self.algo_ref.value[key2])
+        while num_real < num_now:
+            in_dict = {'id': str(num_real)}
+            for k, v in params.items():
+                in_dict[k] = v['default']
+            self.algo_ref.value[key2].append(in_dict)
+            num_real += 1
+        while num_real > num_now:
+            self.algo_ref.value[key2].pop()
+            num_real -= 1
 
     def handle_add_mapping(self, key, params):
         num_real = len(self.algo_ref.value[key])
@@ -110,16 +116,6 @@ class config_ui:
         origin = self.algo_ref.value[key]
         path = await app.native.main_window.create_file_dialog(20)
         self.algo_ref.value[key] = path if path else origin
-
-
-    def scan_local_gpu(self):
-        # 检查CUDA GPU设备
-        devices = {}
-        if torch.cuda.is_available():
-            for i in range(torch.cuda.device_count()):
-                gpu_name = torch.cuda.get_device_name(i)
-                devices[i] = gpu_name
-        return devices
 
     # 创建参数配置界面，包实验配置、算法配置
     def create_config_ui(self):
@@ -138,12 +134,10 @@ class config_ui:
                 ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
                 with lazy_tab_panels().classes('w-full') as panels:
                     panel = panels.tab_panel('配置算法模板')
-                    # ui.button('配置算法模板', on_click=lambda: panels.set_value('配置算法模板'))
                     @panel.build_fn
                     def _(name: str):
                         self.create_template_config()
                         ui.notify(f"创建页面:{name}")
-                    # ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
                     panel = panels.tab_panel('配置算法参数')
                     @panel.build_fn
                     def _(name: str):
@@ -211,7 +205,7 @@ class config_ui:
                 cof_reader.save_task_result(self.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), self.exp_args)
                 gen_his_list.refresh()
         with rxui.column():
-            # algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
+            algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
             with rxui.grid(columns=2):
                 rxui.checkbox(text='相同初始模型', value=my_vmodel(self.exp_ref.value['same'], 'model'))
                 rxui.checkbox(text='相同数据划分', value=my_vmodel(self.exp_ref.value['same'], 'data'))
@@ -266,9 +260,9 @@ class config_ui:
             rxui.button('保存模板配置', on_click=lambda: han_save())
             def han_save():
                 algo_args = copy.deepcopy(self.algo_args)
-                algo_args['class_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['class_mapping']))
-                algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['sample_mapping']))
-                algo_args['noise_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['noise_mapping'], is_noise=True))
+                algo_args['class_mapping'] = json.dumps(convert_list_to_dict(self.algo_ref.value['class_mapping']))
+                algo_args['sample_mapping'] = json.dumps(convert_list_to_dict(self.algo_ref.value['sample_mapping']))
+                algo_args['noise_mapping'] = json.dumps(convert_list_to_dict(self.algo_ref.value['noise_mapping'], is_noise=True))
                 cof_reader.save_task_result(self.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), algo_args)
                 gen_his_list.refresh()
 
@@ -298,60 +292,80 @@ class config_ui:
 
 
                 with ui.tab_panel(fl_module):
-                    with ui.grid(columns=5).classes('w-full'):
+                    with ui.grid(columns=3).classes('w-full'):
                         for key, value in fl_configs.items():
                             with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
                                 if 'options' in value:
                                     rxui.select(options=value['options'], value=my_vmodel(self.algo_ref.value, key), label=value['name']).classes('w-full')
                                 elif 'format' in value:
                                     rxui.number(label=value['name'], value=my_vmodel(self.algo_ref.value, key), format=value['format']).classes('w-full')
+                                else:
+                                    rxui.checkbox(text=value['name'], value=my_vmodel(self.algo_ref.value, key)).classes('w-full')
                                 if 'metrics' in value:
                                     for k, v in value['metrics'].items():
                                         with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: self.algo_ref.value[key] == k):
                                             for k1, v1 in v.items():
-                                                if 'dict' in v1:
-                                                    new_dict = {}
-                                                    for i, k2 in enumerate(v1['dict']):
-                                                        new_dict[k2] = self.algo_args[k1][i]
-                                                    self.algo_args[k1] = new_dict
-                                                    self.algo_ref.value[k1] = self.algo_args[k1]
-                                                    rxui.label(v1['name'])
-                                                    for k2, v2 in v1['dict'].items():
-                                                        rxui.number(label=v2['name'], value=my_vmodel(self.algo_ref.value[k1], k2), format=v2['format'])
-                                                elif 'mapping' in v1:
-                                                    rxui.label(v1['name'])
-                                                    if type(self.algo_args[k1]) is not list:
-                                                        self.algo_args[k1] = convert_to_list(json.loads(self.algo_args[k1]), v1['mapping'])
-                                                        self.algo_ref.value[k1] = self.algo_args[k1]
-                                                    if 'watch' in v1:
-                                                        print(k1, v1)
-                                                        on(lambda v1=v1: self.algo_ref.value[v1['watch']])(self.watch_from(v1['watch'], k1, v1['mapping']))
-                                                    with rxui.grid(columns=5):
-                                                        @rxui.vfor(my_vmodel(self.algo_ref.value, k1), key='id')
-                                                        def _(store: rxui.VforStore[Dict]):
-                                                            item = store.get()
-                                                            for k2, v2 in v1['mapping'].items():
-                                                                rxui.number(label='客户' + item.value['id'] + v2['name'], value=my_vmodel(item.value, k2), format=v2['format'])
-                                                            if 'watch' not in v1:
-                                                                ui.button("删除", on_click=lambda: self.algo_ref.value[k1].remove(item.value))
+                                                def show_metric(k1, v1):
+                                                    if 'dict' in v1:
+                                                        self.algo_args[k1] = convert_tuple_to_dict(self.algo_args[k1], v1['dict'])
+                                                        self.algo_ref = deep_ref(self.algo_args)
+                                                        self.dict_info.append(k1)
+                                                        rxui.label(v1['name'])
+                                                        for k2, v2 in v1['dict'].items():
+                                                            rxui.number(label=v2['name'], value=my_vmodel(self.algo_ref.value[k1], k2), format=v2['format']).classes('w-full')
+                                                    elif 'mapping' in v1:
+                                                        rxui.label(v1['name']).classes('w-full')
+                                                        if type(self.algo_args[k1]) is not list:
+                                                            self.algo_args[k1] = convert_dict_to_list(json.loads(self.algo_args[k1]), v1['mapping'])
+                                                            self.algo_ref = deep_ref(self.algo_args)
+                                                            self.mapping_info[k1] = v1['mapping']
+                                                        if 'watch' in v1:
+                                                            on(lambda v1=v1: self.algo_ref.value[v1['watch']])(
+                                                                partial(self.watch_from, key1=v1['watch'], key2=k1, params=v1['mapping'])
+                                                            )
+                                                        with rxui.grid(columns=4):
+                                                            @rxui.vfor(my_vmodel(self.algo_ref.value, k1), key='id')
+                                                            def _(store: rxui.VforStore[Dict]):
+                                                                item = store.get()
+                                                                with rxui.column():
+                                                                    with rxui.row():
+                                                                        for k2, v2 in v1['mapping'].items():
+                                                                            if 'discard' not in v2:
+                                                                                rxui.number(label='客户' + item.value['id'] + v2['name'], value=my_vmodel(item.value, k2), format=v2['format']).classes('w-full')
+                                                                    if 'watch' not in v1:
+                                                                        rxui.button('删除',on_click=lambda: self.algo_ref.value[k1].remove(item.value))
                                                         if 'watch' not in v1:
-                                                            ui.button("追加", on_click=self.handle_add_mapping(k1, v1['mapping']))
-                                                else:
-                                                    try:
+                                                            rxui.button('添加', on_click=lambda: self.handle_add_mapping(k1, v1['mapping']))
+                                                    else:
                                                         rxui.number(label=v1['name'],
                                                                     value=my_vmodel(self.algo_ref.value, k1),
                                                                     format=v1['format']).classes('w-full')
-                                                    except Exception as e:
-                                                        print(f"发生异常: {e}, k1的值为: {k1}")
+                                                show_metric(k1, v1)
 
     def get_fusion_args(self):
-        # 方法1: 使用列表推导保留有 'algo' 键的字典
         exp_args = copy.deepcopy(self.exp_args)
-        exp_args['algo_params'] = [item for item in exp_args['algo_params'] if 'algo' in item]
+        exp_args['algo_params'] = []
+        for item in self.exp_args['algo_params']:
+            if 'algo' in item:
+                item = copy.deepcopy(item)
+                for k, v in self.mapping_info.items():
+                    arr = []
+                    for i in item['params'][k]:
+                        arr.append(json.dumps(convert_list_to_dict(i, v)))
+                    item['params'][k] = arr
+                for k in self.dict_info:
+                    arr = []
+                    for i in item['params'][k]:
+                        arr.append(convert_dict_to_tuple(i))
+                    item['params'][k] = arr
+                exp_args['algo_params'].append(item)
+
         algo_args = copy.deepcopy(self.algo_args)
-        algo_args['class_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['class_mapping']))
-        algo_args['sample_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['sample_mapping']))
-        algo_args['noise_mapping'] = json.dumps(convert_to_dict(self.algo_ref.value['noise_mapping'], is_noise=True))
-        algo_args['gaussian'] = (algo_args['gaussian']['mean'], algo_args['gaussian']['std'])
-        print(algo_args)
+        for k, v in self.mapping_info.items():
+            algo_args[k] = json.dumps(convert_list_to_dict(self.algo_ref.value[k], v))
+        for k in self.dict_info:
+            algo_args[k] = convert_dict_to_tuple(self.algo_ref.value[k])
+
+        # print(algo_args)
+        # print(exp_args)
         return algo_args, exp_args
