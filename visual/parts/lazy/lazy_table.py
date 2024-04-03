@@ -1,15 +1,14 @@
-import platform
 from functools import partial
 
 import torch
 from cpuinfo import cpuinfo
-from ex4nicegui import to_raw, deep_ref, to_ref
+from ex4nicegui import to_raw, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, events
 from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, \
     algo_params,\
     dl_configs, fl_configs
-from visual.parts.lazy_panels import lazy_tab_panels
+from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.params_tab import params_tab
 from ex4nicegui.utils.signals import to_ref_wrapper, on
 

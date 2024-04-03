@@ -1,11 +1,12 @@
-from ex4nicegui.reactive import rxui
-from nicegui import ui, run
+from nicegui import ui
 
 from visual.modules.consequence import res_ui
 from visual.modules.preview import preview_ui
 from visual.modules.running import run_ui
-from visual.parts.lazy_stepper import lazy_stepper
+from visual.parts.constant import record_dict
+from visual.parts.lazy.lazy_stepper import lazy_stepper
 from visual.modules.configuration import config_ui
+from visual.parts.record import RecordManager
 
 
 def convert_to_list(mapping):
@@ -38,10 +39,11 @@ class experiment_page:
     exp_args = None
     visual_data_infos = {}
     args_queue = []
+    save_reader = RecordManager(record_dict)
     def __init__(self):  # 这里定义引用，传进去同步更新
         with lazy_stepper(keep_alive=False).props('vertical').classes('w-full') as self.stepper:
             with ui.step('参数配置'):
-                self.cf_ui = config_ui()
+                self.cf_ui = config_ui(self.save_reader)
                 ui.notify(f"创建页面:{'参数配置'}")
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=self.args_fusion_step)
@@ -85,7 +87,7 @@ class experiment_page:
 
     @ui.refreshable_method
     def get_res_ui(self):
-        self.run_ui = res_ui(self.pre_ui.experiment)
+        self.run_ui = res_ui(self.pre_ui.experiment, self.save_reader)
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()

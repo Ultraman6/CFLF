@@ -1,9 +1,7 @@
-from multiprocessing import freeze_support
-from nicegui import ui, run
-from visual.modules.configuration import config_ui
+from nicegui import ui
 from visual.pages.epxeriment import experiment_page
-from visual.parts.lazy_panels import lazy_tab_panels
-from visual.parts.lazy_tabs import lazy_tabs
+from visual.parts.lazy.lazy_panels import lazy_tab_panels
+from visual.parts.lazy.lazy_tabs import lazy_tabs
 
 def build_ui_loading(message: str=None, is_done=False):
     with ui.row().classes("flex-center"):

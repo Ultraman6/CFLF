@@ -6,8 +6,8 @@ from ex4nicegui.reactive import rxui
 from nicegui import ui, run
 
 from manager.manager import ExperimentManager
-from visual.parts.lazy_panels import lazy_tab_panels
-from visual.parts.lazy_tabs import lazy_tabs
+from visual.parts.lazy.lazy_panels import lazy_tab_panels
+from visual.parts.lazy.lazy_tabs import lazy_tabs
 
 name_mapping = {
     'train': '训练集',

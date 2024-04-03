@@ -23,7 +23,7 @@ def convert_time_format(time_str):
 
 
 # 需要规定好信息存储的字段信息
-class ReadManager:
+class Filer:
     def __init__(self, save_dir):
         self.save_dir = save_dir
         # 确保保存目录存在，如果不存在，则创建它
@@ -57,6 +57,7 @@ class ReadManager:
                 timestamp, task_name = file.split('_', 1)
                 task_name = task_name.rsplit('.', 1)[0]  # 移除.pkl后缀
                 self.his_list.append({'time': convert_time_format(timestamp), 'name': task_name, 'file_name': file})
+        print(self.his_list)
 
     def load_task_result(self, file_name):
         file_path = os.path.join(self.save_dir, file_name)

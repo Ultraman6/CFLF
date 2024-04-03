@@ -243,8 +243,8 @@ def args_parser():
     )
     federated_learning.add_argument(
         '--gaussian_params',
-        type=list,
-        default=[0.1, 0.1],
+        type=tuple,
+        default=(0.1, 0.1),
         help='Gaussian noise distribution for noise_type'
     )
     federated_learning.add_argument(

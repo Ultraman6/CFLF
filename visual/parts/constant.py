@@ -169,6 +169,9 @@ fl_configs = {
     },
 }
 
+record_dict = {
+    'tem': '../files/configs/template', 'algo': '../files/configs/algorithm', 'res': '../files/results'
+}
 
 # 算法配置（包括每种算法特定的详细参数）
 algo_type_options = [
