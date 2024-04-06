@@ -38,4 +38,11 @@
       </list>
     </option>
   </component>
+  <component name="TemplatesService">
+    <option name="TEMPLATE_FOLDERS">
+      <list>
+        <option value="$MODULE_DIR$/visual/runnings" />
+      </list>
+    </option>
+  </component>
 </module>

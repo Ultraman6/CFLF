@@ -253,7 +253,7 @@ class preview_ui:
 
     @ui.refreshable_method
     def draw_distribution(self):
-        if self.exp_args['same']['data']:  # 直接展示全局划分数据
+        if self.exp_args['same_data']:  # 直接展示全局划分数据
             with rxui.grid(columns=1).classes('w-full'):
                 for name in self.visual_data_infos:
                     print(self.visual_data_infos[name])
@@ -292,7 +292,7 @@ class preview_ui:
         for item in self.exp_args['algo_params']:
             item['params']['device'] = [item['params']['device'], ]
             item['params']['gpu'] = [item['params']['gpu'], ]
-        self.experiment = ExperimentManager(argparse.Namespace(**self.algo_args), self.exp_args)
+        self.experiment = ExperimentManager(argparse.Namespace(**self.algo_args), argparse.Namespace(**self.exp_args))
 
     async def assemble_experiment(self, e, box):
         btn: ui.button = e.sender

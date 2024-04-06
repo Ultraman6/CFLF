@@ -1,3 +1,4 @@
+import copy
 from functools import partial
 
 import torch
@@ -8,6 +9,7 @@ from nicegui import ui, events
 from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, \
     algo_params,\
     dl_configs, fl_configs
+from visual.parts.func import my_vmodel
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.params_tab import params_tab
 from ex4nicegui.utils.signals import to_ref_wrapper, on
@@ -16,13 +18,6 @@ algo_param_mapping = {
     'number': ui.number,
     'choic': ui.select
 }
-
-
-def my_vmodel(data, key):
-    def setter(new):
-        data[key] = new
-
-    return to_ref_wrapper(lambda: data[key], setter)
 
 
 def scan_local_device():
@@ -169,7 +164,7 @@ class algo_table:
                     if k not in self.tem_args and k not in algo_params['common']:
                         del row['params'][k]
                 for key, item in algo_param.items():
-                    row['params'][key] = [item['default'], ]
+                    row['params'][key] = [copy.deepcopy(item['default']), ]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["algo"]) + "算法")
         self.table.element.update()  # 这里会更新slot内部的样式
@@ -194,7 +189,7 @@ class algo_table:
         new_id = max((dx["id"] for dx in self.rows.value), default=-1) + 1
         new_info = {'id': new_id, 'params': {'device': 'cpu', 'gpu': '0', 'seed': [1]}}
         for k, v in self.tem_args.items():
-            new_info['params'][k] = [v, ]
+            new_info['params'][k] = [copy.deepcopy(v), ]
         self.rows.value.append(new_info)
         ui.notify(f"Added new row with ID {new_id}")
         self.table.element.update()

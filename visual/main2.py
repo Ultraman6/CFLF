@@ -1,83 +1,60 @@
-import random
-from typing import List
+import openai
+import streamlit as st
+from streamlit_chat import message
 
-from ex4nicegui import deep_ref, to_ref, on, Ref
-from ex4nicegui.reactive import rxui
-from nicegui import ui
-from functools import partial, partialmethod
-
-
-data = [1, 2, 3, 4, 5]
-data_ref = deep_ref([data, data])
-
-
-@rxui.vfor(data_ref)
-def _(s):
-    print(s.get())
-    rxui.label(text=rxui.vmodel(s.get()))
-
-def add():
-    data_ref.value.append(data)
-
-def change():
-    i = random.randint(0, len(data_ref.value) - 1)
-    data_ref.value[i][random.randint(0, 4)] = random.randint(0, 100)
-
-rxui.button('add', on_click=add)
-rxui.button('change', on_click=change)
-ui.run()
+openai.api_key = '{Your API key}'
+if 'prompts' not in st.session_state:
+    st.session_state['prompts'] = [{"role": "system",
+                                    "content": "You are a helpful assistant. Answer as concisely as possible with a little humor expression."}]
+if 'generated' not in st.session_state:
+    st.session_state['generated'] = []
+if 'past' not in st.session_state:
+    st.session_state['past'] = []
 
 
-# data = 1
-# data_ref = deep_ref([data, ])
-#
-#
-# @rxui.vfor(data_ref)
-# def _(s):
-#     rxui.label(text=s.get())
-#
-# def add():
-#     data_ref.value.append(data)
-#
-# def change():
-#     i = random.randint(0, len(data_ref.value) - 1)
-#     data_ref.value[i] = random.randint(0, 100)
-#
-# rxui.button('add', on_click=add)
-# rxui.button('change', on_click=change)
-# ui.run()
+def generate_response(prompt):
+    st.session_state['prompts'].append({"role": "user", "content": prompt})
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=st.session_state['prompts']
+    )
+
+    message = completion.choices[0].message.content
+    return message
 
 
-# nums = deep_ref([0] * 10)
-#
-#
-# def clickable_num(num: Ref[int]):
-#     def onclick():
-#         num.value = 0 if num.value == 1 else 1
-#
-#     label = (
-#         rxui.label(num)
-#         .on("click", onclick)
-#         .tooltip("点我啊")
-#         .tailwind.cursor("pointer")
-#         .user_select("none")
-#         .outline_color("blue-100")
-#         .outline_width("4")
-#         .outline_style("double")
-#         .padding("p-1")
-#     )
-#
-#     return label
-#
-#
-# rxui.label(nums)
-# # rxui.label(lambda: "玩完了，所有都是1").bind_visible(
-# #     lambda: len(nums.value) == sum(nums.value)
-# # )
-#
-#
-# @rxui.vfor(nums)
-# def _(s):
-#     clickable_num(rxui.vmodel(s.get()))
-#
-# ui.run()
+def end_click():
+    st.session_state['prompts'] = [{"role": "system",
+                                    "content": "You are a helpful assistant. Answer as concisely as possible with a little humor expression."}]
+    st.session_state['past'] = []
+    st.session_state['generated'] = []
+    st.session_state['user'] = ""
+
+
+def chat_click():
+    if st.session_state['user'] != '':
+        chat_input = st.session_state['user']
+        output = generate_response(chat_input)
+        # store the output
+        st.session_state['past'].append(chat_input)
+        st.session_state['generated'].append(output)
+        st.session_state['prompts'].append({"role": "assistant", "content": output})
+        st.session_state['user'] = ""
+
+
+st.image("{Your logo}", width=80)
+st.title("My ChatBot")
+
+user_input = st.text_input("You:", key="user")
+
+chat_button = st.button("Send", on_click=chat_click)
+end_button = st.button("New Chat", on_click=end_click)
+
+if st.session_state['generated']:
+    for i in range(len(st.session_state['generated']) - 1, -1, -1):
+        tab1, tab2 = st.tabs(["normal", "rich"])
+        with tab1:
+            message(st.session_state['generated'][i], key=str(i))
+        with tab2:
+            st.markdown(st.session_state['generated'][i])
+        message(st.session_state['past'][i], is_user=True, key=str(i) + '_user')

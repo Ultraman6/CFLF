@@ -77,7 +77,7 @@ dl_configs = {
     'learning_rate': {'name': '学习率', 'format': '%.4f', 'help': '模型训练学习率'},
     'loss_function': {'name': '损失函数', 'options': {'ce': '交叉熵', 'bce': '二值交叉熵', 'mse': '均方误差'}, 'help': '模型训练损失函数'},
     'grad_norm': {'name': '标准化系数', 'format': '%.4f', 'help': '梯度标准化，为0不开启'},
-    'grad_clip': {'name': '裁剪范围', 'format': '%.4f', 'help': '梯度裁剪，为0不开启'},
+    'grad_clip': {'name': '裁剪系数', 'format': '%.4f', 'help': '梯度裁剪，为0不开启'},
 }
 
 fl_configs = {
@@ -91,9 +91,9 @@ fl_configs = {
            "thread": {'max_threads': {'name': '最大进程数', 'format': '%.0f'}}
        }
     },
-    'local_test': {'name': '开启本地测试', 'help': '开启与否'},
-    'standalone': {'name': '开启standalone', 'help': '开启与否'},
-    'data_type': { 'name': '标签分布方式', 'help': '数据的横向划分',
+    'local_test': {'name': '本地测试模式', 'help': '开启与否'},
+    'standalone': {'name': 'standalone模式', 'help': '开启与否'},
+    'data_type': {'name': '标签分布方式', 'help': '数据的横向划分',
          'options': {'homo': '同构划分', 'dirichlet': '狄拉克分布划分','shards': '碎片划分', 'custom_class': '自定义类别划分'},
          'metrics': {
             'dirichlet':{
@@ -169,9 +169,23 @@ fl_configs = {
     },
 }
 
-record_dict = {
-    'tem': '../files/configs/template', 'algo': '../files/configs/algorithm', 'res': '../files/results'
+exp_configs = {
+    'name': {'name': '实验名称', 'help': '实验的名称', 'type': 'text'},
+    'dataset_root':{'name': '数据集根目录', 'type': 'root'},
+    'result_root': {'name': '结果存放根目录', 'type': 'root'},
+    'algo_params': {'name': '算法冗余参数', 'type': 'table'},
+    'run_mode': {
+        'name': '实验运行模式', 'type': 'choice', 'options': {'serial': '顺序执行', 'thread': '线程并行', 'process': '进程并行'},
+        'metrics':{
+            'thread': {'max_threads': {'name': '最大线程数', 'format': '%.0f', 'type': 'number'}},
+            'process': {'max_processes': {'name': '最大进程数', 'format': '%.0f', 'type': 'number'}}
+        }
+    },
+    'same_model': {'name': '相同模型', 'help': '是否给所有任务使用相同模型', 'type': 'bool'},
+    'same_data': {'name': '相同数据', 'help': '是否给所有任务使用相同数据', 'type': 'bool'}
 }
+
+
 
 # 算法配置（包括每种算法特定的详细参数）
 algo_type_options = [
@@ -229,20 +243,6 @@ algo_name_options = {
 }
 
 
-# 实验配置
-exp_args_template = {
-    'name': '实验1',
-    'same': {
-        'model': True,
-        'data': True,
-    },
-    'algo_params': [],  # 数组里存放了多个不同的算法配置（每个算法配置都可能有多种不同的参数组合）
-    'run_mode': 'serial',
-    'run_config': {
-        'max_threads': 30,
-        'max_processes': 6,
-    }
-}
 
 running_mode = {'serial': '顺序串行', 'thread': '线程并行', 'process': '进程并行'}
 thread = {'max_threads': {'name': '最大线程数', 'format': '%.0f'}}
@@ -268,3 +268,23 @@ algo_params = {
         'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
     }
 }
+
+
+profile_dict = {
+    'edu': {
+        'name': '学历',
+        'options': {'0': '保密', '1': '本科', '2': '硕士', '3': '博士', '4': '博士后'},
+    },
+    'res': {
+        'name': '研究方向',
+        'options': {'0': '保密', '1': '计算机视觉', '2': '自然语言处理', '3': '机器学习', '4': '联邦学习'},
+    }
+}
+path_dict = {
+    'tem': {'name': '算法模板'}, 'algo': {'name': '算法配置'}, 'res': {'name': '任务结果'}
+}
+ai_config_dict = {'api_key': {'name': '接口密钥', 'default': ''}}
+idx_dict = {'登录': '/login', '注册': '/register', '答疑': '/doubt'}
+state_dict = {True: 'positive', False: 'negative'}
+unrestricted_page_routes = {'/hall', '/login', '/register', '/doubt'}
+

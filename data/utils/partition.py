@@ -317,6 +317,9 @@ def shards_partition(dataset_size, dataset, num_clients, class_per_client, sampl
 
 def custom_class_partition(dataset, class_distribution, samples_per_client):
     # 创建每个类别的索引列表
+    print(1)
+    print(class_distribution)
+    print(samples_per_client)
     class_indices = defaultdict(list)
     for idx, (_, label) in enumerate(dataset):
         class_indices[label].append(idx)
@@ -337,8 +340,9 @@ def custom_class_partition(dataset, class_distribution, samples_per_client):
             extra_samples = 1 if i < remainder else 0
             client_sample_indices.extend(cls_indices[:samples_per_class + extra_samples])
         # 添加到net_dataidx_map
+        print(client_sample_indices)
         net_dataidx_map[client_id] = client_sample_indices
-
+    print(2)
     return net_dataidx_map
 
 

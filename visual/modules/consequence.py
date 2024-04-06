@@ -7,12 +7,12 @@ from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
 from manager.save import Filer
+from visual.parts.record import RecordManager
 
 
 class res_ui:
-    def __init__(self, experiment, save_reader):
-        save_reader.resulter = self
-        self.save_reader = save_reader
+    def __init__(self, experiment):
+        self.res_saver = RecordManager('res', self)
 
         self.dialog = None
         self.experiment = experiment  # 此时的管理类已经拥有了任务执行结果
@@ -31,13 +31,11 @@ class res_ui:
         ]
 
         with rxui.card().classes('w-full'):
-            rxui.label('结果信息控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
+            rxui.label('结果控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
                                                 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
                                                 'hover:bg-blue-700')
             with ui.card().tight():
-                ui.label('结果存取路径')
-                rxui.button(text=self.save_root, icon='file',
-                            on_click=lambda: self.han_fold_choice())
+                self.res_saver.show_panel()
             table = rxui.table(columns=columns, rows=self.rows, row_key="id")
             table.add_slot('body-cell-options', r'''
                 <q-td key="options" :props="props">
@@ -55,23 +53,15 @@ class res_ui:
             table.on("delete", self.delete_res)
             table.on("save", self.save_res)
 
-            ui.button('添加任务结果', on_click=lambda: self.save_reader.show_dialog('res')())
-
         self.draw_res()
 
-
-    async def han_fold_choice(self):
-        origin = self.save_root.value
-        path = await app.native.main_window.create_file_dialog(20)
-        self.save_root.value = path if path else origin
-        self.res_reader.set_save_dir(self.save_root.value)
 
     # 结果保存API
     def save_res(self, e: events.GenericEventArguments):
         idx = e.args["id"]  # 保存不需要直到顺序id
         self.rows.value[idx]['type'] = '新(已保存)'
-        self.save_reader.filers['res'].save_task_result(self.task_names[idx], e.args["time"], self.experiment.results[idx])
-        self.save_reader.show_dialog('res').refresh()
+        self.res_saver.filer.save_task_result(self.task_names[idx], e.args["time"], self.experiment.results[idx])
+        self.res_saver.show_dialog.refresh()
         ui.notify('Save the result of Task' + str(idx))
 
     def delete_res(self, e: events.GenericEventArguments):
@@ -80,12 +70,16 @@ class res_ui:
         self.draw_res.refresh()  # 刷新图表
         self.rows.value.pop(idx)
 
-    def add_res(self, task_info):
+    def read_res(self, task_info):
         tid = len(self.task_names)
-        self.add_info(tid, task_info['info'])
+        for row in self.rows.value:
+            if row['time'] == task_info['time'] and row['name'] == task_info['name']:
+                ui.notify(f'时间: {row["time"]}\n任务：{row["name"]} \n已经存在，请勿重复添加', color='negative')
+                return
         self.task_names[tid] = task_info['name'] + task_info['time']
+        self.add_info(tid, task_info['info'])
         self.rows.value.append({'id': tid, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
-        self.draw_res.refresh()  # 刷新图表
+        self.draw_res.refresh()     # 刷新图表
 
     def delete_info(self, tid):
         # 处理全局信息
@@ -180,7 +174,6 @@ class res_ui:
                         for info_name in self.infos_dict[info_spot]:
                             self.control_global_echarts(info_name, self.infos_dict[info_spot][info_name])
                 elif info_spot == 'local':
-                    print(self.infos_dict[info_spot])
                     with rxui.column().classes('w-full'):
                         rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
                                                         'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',

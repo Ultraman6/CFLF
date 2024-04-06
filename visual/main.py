@@ -1,67 +1,202 @@
-from nicegui import ui
-from visual.pages.epxeriment import experiment_page
-from visual.parts.lazy.lazy_panels import lazy_tab_panels
-from visual.parts.lazy.lazy_tabs import lazy_tabs
+import os
+from functools import partial
+from typing import Optional
+from ex4nicegui import deep_ref
+from ex4nicegui.reactive import rxui
+from fastapi import Request
+from fastapi.responses import RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from nicegui import Client, app, ui, events, context
+from tortoise import Tortoise
+from visual.pages.frameworks import FramWindow
+from visual.models import User
+from visual.parts.constant import idx_dict, unrestricted_page_routes, state_dict
+from visual.parts.func import to_base64, han_fold_choice, detect_use, my_vmodel
+from visual.parts.lazy.lazy_card import build_card
 
-def build_ui_loading(message: str=None, is_done=False):
-    with ui.row().classes("flex-center"):
-        if not is_done:
-            ui.spinner(color="negative")
+
+# 中间件用户jwt认证
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not app.storage.user.get('authenticated', False):
+            if request.url.path in Client.page_routes.values() and request.url.path not in unrestricted_page_routes:
+                app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
+                return RedirectResponse('/hall')
+        return await call_next(request)
+
+async def init_db() -> None:
+    await Tortoise.init(db_url='sqlite://running/database/db.sqlite3', modules={'models': ['visual.models']})
+    await Tortoise.generate_schemas()
+async def close_db() -> None:
+    await Tortoise.close_connections()
+
+@ui.page('/')
+async def main_page() -> None:
+    await detect_use()
+    main = FramWindow()
+    main.create_main_window()
+
+# 个人设置界面
+@ui.page('/self')
+async def self_page() -> None:
+
+    async def try_set(k: str=None) -> None:
+        state, mes = await user.update(k, user_ref[k])
+        if state:
+            app.storage.user.update({'user': dict(user), 'authenticated': True})
+        ui.notify(mes, color=state_dict[state])
+
+    # 检查连接，获取model对象
+    user = await detect_use()
+    user_ref = user.get_dict()
+    with ui.card().classes('absolute-center'):
+        with ui.row():
+            rxui.input('用户名', value=user_ref['uname'])
+            ui.button('提交', on_click=lambda: try_set('uname'))
+        with ui.row():
+            rxui.input('密码', password=True, password_toggle_button=True, value=user_ref['pwd'])
+            ui.button('提交', on_click=lambda: try_set('pwd'))
+        with ui.column():
+            ui.label('个人信息')
             with ui.row():
-                ui.label(message)
+                for v in user_ref['profile'].values():
+                    if v['options']:
+                        rxui.select(label=v['name'], options=v['options'], value=v['default']).classes('w-full')
+                    elif v['format']:
+                        rxui.number(label=v['name'], format=v['format'], value=v['default']).classes('w-full')
+                ui.button('提交', on_click=lambda: try_set('profile'))
+
+        with ui.column():
+            ui.label('本地路径')
+            with ui.row():
+                for v in user_ref['local_path'].values():
+                    with ui.card().tight():
+                        rxui.label(v['default'])
+                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes('w-full')
+                ui.button('提交', on_click=lambda: try_set('local_path'))
+
+        with ui.column():
+            ui.label('头像')
+            upload = ui.upload(on_upload=lambda e: on_upload(e), on_rejected=lambda e: ui.notify(f'{e.type} Rejected!'),
+                               auto_upload=True).style("display:none").props('accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
+            with ui.row():
+                with ui.avatar().on('click', lambda: upload.run_method("pickFiles")):
+                    rxui.image(source=user_ref['avatar'])
+                def on_upload(e: events.UploadEventArguments):
+                    user_ref['avatar'].value = to_base64(e.content.read())
+                    ui.notify(f'Uploaded {e.name}')
+                ui.button('提交', on_click=lambda: try_set('avatar'))
+
+        with ui.row():
+            ui.button('返回主页', on_click=lambda: ui.navigate.to('/'))
 
 
-class MainWindow:
-    def __init__(self):
-        self.tab_mapping = {
-            '实验平台': ['实验模拟', '算法配置', '模型配置', '数据集配置', '机器配置'],
-            '个人设置': ['个人信息', '历史配置', '历史结果', '历史模型'],
-            'AI分析': ['AI配置', 'AI结果']
-        }
-        self.unit_mapping = {
-            '实验模拟': experiment_page, '算法配置': ui.label, '模型配置': ui.label, '数据集配置': ui.label, '机器配置': ui.label,
-            '个人信息': ui.label, '历史配置': ui.label, '历史结果': ui.label, '历史模型': ui.label,
-            'AI配置': ui.label, 'AI结果': ui.label
-        }
-        self.tabs = lazy_tabs(on_change=lambda: self.on_main_tab_change())
-        self.sub_tabs = lazy_tabs().props('vertical').classes('w-full')
+@ui.page('/hall')
+async def hall() -> Optional[RedirectResponse]:
 
-    def get_ui(self, name: str):
-        self.unit_mapping[name]()
+    ui.query("body").classes("bg-[#f7f8fc]")
+    context.get_client().content.tailwind.align_items("center")
+    ui.label("欢迎使用CFLF").classes("text-h4")
+    ui.label("这是一个联邦学习领域入门级的可视化实验平台，可以帮助你快速上手FL领域相关实验").classes("text-body2 mb-12")
+    with ui.row():
+        build_card("login", "欢迎回来", "快来输入你的账号密码吧", "登录", color="blue-200")
+        build_card("how_to_reg", "欢迎加入", "快来输入你的基本信息吧", "注册", color="rose-200")
+        build_card("help_outline", "欢迎加入", "快来解决你的疑问吧", "答疑", color="rose-200")
+    return None
 
-    def on_main_tab_change(self):
-        tab_list = []
-        v = self.tabs.value
-        for key in self.tab_mapping[v]:
-            tab_list.append(ui.tab(key))
-        self.sub_tabs.swap(tab_list)
+@ui.page('/doubt')
+async def doubt() -> Optional[RedirectResponse]:
+    if app.storage.user.get('authenticated', False):
+        return RedirectResponse('/')
+    with ui.card().classes('absolute-center'):
+        ui.label('疑难解答界面')
+        with ui.row():
+            ui.button('返回大厅', on_click=lambda: ui.navigate.to('/hall'))
+    return None
 
-    def create_main_window(self):
-        with ui.header().classes(replace='row items-center') as header:
-            ui.button(on_click=lambda: left_drawer.toggle(), icon='menu').props('flat color=white')
-        for key in self.tab_mapping:
-            self.tabs.add(ui.tab(key))
-        self.tabs.move(header)
-        left_drawer = ui.left_drawer().classes('bg-blue-100')
-        self.sub_tabs.move(left_drawer)
-        with lazy_tab_panels(self.sub_tabs).classes('w-full') as panels:
-            for key, value in self.tab_mapping.items():
-                for v in value:
-                    panel = panels.tab_panel(v)
-                    @panel.build_fn
-                    def _(name: str):
-                        # 显示 loading 效果
-                        # build_ui_loading(f"正在加载{name}页面...")
-                        # ui.label(f"正在加载{name}页面...")
-                        self.get_ui(name)
-                        ui.notify(f"创建页面:{name}")
-                        # self.unit_mapping[name]()
+@ui.page('/login')
+async def login() -> Optional[RedirectResponse]:
+    async def try_login() -> None:  # 改为异步函数
+        # 当前字段检查
+        state, mes, order = await User.login(login_info.value['uname'], login_info.value['pwd'])
+        if state:
+            app.storage.user.update({'user': order, 'authenticated': True})
+            ui.navigate.to(app.storage.user.get('referrer_path', '/'))
+        ui.notify(mes, color=state_dict[state])
 
-# Initialize and run the main window
-main_window = MainWindow()
-main_window.create_main_window()
-ui.run(port=8082)
+    if app.storage.user.get('authenticated', False):
+        return RedirectResponse('/')
 
-# if __name__ == '__main__':
-#     freeze_support()
-#     main()
+    login_info = deep_ref({'uname': '', 'pwd': ''})
+    ui.query("body").classes("bg-[#f7f8fc]")
+    context.get_client().content.tailwind.align_items("center")
+    with ui.card().classes('absolute-center'):
+        rxui.input('用户名', value=my_vmodel(login_info.value, 'uname')).on('keydown.enter', try_login)
+        rxui.input('密码', value=my_vmodel(login_info.value, 'pwd'), password=True, password_toggle_button=True).on('keydown.enter', try_login)
+        ui.button('登录', on_click=try_login)
+        with ui.row():
+            ui.button('去注册', on_click=lambda: ui.navigate.to('/register'))
+            ui.button('返回大厅', on_click=lambda: ui.navigate.to('/hall'))
+    return None
+
+
+@ui.page('/register')
+async def register() -> Optional[RedirectResponse]:
+    async def try_register() -> None:
+        # 创建新用户并保存到数据库
+        state, mes, order = await User.register(sign_info)
+        if state:
+            app.storage.user.update({'user': order, 'authenticated': True})
+            # 导航到用户原来想要去的页面或首页
+            ui.navigate.to(app.storage.user.get('referrer_path', '/'))
+        ui.notify(mes, color=state_dict[state])
+
+    if app.storage.user.get('authenticated', False):
+        return RedirectResponse('/')
+
+    sign_info = User.get_tem_dict()
+    print(sign_info['profile']['edu']['default'].value)
+    with ui.card().classes('absolute-center'):
+        rxui.input('Username', value=sign_info['uname'])
+        rxui.input('Password', value=sign_info['pwd'], password=True, password_toggle_button=True)
+        with ui.column():
+            ui.label('个人信息')
+            with ui.row():
+                for v in sign_info['profile'].values():
+                    if v['options']:
+                        rxui.select(label=v['name'], options=v['options'], value=v['default']).classes('w-full')
+                    elif v['format']:
+                        rxui.number(label=v['name'], format=v['format'], value=v['default']).classes('w-full')
+
+        with ui.column():
+            ui.label('本地路径')
+            with ui.row():
+                for v in sign_info['local_path'].values():
+                    with ui.card().tight():
+                        rxui.label(v['default'])
+                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes('w-full')
+
+        with ui.column():
+            ui.label('头像')
+            upload = ui.upload(on_upload=lambda e: on_upload(e), on_rejected=lambda e: ui.notify(f'{e.type} Rejected!'),
+                               auto_upload=True).style("display:none").props('accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
+            with ui.avatar().on('click', lambda: upload.run_method("pickFiles")):
+                rxui.image(source=sign_info['avatar']).classes('w-full h-full')
+
+            def on_upload(e: events.UploadEventArguments):
+                sign_info['avatar'].value = to_base64(e.content.read())
+                ui.notify(f'Uploaded {e.name}')
+
+        with ui.row():
+            ui.button('注册', on_click=try_register)
+            ui.button('去登录', on_click=lambda: ui.navigate.to('/login'))
+            ui.button('返回大厅', on_click=lambda: ui.navigate.to('/hall'))
+
+    return None
+
+# 加载数据库与中间件
+app.on_startup(init_db)
+app.on_shutdown(close_db)
+app.add_middleware(AuthMiddleware)
+os.environ['NICEGUI_STORAGE_PATH'] = 'running/storage'
+ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=True)

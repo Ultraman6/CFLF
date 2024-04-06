@@ -1,4 +1,4 @@
-from experiment.options import args_parser
+from experiment.options import algo_args_parser
 from manager.manager import ExperimentManager, visual_results
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
@@ -6,7 +6,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 
 
 def main():
-    args = args_parser()
+    args = algo_args_parser()
     exp_params = {
         # 'base': {},
         # 'MarginJSD': {'gamma': [1]},

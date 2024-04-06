@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from data.get_data import custom_collate_fn, get_data
 from data.utils.partition import balance_sample, special_sample
-from experiment.options import args_parser
+from experiment.options import algo_args_parser
 from model.Initialization import model_creator
 from model.base.model_trainer import ModelTrainer
 from util.generator import Data_Generator
@@ -132,7 +132,7 @@ def process_seed(args, si, samples, train, test, device, kwargs):
 
 
 def main():
-    args = args_parser()
+    args = algo_args_parser()
     # 假设其他初始化代码已经完成
     train, test = get_data(args)
     device = setup_device(args)

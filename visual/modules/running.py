@@ -9,12 +9,6 @@ from nicegui import ui, run
 
 # 任务运行界面
 
-def my_vmodel(data, key):
-    def setter(new):
-        data.value[key] = new
-
-    return to_ref_wrapper(lambda: data.value[key], setter)
-
 
 def get_n_hls_colors(num):
     hls_colors = []

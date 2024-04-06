@@ -85,13 +85,15 @@ def copy_raw_ref(info_dict, copy_dict):
 
 class ExperimentManager:
     def __init__(self, args_template, exp_args):
+        exp_args = vars(exp_args)
         if exp_args is None:
             exp_args = {}  # 如果没有提供exp_args，使用空字典
         self.exp_name = exp_args.get('name', 'DefaultExperiment')
         self.algo_queue = exp_args.get('algo_params', [])  # 如果没有提供，默认为空列表
-        self.same = exp_args.get('same', {'model': True, 'data': True})
+        self.same = {'model': exp_args.get('same_model', True), 'data': exp_args.get('same_data', True)}
         self.run_mode = exp_args.get('run_mode', 'serial')
-        self.run_config = exp_args.get('run_config', {'max_processes': 4, 'max_threads': 20})
+        self.run_config = {'max_threads': exp_args.get('max_threads', 10),
+                           'max_processes': exp_args.get('max_processes', 4)}
         self.args_template = args_template
         self.handle_type(self.args_template)
 
@@ -163,7 +165,8 @@ class ExperimentManager:
                 experiment_name_parts = [f"{param}{value}" for param, value in param_combination.items() if
                                          params_with_multiple_options[param]]
                 experiment_name = f"{algo_name}_{'_'.join(experiment_name_parts)}" if experiment_name_parts else algo_name
-
+                print(experiment_name)
+                print(vars(args))
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置

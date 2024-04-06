@@ -6,18 +6,13 @@ from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper
 from nicegui import ui
 
+from visual.parts.func import my_vmodel
+
 algo_param_mapping = {
     'number': rxui.number,
     'choice': rxui.select,
     'check': rxui.checkbox
 }
-
-
-def my_vmodel(data, key):
-    def setter(new):
-        data[key] = new
-
-    return to_ref_wrapper(lambda: data[key], setter)
 
 
 class params_tab:

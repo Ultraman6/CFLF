@@ -63,9 +63,9 @@ class Filer:
         file_path = os.path.join(self.save_dir, file_name)
         if os.path.exists(file_path) and file_name.endswith(".pkl"):
             with open(file_path, 'rb') as file:
-                timestamp, task_name = file_name.split('_', 1)
-                task_name = task_name.rsplit('.', 1)[0]  # 移除.pkl后缀
-                task_details = {'time': convert_time_format(timestamp), 'name': task_name, 'info': pickle.load(file)}
+                time, name = file_name.split('_', 1)
+                name = name.rsplit('.', 1)[0]  # 移除.pkl后缀
+                task_details = {'time': convert_time_format(time), 'name': name, 'info': pickle.load(file)}
                 return task_details
         else:
             raise FileNotFoundError(f"{file_name} not found in {self.save_dir}")

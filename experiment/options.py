@@ -3,7 +3,7 @@ import json
 import torch
 
 
-def args_parser():
+def algo_args_parser():
     parser = argparse.ArgumentParser()
     # 分区1：深度学习配置
     deep_learning = parser.add_argument_group('Deep Learning Configurations')
@@ -162,7 +162,7 @@ def args_parser():
     )
     parser.add_argument(
         '--standalone',
-        default=True,
+        default=False,
         type=bool,
         help='standalone training with main algorithm'
     )
@@ -206,7 +206,7 @@ def args_parser():
     federated_learning.add_argument(
         '--data_type',
         type=str,
-        default='homo',
+        default='custom_class',
         choices=['homo', 'dirichlet', 'shards', 'custom_class'],
         help='type of data distribution'
     )
@@ -303,7 +303,7 @@ def args_parser():
     running_environment.add_argument(
         '--result_root',
         type=str,
-        default='../files/result',
+        default='../results',
         help='result root folder'
     )
     running_environment.add_argument(
@@ -398,9 +398,16 @@ def args_parser():
     args = parser.parse_args()
     return args
 
-
-# def get_dict_args(args):
-#     return vars(args)
-#
-#
-# print(get_dict_args(args_parser()))
+# 实验配置
+def exp_args_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name',default='实验1',type=str)
+    parser.add_argument('--dataset_root',default='../datasets',type=str)
+    parser.add_argument('--result_root',default='../results',type=str)
+    parser.add_argument('--algo_params',default='[]',type=str)   # 复杂的参数对象，前后需要JSON解析
+    parser.add_argument('--run_mode',default='serial',type=str)
+    parser.add_argument('--max_threads',default=10,type=int)
+    parser.add_argument('--max_processes',default=5,type=int)
+    parser.add_argument('--same_model',default=True,type=bool)
+    parser.add_argument('--same_data',default=True,type=bool)
+    return parser.parse_args()
