@@ -4,7 +4,7 @@ from typing import List, Tuple
 from ex4nicegui import deep_ref, to_raw
 from ex4nicegui.reactive import rxui
 from langchain.chains import ConversationChain
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
 from nicegui import context, ui, app
 
@@ -17,7 +17,7 @@ from visual.parts.log_callback_handler import NiceGuiLogElementCallbackHandler
 def ai_interface():
     api_key = app.storage.user["user"]["ai_config"]['api_key']
     if api_key != '':
-        llm = ConversationChain(llm=ChatOpenAI(model_name='gpt-3.5-turbo', openai_api_key=api_key))
+        llm = ConversationChain(llm=ChatOpenAI(model_name='gpt-3.5-turbo', openai_api_key=api_key, verbose=False))
         messages: List[Tuple[str, str]] = []
         thinking: bool = False
 
@@ -61,6 +61,7 @@ def ai_interface():
                     '请先输入输入OpenAI的API KEY!'
                 text = ui.input(placeholder=placeholder).props('rounded outlined input-class=mx-3') \
                     .classes('w-full self-center').on('keydown.enter', send)
+                ui.button('上传附件', on_click=lambda: ui.notify('暂不支持上传附件！')).props('flat dense')
             ui.markdown('simple chat app built with [NiceGUI](https://nicegui.io)') \
                 .classes('text-xs self-end mr-8 m-[-1em] text-primary')
     else:

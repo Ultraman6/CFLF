@@ -286,5 +286,7 @@ path_dict = {
 ai_config_dict = {'api_key': {'name': '接口密钥', 'default': ''}}
 idx_dict = {'登录': '/login', '注册': '/register', '答疑': '/doubt'}
 state_dict = {True: 'positive', False: 'negative'}
+
+
 unrestricted_page_routes = {'/hall', '/login', '/register', '/doubt'}
 

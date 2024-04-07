@@ -2,7 +2,7 @@ from datetime import datetime
 from tkinter import filedialog
 import tkinter as tk
 from ex4nicegui import to_ref, on, deep_ref
-from ex4nicegui.reactive import rxui
+from ex4nicegui.reactive import rxui, local_file_picker
 from nicegui import ui, app
 from nicegui.functions.refreshable import refreshable_method
 from manager.save import Filer
@@ -25,14 +25,12 @@ class RecordManager:
             await User.filter(id=app.storage.user["user"]['id']).update(**{'local_path': dirs})
 
     async def save_fold_choice(self):
-        root = tk.Tk()
-        root.withdraw()  # 隐藏tkinter的主窗口
-        path = filedialog.askdirectory(initialdir=self.dir_ref.value)
-        if path:
-            self.dir_ref.value = path
-            self.show_dialog.refresh()
-
-        root.destroy()
+        init = self.dir_ref.value
+        fp = local_file_picker(mode='dir', dir=self.dir_ref.value)
+        fp.open()
+        fp.bind_ref(self.dir_ref)
+        if not self.dir_ref.value and self.dir_ref.value == '':
+            self.dir_ref.value = init
 
     def read_record(self, record):
         if self.key == 'tem':

@@ -1,11 +1,14 @@
 import base64
+import os
 from tkinter import filedialog
 import tkinter as tk
 import requests
-from ex4nicegui.utils.signals import to_ref_wrapper
+from ex4nicegui.reactive import local_file_picker
+from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
 from nicegui import app, ui
 
 from visual.models import User
+from visual.parts.file_picker import file_picker
 
 
 def to_base64(input_data):
@@ -36,12 +39,12 @@ def to_base64(input_data):
     return 'data:image/png;base64,' + base64.b64encode(image_data).decode('utf-8')
 
 async def han_fold_choice(s, ref):
-    root = tk.Tk()
-    root.withdraw()  # 普通label，不同于ref，不响应未选
-    path = filedialog.askdirectory(initialdir=ref.value)
-    if path:
-        ref.value = path
-    root.destroy()
+    init = ref.value
+    fp = local_file_picker(mode='dir', dir=ref.value)
+    fp.open()
+    fp.bind_ref(ref)
+    if not ref.value and ref.value == '':
+        ref.value = init
 
 
 async def detect_use():

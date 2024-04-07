@@ -1,10 +1,11 @@
 # 系统配置界面
 import copy
 import json
+import os
 from datetime import datetime
 from typing import Dict
 from ex4nicegui import deep_ref, to_ref, on, to_raw
-from ex4nicegui.reactive import rxui
+from ex4nicegui.reactive import rxui, local_file_picker
 from ex4nicegui.utils.signals import to_ref_wrapper
 from nicegui import ui, app
 from functools import partial
@@ -71,12 +72,14 @@ class config_ui:
         self.algo_ref.value[key].append(in_dict)
 
     async def han_fold_choice(self, s, key):
-        root = tk.Tk()
-        root.withdraw()  # 隐藏tkinter的主窗口
-        path = filedialog.askdirectory(initialdir=self.exp_ref.value[key])
-        if path:
-            self.exp_ref.value[key] = path
-        root.destroy()
+        self.exp_ref.value[key] = os.path.abspath(self.exp_ref.value[key])
+        init = self.exp_ref.value[key]
+        fp = local_file_picker(mode='dir', dir=self.exp_ref.value[key])
+        fp.open()
+        fp.bind_ref(my_vmodel(self.exp_ref.value, key))
+        if not self.exp_ref.value[key] and self.exp_ref.value[key] == '':
+            self.exp_ref.value[key] = init
+
 
     # 创建参数配置界面，包实验配置、算法配置
     def create_config_ui(self):

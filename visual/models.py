@@ -25,7 +25,7 @@ class User(models.Model):
             profile[k] = v
         path = {}
         for k, v in path_dict.items():
-            v['default'] = to_ref(os.path.join('..', 'files', k))
+            v['default'] = to_ref(os.path.abspath(os.path.join('..', 'files', k)))
             v['name'] = v['name'] + '保存路径'
             path[k] = v
 

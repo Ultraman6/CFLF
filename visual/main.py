@@ -10,25 +10,12 @@ from nicegui import Client, app, ui, events, context
 from tortoise import Tortoise
 from visual.pages.frameworks import FramWindow
 from visual.models import User
+from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
 from visual.parts.constant import idx_dict, unrestricted_page_routes, state_dict
 from visual.parts.func import to_base64, han_fold_choice, detect_use, my_vmodel
 from visual.parts.lazy.lazy_card import build_card
 
 
-# 中间件用户jwt认证
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if not app.storage.user.get('authenticated', False):
-            if request.url.path in Client.page_routes.values() and request.url.path not in unrestricted_page_routes:
-                app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
-                return RedirectResponse('/hall')
-        return await call_next(request)
-
-async def init_db() -> None:
-    await Tortoise.init(db_url='sqlite://running/database/db.sqlite3', modules={'models': ['visual.models']})
-    await Tortoise.generate_schemas()
-async def close_db() -> None:
-    await Tortoise.close_connections()
 
 @ui.page('/')
 async def main_page() -> None:
