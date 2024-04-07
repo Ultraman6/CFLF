@@ -6,9 +6,8 @@ import requests
 from ex4nicegui.reactive import local_file_picker
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
 from nicegui import app, ui
-
 from visual.models import User
-from visual.parts.file_picker import file_picker
+from visual.parts.local_file_picker import local_file_picker
 
 
 def to_base64(input_data):
@@ -34,17 +33,22 @@ def to_base64(input_data):
         image_data = input_data
     else:
         raise ValueError("输入类型不支持，必须是图片URL或二进制内容")
-
     # 将图片内容转换为Base64编码
     return 'data:image/png;base64,' + base64.b64encode(image_data).decode('utf-8')
 
-async def han_fold_choice(s, ref):
-    init = ref.value
-    fp = local_file_picker(mode='dir', dir=ref.value)
-    fp.open()
-    fp.bind_ref(ref)
-    if not ref.value and ref.value == '':
-        ref.value = init
+async def han_fold_choice(ref):
+    result = await local_file_picker(ref.value, upper_limit=None, directories_only=True)
+    if result is not None:
+        ref.value = result[0]
+
+async def han_file_choice(ref, limited):
+    result = await local_file_picker(ref.value, upper_limit=None, multiple=True, allowed_file_types=limited)
+    # 假设result返回的是选中文件的路径列表
+    if result:
+        for item in result:
+            if item not in ref.value:
+                ref.value.append(item)  # 若不存在，则添加到ref.value中
+
 
 
 async def detect_use():
@@ -58,7 +62,6 @@ async def detect_use():
 def my_vmodel(data, key):
     def setter(new):
         data[key] = new
-
     return to_ref_wrapper(lambda: data[key], setter)
 
 

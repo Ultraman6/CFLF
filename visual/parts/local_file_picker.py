@@ -5,10 +5,13 @@ from typing import Optional
 from nicegui import events, ui
 
 
-class file_picker(ui.dialog):
+class local_file_picker(ui.dialog):
 
     def __init__(self, directory: str, *,
-                 upper_limit: Optional[str] = ..., multiple: bool = False, show_hidden_files: bool = False) -> None:
+                 upper_limit: Optional[str] = ..., multiple: bool = False,
+                 show_hidden_files: bool = False,
+                 allowed_file_types: Optional[list[str]] = None,
+                 directories_only: bool = False) -> None:
         """Local File Picker
 
         This is a simple file picker that allows you to select a file from the local filesystem where NiceGUI is running.
@@ -19,13 +22,11 @@ class file_picker(ui.dialog):
         :param show_hidden_files: Whether to show hidden files.
         """
         super().__init__()
-
         self.path = Path(directory).expanduser()
-        if upper_limit is None:
-            self.upper_limit = None
-        else:
-            self.upper_limit = Path(directory if upper_limit == ... else upper_limit).expanduser()
+        self.upper_limit = Path(directory if upper_limit == ... else upper_limit).expanduser() if upper_limit is not None else None
         self.show_hidden_files = show_hidden_files
+        self.allowed_file_types = allowed_file_types
+        self.directories_only = directories_only
 
         with self, ui.card():
             self.add_drives_toggle()
@@ -49,9 +50,11 @@ class file_picker(ui.dialog):
         self.update_grid()
 
     def update_grid(self) -> None:
-        paths = list(self.path.glob('*'))
+        paths = list(self.path.glob('*' if not self.directories_only else '*/'))  # If directories_only, add slash to glob pattern
         if not self.show_hidden_files:
             paths = [p for p in paths if not p.name.startswith('.')]
+        if self.allowed_file_types is not None and not self.directories_only:  # Apply file type filter if not in directories_only mode
+            paths = [p for p in paths if p.suffix in self.allowed_file_types or p.is_dir()]
         paths.sort(key=lambda p: p.name.lower())
         paths.sort(key=lambda p: not p.is_dir())
 

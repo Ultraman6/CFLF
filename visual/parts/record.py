@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import partial
 from tkinter import filedialog
 import tkinter as tk
 from ex4nicegui import to_ref, on, deep_ref
@@ -8,6 +9,7 @@ from nicegui.functions.refreshable import refreshable_method
 from manager.save import Filer
 from visual.models import User
 from visual.parts.constant import path_dict
+from visual.parts.func import han_fold_choice
 
 
 class RecordManager:
@@ -45,13 +47,12 @@ class RecordManager:
             self.filer.save_task_result(self.opter.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), self.opter.exp_args)
         elif self.key == 'tem':
             self.filer.save_task_result(self.opter.exp_ref.value['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), self.opter.algo_args)
-
         self.show_dialog.refresh()
 
     def show_panel(self):
         with ui.row():
             with rxui.card().tight():
-                rxui.button(text=path_dict[self.key]['name']+'存放路径', icon='file', on_click=self.save_fold_choice)
+                rxui.button(text=path_dict[self.key]['name']+'存放路径', icon='file', on_click=partial(han_fold_choice, self.dir_ref))
                 rxui.label(self.dir_ref)
             rxui.button('历史'+path_dict[self.key]['name'], on_click=lambda: self.show_dialog())
             rxui.button('保存'+path_dict[self.key]['name'], on_click=self.han_save).bind_visible(self.key!='res')

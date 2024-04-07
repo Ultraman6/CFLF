@@ -13,7 +13,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 from visual.parts.func import my_vmodel, convert_tuple_to_dict, convert_dict_to_list, convert_list_to_dict, \
-    convert_dict_to_tuple
+    convert_dict_to_tuple, han_fold_choice
 from visual.parts.lazy.lazy_table import algo_table
 from visual.parts.constant import running_mode, dl_configs, fl_configs, exp_configs
 from experiment.options import algo_args_parser, exp_args_parser
@@ -71,16 +71,6 @@ class config_ui:
             in_dict[k] = v['default']
         self.algo_ref.value[key].append(in_dict)
 
-    async def han_fold_choice(self, s, key):
-        self.exp_ref.value[key] = os.path.abspath(self.exp_ref.value[key])
-        init = self.exp_ref.value[key]
-        fp = local_file_picker(mode='dir', dir=self.exp_ref.value[key])
-        fp.open()
-        fp.bind_ref(my_vmodel(self.exp_ref.value, key))
-        if not self.exp_ref.value[key] and self.exp_ref.value[key] == '':
-            self.exp_ref.value[key] = init
-
-
     # 创建参数配置界面，包实验配置、算法配置
     def create_config_ui(self):
         with ui.row().classes('w-full'):
@@ -93,7 +83,8 @@ class config_ui:
                         rxui.select(options=value['options'], value=my_vmodel(self.exp_ref.value, key), label=value['name']).classes('w-full')
                     elif type == 'root':
                         with ui.card().tight():
-                            rxui.button(text=value['name'], icon='file',on_click=partial(self.han_fold_choice, key=key))
+                            rxui.button(text=value['name'], icon='file',on_click=
+                            partial(han_fold_choice, my_vmodel(self.exp_ref.value, key))).classes('w-full')
                             rxui.label(my_vmodel(self.exp_ref.value, key)).classes('w-full')
                     elif type == 'bool':
                         rxui.checkbox(text=value['name'], value=my_vmodel(self.exp_ref.value, key)).classes('w-full')
