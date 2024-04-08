@@ -99,12 +99,13 @@ class config_ui:
         with ui.row():
             ui.button('配置算法模板', on_click=lambda: panels.set_value('配置算法模板'))
             ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
+
         ui.separator().classes('w-full')
         with lazy_tab_panels().classes('w-full') as panels:
             panel = panels.tab_panel('配置算法模板')
             @panel.build_fn
             def _(name: str):
-                self.create_template_config()
+                self.create_tem_config()
                 ui.notify(f"创建页面:{name}")
 
             panel = panels.tab_panel('配置算法参数')
@@ -115,7 +116,7 @@ class config_ui:
                     algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
                 ui.notify(f"创建页面:{name}")
 
-    def create_template_config(self):
+    def create_tem_config(self):
         self.tem_saver.show_panel()
         with rxui.column().classes('w-full'):
             with ui.tabs().classes('w-full') as tabs:

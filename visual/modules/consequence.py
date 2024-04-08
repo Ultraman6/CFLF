@@ -7,13 +7,16 @@ from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
 from manager.save import Filer
+from visual.models import Experiment
+from visual.parts.constant import state_dict
 from visual.parts.record import RecordManager
 
 
 class res_ui:
-    def __init__(self, experiment):
+    def __init__(self, experiment, configer, previewer):
         self.res_saver = RecordManager('res', self)
-
+        self.configer = configer
+        self.previewer = previewer
         self.dialog = None
         self.experiment = experiment  # 此时的管理类已经拥有了任务执行结果
         self.infos_dict = {}  # 无任何响应式
@@ -44,17 +47,31 @@ class res_ui:
                         <q-tooltip>删除</q-tooltip>
                     </q-btn> 
                     <q-btn v-if="props.row.type=='新'" outline size="sm" color="green" round dense icon="save"
-                        @click="() => $parent.$emit('save', props.row)"
-                        >
+                        @click="() => $parent.$emit('save', props.row)">
                         <q-tooltip>保存</q-tooltip>
                     </q-btn>
                 </q-td>
             ''')
             table.on("delete", self.delete_res)
             table.on("save", self.save_res)
-
+            ui.button('将本次实验结果保存至数据库', on_click=self.han_save).classes('w-full flat dense')
         self.draw_res()
 
+    # 将本次实验的全部信息保存至数据库
+    def han_save(self):
+        des = to_ref('')
+        with ui.dialog().props('persistent') as dialog, ui.card():
+            rxui.textarea(des, placeholder='请为本实验添加一些描述')
+            ui.button('确定保存', on_click=lambda: save_to_db)
+            ui.button('暂不保存', on_click=dialog.close)
+
+        async def save_to_db():
+            config = {'tem': self.configer.algo_args, 'algo': self.configer.exp_args}
+            dis = self.previewer.visual_data_infos
+            state, mes = await Experiment.create_new_exp(name=self.experiment.name, user=app.storage.user['user']['id'], config=config, dis=dis,
+                                            task_names=self.task_names, res=self.infos_dict, des=des.value)
+            ui.notify(mes, type=state_dict[state])
+            dialog.close()
 
     # 结果保存API
     def save_res(self, e: events.GenericEventArguments):
@@ -296,8 +313,6 @@ class res_ui:
                 'right': '10%',  # 右侧留白
                 'bottom': '10%',  # 底部留白
                 'top': '10%',  # 顶部留白
-                # 'width': "50%",
-                # 'height': "80%",
                 'containLabel': True  # 包含坐标轴在内的宽高设置
             },
             'tooltip': {

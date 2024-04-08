@@ -52,7 +52,7 @@ class RecordManager:
     def show_panel(self):
         with ui.row():
             with rxui.card().tight():
-                rxui.button(text=path_dict[self.key]['name']+'存放路径', icon='file', on_click=partial(han_fold_choice, self.dir_ref))
+                rxui.button(text=path_dict[self.key]['name']+'存放路径', icon='file', on_click=partial(han_fold_choice, self.dir_ref)).classes('w-full')
                 rxui.label(self.dir_ref)
             rxui.button('历史'+path_dict[self.key]['name'], on_click=lambda: self.show_dialog())
             rxui.button('保存'+path_dict[self.key]['name'], on_click=self.han_save).bind_visible(self.key!='res')

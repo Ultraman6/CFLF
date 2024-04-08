@@ -83,7 +83,7 @@ class experiment_page:
 
     @ui.refreshable_method
     def get_res_ui(self):
-        self.run_ui = res_ui(self.pre_ui.experiment)
+        self.run_ui = res_ui(self.pre_ui.experiment, self.cf_ui, self.pre_ui)
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()

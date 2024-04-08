@@ -12,10 +12,16 @@ from visual.pages.frameworks import FramWindow
 from visual.models import User
 from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
 from visual.parts.constant import idx_dict, unrestricted_page_routes, state_dict
-from visual.parts.func import to_base64, han_fold_choice, detect_use, my_vmodel
+from visual.parts.func import to_base64, han_fold_choice, my_vmodel
 from visual.parts.lazy.lazy_card import build_card
 
-
+async def detect_use():
+    user = await User.get_or_none(username=app.storage.user["user"]['username'])
+    if user is None:
+        app.storage.user.clear()
+        ui.navigate.to('/hall')
+    else:
+        return user
 
 @ui.page('/')
 async def main_page() -> None:
@@ -131,11 +137,14 @@ async def login() -> Optional[RedirectResponse]:
 async def register() -> Optional[RedirectResponse]:
     async def try_register() -> None:
         # 创建新用户并保存到数据库
-        state, mes, order = await User.register(sign_info)
+        state, *info = await User.register(sign_info)
         if state:
+            mes, order = info
             app.storage.user.update({'user': order, 'authenticated': True})
             # 导航到用户原来想要去的页面或首页
             ui.navigate.to(app.storage.user.get('referrer_path', '/'))
+        else:
+            mes = info
         ui.notify(mes, color=state_dict[state])
 
     if app.storage.user.get('authenticated', False):

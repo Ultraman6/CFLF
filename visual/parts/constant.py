@@ -1,4 +1,6 @@
 # 公共配置：深度学习、联邦学习、可视化等常量配置
+import os
+
 dl_configs = {
     "dataset": {
         'name': '数据集', 'help': '深度学习数据集',
@@ -283,7 +285,12 @@ profile_dict = {
 path_dict = {
     'tem': {'name': '算法模板'}, 'algo': {'name': '算法配置'}, 'res': {'name': '任务结果'}
 }
-ai_config_dict = {'api_key': {'name': '接口密钥', 'default': ''}}
+ai_config_dict = {
+    'api_key': {'name': '接口密钥', 'default': ''},
+    'chat_history': {'name': '对话记录路径', 'default': os.path.abspath(os.path.join('..', 'files', 'chat_history'))},
+    'embedding_files': {'name': '文件记录路径','default': os.path.abspath(os.path.join('..', 'files', 'embedding_files'))},
+    'index_files': {'name': '文件索引路径', 'default': os.path.abspath(os.path.join('..', 'files', 'index_files'))},
+}
 idx_dict = {'登录': '/login', '注册': '/register', '答疑': '/doubt'}
 state_dict = {True: 'positive', False: 'negative'}
 

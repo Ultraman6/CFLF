@@ -1,11 +1,53 @@
 import copy
+import json
 import os
+from datetime import datetime
 from sqlite3 import IntegrityError
 from ex4nicegui import to_ref
 from tortoise import fields, models
 from passlib.hash import bcrypt
 from typing import Dict
+
+from tortoise.exceptions import DoesNotExist
+from tortoise.transactions import in_transaction
+
 from visual.parts.constant import profile_dict, path_dict, ai_config_dict
+from visual.parts.func import to_base64, get_image_data
+
+
+class Experiment(models.Model):
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=255)
+    time = fields.DatetimeField(auto_now_add=True)
+    user = fields.ForeignKeyField('models.User', related_name='experiments')
+    config = fields.JSONField()
+    distribution = fields.JSONField(null=True)
+    task_names = fields.JSONField(null=True)
+    results = fields.JSONField(null=True)
+    description = fields.TextField(null=True)
+
+    @classmethod
+    async def create_new_exp(cls, name: str, user: int, config: dict, dis: dict, task_names: dict, res: dict, des: str) -> (bool, str):
+        try:
+            time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await cls.create(name=name, user=user, time=time, config=config,
+                             distribution = dis, task_names=task_names, results=res, description=des)
+            return True, f"{name}信息保存成功"
+        except IntegrityError:
+            # 如果违反了数据库的唯一性约束等
+            return False, "保存失败(完整性错误)"
+        except Exception as e:
+            # 捕获其他可能的异常，并返回错误消息
+            return False, f"保存失败(其他错误): {str(e)}"
+
+    def remove(self):
+        try:
+            self.delete()
+            return True, f"{self.name}数据删除成功"
+        except IntegrityError:
+            return False, "删除失败(完整性错误)"
+        except Exception as e:
+            return False, f"删除失败(其他错误): {str(e)}"
 
 
 class User(models.Model):
@@ -14,8 +56,10 @@ class User(models.Model):
     password = fields.CharField(max_length=255)
     profile = fields.JSONField(null=True)  # 包含学历和研究方向的JSON字段
     local_path = fields.JSONField(null=True)  # 包含三种本地路径的JSON字段
-    avatar = fields.TextField(null=True)   # 用户头像路径
+    avatar = fields.TextField(null=True)   # 用户头像base64字符串
     ai_config = fields.JSONField(null=True)
+    share = fields.JSONField(null=True)  # 用户分享（id集合）
+    shared = fields.JSONField(null=True)  # 用户接收到的分享（id集合）
 
     @staticmethod
     def get_tem_dict():
@@ -34,7 +78,7 @@ class User(models.Model):
             'pwd': to_ref(''),
             'profile': profile,
             'local_path': path,
-            'avatar': to_ref('https://nicegui.io/logo_square.png')
+            'avatar': to_ref(to_base64(get_image_data('running/default_logo.png')))
         }
 
     def get_dict(self):
@@ -98,6 +142,53 @@ class User(models.Model):
         else:
             return False, f'user对象没有{k}属性'
 
+    @classmethod
+    async def get_unshare(cls, uid):
+        # 查询共享用户的ID和用户名
+        user = await User.get(id=uid)
+        return await User.filter(id__not_in=user.share + [user.id]).values_list('id', flat=True)
+
+    @classmethod
+    async def set_share(cls, uid: int, share_ids: list):
+        async with in_transaction() as transaction:
+            try:
+                user = await User.get(id=uid)
+                original_share_ids = user.share if user.share else []
+                # 更新发起共享的用户的`share`属性
+                user.share = share_ids
+                await user.save()
+                # 找出新添加的共享用户ID和被移除的共享用户ID
+                added_share_ids = [sid for sid in share_ids if sid not in original_share_ids]
+                removed_share_ids = [sid for sid in original_share_ids if sid not in share_ids]
+                # 处理新添加的共享用户
+                if added_share_ids:
+                    added_users = await User.filter(id__in=added_share_ids)
+                    for user in added_users:
+                        if not user.shared:
+                            user.shared = []
+                        if uid not in user.shared:
+                            user.shared.append(uid)
+                    await User.bulk_update(added_users, fields=['shared'])
+                # 处理被移除的共享用户
+                if removed_share_ids:
+                    removed_users = await User.filter(id__in=removed_share_ids)
+                    for user in removed_users:
+                        if user.shared and uid in user.shared:
+                            user.shared.remove(uid)
+                    await User.bulk_update(removed_users, fields=['shared'])
+            except IntegrityError:
+                await transaction.rollback()
+                return False, "共享用户设置失败(完整性错误)"
+            except Exception as e:
+                await transaction.rollback()
+                return False, f"共享用户设置失败: {str(e)}"
+        return True, "共享用户设置成功"
+
+    @classmethod
+    async def get_share(cls, uid):
+        # 查询共享用户的ID和用户名
+        user = await User.get(id=uid)
+        return await User.filter(id__in=user.share).values_list('id', 'username')
 
     @classmethod
     async def get_all_users(cls):
@@ -136,7 +227,8 @@ class User(models.Model):
             hashed_password = bcrypt.hash(pwd)
             # 创建新用户
             ai_config = {k: v['default'] for k, v in ai_config_dict.items()}
-            user = await cls.create(username=uname, password=hashed_password, profile=profile, local_path=local_path, avatar=avatar, ai_config=ai_config)
+            user = await cls.create(username=uname, password=hashed_password, profile=profile,
+                                    local_path=local_path, avatar=avatar, ai_config=ai_config, share=[], shared=[])
             return True, "注册成功", dict(user)
         except IntegrityError:
             # 如果违反了数据库的唯一性约束等
@@ -144,6 +236,11 @@ class User(models.Model):
         except Exception as e:
             # 捕获其他可能的异常，并返回错误消息
             return False, f"注册失败(其他错误): {str(e)}"
+
+    @classmethod
+    async def get_uname_by_id(cls, uid: int) -> str:
+        user = await cls.get_or_none(id=uid)
+        return user.username
 
     async def set_username(self, uname: str) -> (bool, str):
         if not uname or uname == '':

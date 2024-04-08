@@ -86,8 +86,7 @@ def copy_raw_ref(info_dict, copy_dict):
 class ExperimentManager:
     def __init__(self, args_template, exp_args):
         exp_args = vars(exp_args)
-        if exp_args is None:
-            exp_args = {}  # 如果没有提供exp_args，使用空字典
+        self.exp_args = exp_args
         self.exp_name = exp_args.get('name', 'DefaultExperiment')
         self.algo_queue = exp_args.get('algo_params', [])  # 如果没有提供，默认为空列表
         self.same = {'model': exp_args.get('same_model', True), 'data': exp_args.get('same_data', True)}

@@ -1,6 +1,6 @@
 from nicegui import ui, app
 
-from visual.modules.subscribers import self_info, self_record
+from visual.modules.subscribers import self_info, self_record, self_experiment
 from visual.pages.AI import ai_interface, ai_config
 from visual.pages.epxeriment import experiment_page
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
@@ -16,7 +16,7 @@ class FramWindow:
         }
         self.unit_mapping = {
             '实验模拟': experiment_page, '算法配置': ui.label, '模型配置': ui.label, '数据集配置': ui.label, '机器配置': ui.label,
-            '个人信息': self_info, '历史记录': self_record, '历史模型': ui.label,
+            '个人信息': self_info, '历史记录': self_record, '历史实验': self_experiment,
             'AI配置': ai_config, 'AI结果': ai_interface
         }
         self.tabs = lazy_tabs(on_change=lambda: self.on_main_tab_change())
@@ -39,7 +39,7 @@ class FramWindow:
         for key in self.tab_mapping:
             self.tabs.add(ui.tab(key))
         self.tabs.move(header)
-        left_drawer = ui.left_drawer(top_corner=False, bottom_corner=True).classes('bg-blue-100')
+        left_drawer = ui.left_drawer(top_corner=False, bottom_corner=True).classes('bg-neutral-100')
         ui.space().move(header)
         with ui.avatar() as avatar:
             ui.image(source=app.storage.user["user"]['avatar']).classes('w-full h-full')
