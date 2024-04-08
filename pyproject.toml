@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "cflf"
+version = "0.1.0"
+description = ""
+authors = ["Extraordinary <3023538364@qq.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+ex4nicegui = "0.6.4"
+fastapi = "0.110.1"
+fedml = "0.8.28"
+h5py = "3.10.0"
+langchain = "0.1.14"
+langchain_community = "0.0.31"
+langchain_openai = "0.1.1"
+llama_index = "0.10.27"
+matplotlib = "3.8.3"
+nicegui = "1.4.20"
+numpy = "1.26.4"
+openpyxl = "3.1.2"
+pandas = "2.0.3"
+passlib = "1.7.4"
+Pillow = "10.3.0"
+py_cpuinfo = "9.0.0"
+python-dotenv = "1.0.1"
+pywin32 = { version = "306", optional = true }  # 标记为可选依赖，如果不需要可以删除或标记
+PyYAML = "6.0.1"
+Requests = "2.31.0"
+scikit_learn = "1.4.1.post1"
+scipy = "1.13.0"
+sortedcontainers = "2.4.0"
+starlette = "0.37.2"
+torch = "2.2.1"
+torchvision = "0.17.1"
+tortoise = "0.1.1"
+tqdm = "4.66.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
