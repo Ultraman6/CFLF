@@ -70,11 +70,11 @@ def self_info():
             ui.notify(mes, color=state_dict[state])
 
         with ui.row():
-            with dnd.column_box("已共享的用户", on_drop=handle_drop) as share_box:
+            with ld.lazy_drop("已共享的用户", on_drop=handle_drop) as share_box:
                 for uid, uname in share:
                     ld.card(INFO(uid, uname))
             ui.button("全部私密", on_click=unshare_all)
-            with dnd.column_box("未共享的用户", on_drop=handle_drop) as unshare_box:
+            with ld.lazy_drop("未共享的用户", on_drop=handle_drop) as unshare_box:
                 for uid, uname in share:
                     ld.card(INFO(uid, uname))
             ui.button("全部共享", on_click=share_all)

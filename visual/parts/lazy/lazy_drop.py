@@ -12,7 +12,7 @@ class Item(Protocol):
 dragged: Optional[card] = None
 
 
-class column_box(ui.column):
+class lazy_drop(ui.column):
     def __init__(
         self, name: str, on_drop: Optional[Callable[[Item, str], None]] = None
     ) -> None:
@@ -45,7 +45,7 @@ class column_box(ui.column):
     def unhighlight(self) -> None:
         self.classes(remove="bg-blue-grey-3", add="bg-blue-grey-2")
 
-    def move_all_cards(self, descendant: column_box) -> None:
+    def move_all_cards(self, descendant: lazy_drop) -> None:
         for card in list(self.cards_container):
             card.move(descendant.cards_container)
 
