@@ -1,7 +1,7 @@
 import argparse
 import colorsys
 import random
-
+from visual.parts.func import cal_dis_dict
 from ex4nicegui.reactive import rxui
 from nicegui import ui, run
 
@@ -58,7 +58,7 @@ class preview_ui:
                     with rxui.card().classes('w-full'):
                         target = name_mapping[name]
                         rxui.label(target).classes('w-full')
-                        rxui.echarts(self.cal_dis_dict(self.visual_data_infos[name], target=target))
+                        rxui.echarts(cal_dis_dict(self.visual_data_infos[name], target=target))
         else:  # 展示每个算法的划分数据 (多加一层算法名称的嵌套)
             with lazy_tabs() as tabs:
                 for name in self.visual_data_infos:
@@ -78,8 +78,7 @@ class preview_ui:
                             for item in self.visual_data_infos[name]:
                                 target = name_mapping[item]
                                 rxui.label(target).classes('w-full')
-                                ui.echart(self.cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes(
-                                    'w-full')
+                                ui.echart(cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes('w-full')
                     closure(tid)
 
     def assemble_params(self):
@@ -115,73 +114,6 @@ class preview_ui:
         self.draw_distribution.refresh()
         ui.notify('查看数据划分')
 
-    def cal_dis_dict(self, infos, target='训练集'):
-        infos_each = infos['each']
-        infos_all = infos['all']
-        num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0])  # 现在还有噪声数据，必须取元组的首元素
-        num_classes = len(infos_each)
-        colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
-        legend_dict, series_dict = get_dicts(colors, infos_each, infos_all)
-        return {
-            "xAxis": {
-                "type": "category",
-                "name": target + 'ID',
-                "data": [target + str(i) for i in range(num_clients)],
-            },
-            "yAxis": {
-                "type": "value",
-                "name": '样本分布',
-                "minInterval": 1,  # 设置Y轴的最小间隔
-                "axisLabel": {
-                    'interval': 'auto',  # 根据图表的大小自动计算步长
-                },
-            },
-            'legend': {
-                'data': legend_dict,
-                'type': 'scroll',  # 启用图例的滚动条
-                'pageButtonItemGap': 5,
-                'pageButtonGap': 20,
-                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            },
-            "series": series_dict,
-            'tooltip': {
-                'trigger': 'item',
-                'axisPointer': {
-                    'type': 'shadow'
-                },
-                'formatter': "{b} <br/>{a} <br/> 数量{c}",
-                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-            },
-            'grid': {
-                'left': '3%',
-                'right': '4%',
-                'bottom': '10%',
-                'containLabel': True
-            },
-            'dataZoom': [{
-                'type': 'slider',
-                'xAxisIndex': [0],
-                'start': 10,
-                'end': 90,
-                'height': 5,
-                'bottom': 10,
-                # 'showDetail': False,
-                'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
-                'handleSize': '80%',
-                'handleStyle': {
-                    'color': '#fff',
-                    'shadowBlur': 3,
-                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
-                    'shadowOffsetX': 2,
-                    'shadowOffsetY': 2
-                },
-                'textStyle': {
-                    'color': "transparent"
-                },
-                # 使用 borderColor 透明来隐藏非激活状态的边框
-                'borderColor': "transparent"
-            }],
-        }
 
     def save_algo_args(self):
         ui.notify('save_algo_args')

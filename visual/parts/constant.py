@@ -287,6 +287,8 @@ path_dict = {
 }
 ai_config_dict = {
     'api_key': {'name': '接口密钥', 'default': ''},
+    'last_model': {'name': '上次模型', 'default': ''},
+    'temperature': {'name': '温度', 'default': 0.1},
     'chat_history': {'name': '对话记录路径', 'default': os.path.abspath(os.path.join('..', 'files', 'chat_history'))},
     'embedding_files': {'name': '文件记录路径','default': os.path.abspath(os.path.join('..', 'files', 'embedding_files'))},
     'index_files': {'name': '文件索引路径', 'default': os.path.abspath(os.path.join('..', 'files', 'index_files'))},

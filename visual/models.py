@@ -12,7 +12,7 @@ from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
 from visual.parts.constant import profile_dict, path_dict, ai_config_dict
-from visual.parts.func import to_base64, get_image_data
+from visual.parts.func import to_base64, get_image_data, move_all_files
 
 
 class Experiment(models.Model):
@@ -48,7 +48,6 @@ class Experiment(models.Model):
             return False, "删除失败(完整性错误)"
         except Exception as e:
             return False, f"删除失败(其他错误): {str(e)}"
-
 
 class User(models.Model):
     id = fields.IntField(pk=True)
@@ -285,11 +284,42 @@ class User(models.Model):
         if self.local_path == new_local_path:
             return True, "本地路径无需更新"
         try:
+            for k, v in new_local_path.items():
+                if not os.path.exists(v):
+                    return False, f"本地路径设置{k}失败: {v}不存在"
+                elif not os.path.isdir(v):
+                    return False, f"本地路径{k}设置失败: {v}不是文件夹"
+                last_path = self.local_path[k]
+                if last_path != v:
+                    await move_all_files(last_path, v)
+
             self.local_path = new_local_path
             await self.save()
             return True, "本地路径更新成功"
         except Exception as e:
             return False, f"本地路径更新失败: {str(e)}"
+
+    @classmethod
+    async def set_ai_config(cls, uid, new_ai_config: Dict) -> (bool, str):
+        user = await cls.get(id=uid)
+        if user.ai_config == new_ai_config:
+            return True, "AI配置无需更新"
+        try:
+            for k, v in new_ai_config.items():
+                if k in ['chat_history', 'embedding_files', 'index_files']:
+                    if not os.path.exists(v):
+                        return False, f"AI配置{k}设置失败: {v}不存在"
+                    elif not os.path.isfile(v):
+                        return False, f"AI配置{k}设置失败: {v}不是文件"
+                    last_path = user.local_path[k]
+                    if last_path != v:
+                        await move_all_files(last_path, v)
+
+            user.ai_config = new_ai_config
+            await user.save()
+            return True, "AI配置更新更新成功"
+        except Exception as e:
+            return False, f"AI配置更新失败: {str(e)}"
 
     async def set_avatar(self, new_avatar: str) -> (bool, str):
         if self.avatar == new_avatar:

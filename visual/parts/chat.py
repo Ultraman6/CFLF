@@ -33,7 +33,7 @@ class ChatApp(Embedding):
         self.json_directory = chat_history
         
 
-    def on_value_change(self, ename="gpt-3.5-turbo", etemp="0.1", embedding_switch=False):
+    async def on_value_change(self, ename="gpt-3.5-turbo", etemp="0.1", embedding_switch=False):
         """
         Changes the value of the model and temperature for the ConversationChain.
         Parameters:
@@ -43,7 +43,8 @@ class ChatApp(Embedding):
         #Open texts withe the models
         self.llm = ConversationChain(llm=ChatOpenAI(model_name=ename, openai_api_key=self.openai_api_key, temperature=etemp),
                                      memory=self.memory) if self.openai_api_key != '' else None
-        app.storage.user['last_model'] = ename
+        app.storage.user['user']['ai_configs']['last_model'] = ename
+        app.storage.user['user']['ai_configs']['temperature'] = etemp
         self.embedding_switch = embedding_switch
 
     @ui.refreshable

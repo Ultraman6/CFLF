@@ -2,7 +2,7 @@
 import asyncio
 from dataclasses import dataclass
 from typing import List
-
+from visual.parts.func import cal_dis_dict, control_global_echarts, control_local_echarts
 from ex4nicegui import to_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
@@ -14,11 +14,13 @@ from visual.parts.func import get_dicts, color, ncolors
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
 import visual.parts.lazy.lazy_drop as ld
+from visual.parts.func import get_global_option, get_local_option
 
 @dataclass
 class INFO:
     value: int
     title: str
+
 
 # 查看个人信息
 def self_info():
@@ -27,32 +29,20 @@ def self_info():
     with ui.grid(columns=1).classes('items-center'):
         with ui.avatar():
             ui.image(user_info['avatar'])
-        ui.label('用户名: '+user_info['username'])
+        ui.label('用户名: ' + user_info['username'])
     with ui.column():
         for k, v in profile_dict.items():
-            ui.label(v['name']+': '+str(v['options'][user_info['profile'][k]]))
+            ui.label(v['name'] + ': ' + str(v['options'][user_info['profile'][k]]))
     with ui.column():
         for k, v in path_dict.items():
-            ui.label(v['name']+': '+str(user_info['local_path'][k]))
+            ui.label(v['name'] + ': ' + str(user_info['local_path'][k]))
     ui.button('修改共享信息', on_click=lambda e: init_share(e))
+
     async def init_share(e):
         btn: ui.button = e.sender
-        btn.delete()    # 这样如果任务还没能接收，也会提前告知任务
+        btn.delete()  # 这样如果任务还没能接收，也会提前告知任务
         share = await User.get_share(user_info['id'])
         unshare = await User.get_unshare(user_info['id'])
-        with ui.row():
-            with ui.column():
-                share_box = ld.column('已共享的用户', on_drop=lambda: handle_drop())
-                with share_box.row:
-                    for uid, uname in share:
-                        ld.card(INFO(uid, uname))
-                ui.button("全部私密", on_click=lambda: unshare_all)
-            with ui.column():
-                unshare_box = ld.column('未共享的用户', on_drop=lambda: handle_drop())
-                with unshare_box.row:
-                    for uid, uname in unshare:
-                        ld.card(INFO(uid, uname))
-                ui.button("全部共享", on_click=lambda: share_all)
 
         def handle_drop(info: INFO, location: str):
             if location == '已共享的用户':
@@ -61,22 +51,34 @@ def self_info():
             else:
                 unshare.append((info.value, info.title))
                 share.remove((info.value, info.title))
-
             ui.notify(f'用户: {info.title}现已设置为: {location}')
-        ui.button('修改共享', on_click=lambda: update_share())
 
         def unshare_all():
-            for child in list(share_box.row): # 从前往后
-                child.move(unshare_box.row)
+            share_box.move_all_cards(unshare_box)
+            length = len(share)
+            for i in range(length):  # 从前往后
                 unshare.append(share.pop(0))
+
         def share_all():
-            for child in list(unshare_box.row): # 从前往后
-                child.move(share_box.row)
+            unshare_box.move_all_cards(share_box)
+            length = len(unshare)
+            for i in range(length):  # 从前往后
                 share.append(unshare.pop(0))
 
         async def update_share():
             state, mes = await User.set_share(user_info['id'], share)
             ui.notify(mes, color=state_dict[state])
+
+        with ui.row():
+            with dnd.column_box("已共享的用户", on_drop=handle_drop) as share_box:
+                for uid, uname in share:
+                    ld.card(INFO(uid, uname))
+            ui.button("全部私密", on_click=unshare_all)
+            with dnd.column_box("未共享的用户", on_drop=handle_drop) as unshare_box:
+                for uid, uname in share:
+                    ld.card(INFO(uid, uname))
+            ui.button("全部共享", on_click=share_all)
+        ui.button('修改共享', on_click=update_share)
 
 
 # 管理个人历史记录
@@ -115,7 +117,7 @@ def self_record():
                         {'name': 'name', 'label': '实验名称', 'field': 'name'},
                         {'name': 'time', 'label': '完成时间', 'field': 'time'},
                     ]
-                    table_dict[k]= ui.table(columns=columns, rows=path_reader[k].his_list).props('grid')
+                    table_dict[k] = ui.table(columns=columns, rows=path_reader[k].his_list).props('grid')
                     table_dict[k].add_slot('item', r'''
                         <q-card flat bordered :props="props" class="m-1">
                             <q-card-section class="text-center">
@@ -149,6 +151,7 @@ def view_mapping(k, info):
         elif k == 'res':
             view_res(info['info'], info['name'])
     return dialog
+
 
 def view_tem(info):
     with ui.tabs().classes('w-full') as tabs:
@@ -234,7 +237,9 @@ def view_tem(info):
                                                     rxui.label(v1['name'])
                                                     ui.separator().props('vertical')
                                                     ui.label(info[k1])
+
                                         show_metric(k1, v1)
+
 
 def view_algo(info):
     with ui.row():
@@ -245,7 +250,7 @@ def view_algo(info):
                 with ui.row().classes('w-full'):
                     ui.label(value['name'])
                     ui.separator().props('vertical')
-                    genre= value['type']
+                    genre = value['type']
                     if genre == 'choice':
                         ui.label(value['options'][info[key]])
                     elif genre == 'bool':
@@ -262,22 +267,22 @@ def view_algo(info):
                                     ui.label(value['options'][info[k1]])
                                 else:
                                     ui.label(info[k1])
-    algo_module =  []
+    algo_module = []
     info_list = []
     with ui.tabs().classes('w-full') as tabs:
         for i, item in enumerate(info['algo_params']):
-            algo_module.append(ui.tab('算法'+str(i)))
+            algo_module.append(ui.tab('算法' + str(i)))
             info_list.append(item['params'])
 
     with lazy_tab_panels(tabs).classes('w-full'):
         for module, info in zip(algo_module, info_list):
             with ui.tab_panel(module):
                 with ui.row():
-                    ui.label('算法类型: '+ (info['type'] if 'type' in info else '未知'))
+                    ui.label('算法类型: ' + (info['type'] if 'type' in info else '未知'))
                     ui.separator().props('vertical')
-                    ui.label('算法场景: '+ (info['scene'] if 'scene' in info else '未知'))
+                    ui.label('算法场景: ' + (info['scene'] if 'scene' in info else '未知'))
                     ui.separator().props('vertical')
-                    ui.label('算法名称: '+ (info['name'] if 'name' in info else '未知'))
+                    ui.label('算法名称: ' + (info['name'] if 'name' in info else '未知'))
                 with ui.tabs().classes('w-full') as tabs:
                     dl_module = ui.tab('深度学习配置')
                     fl_module = ui.tab('联邦学习配置')
@@ -373,6 +378,7 @@ def view_algo(info):
                                                                 with ui.row():
                                                                     ui.label(item)
                                                                     ui.separator().props('vertical')
+
                                                     show_metric(k1, v1)
 
 
@@ -430,178 +436,6 @@ def view_res(task_info, task_name):
                     control_local_echarts(infos_dict[info_spot][tid])
 
 
-def control_global_echarts(info_name, infos_dicts, task_names):
-    mode_ref = to_ref(list(infos_dicts.keys())[0])
-    with rxui.column().classes('w-full'):
-        rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
-        rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names), not_merge=False).classes('w-full')
-
-
-def control_local_echarts(infos_dicts):
-    with rxui.grid(columns=2).classes('w-full'):
-        for info_name in infos_dicts:
-            with rxui.column().classes('w-full'):
-                mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
-                rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
-                rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name:
-                             get_local_option(infos_dicts[info_name],mode_ref, info_name),not_merge=False).classes('w-full')
-
-
-# 全局信息使用算法-指标-轮次/时间的方式展示
-def get_global_option(infos_dict, mode_ref, info_name, task_names):
-    return {
-        'grid': {
-            'left': '10%',  # 左侧留白
-            'right': '10%',  # 右侧留白
-            'bottom': '10%',  # 底部留白
-            'top': '10%',  # 顶部留白
-        },
-        'tooltip': {
-            'trigger': 'axis',
-            'axisPointer': {
-                'type': 'cross',
-                'lineStyle': {  # 设置纵向指示线
-                    'type': 'dashed',
-                    'color': "rgba(198, 196, 196, 0.75)"
-                }
-            },
-            'crossStyle': {  # 设置横向指示线
-                'color': "rgba(198, 196, 196, 0.75)"
-            },
-            'formatter': "算法{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
-            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-        },
-        "xAxis": {
-            "type": 'value',
-            "name": mode_ref.value,
-            'minInterval': 1 if mode_ref.value == 'round' else None,
-        },
-        "yAxis": {
-            "type": "value",
-            "name": info_name,
-            "axisLabel": {
-                'interval': 'auto',  # 根据图表的大小自动计算步长
-            },
-            'splitNumber': 5,  # 分成5个区间
-        },
-        'legend': {
-            'data': [task_names[tid] for tid in task_names],
-            'type': 'scroll',  # 启用图例的滚动条
-            'orient': 'horizontal',  # 横向排列
-            'pageButtonItemGap': 5,
-            'pageButtonGap': 20,
-            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            'itemWidth': 25,  # 控制图例标记的宽度
-            'itemHeight': 14,  # 控制图例标记的高度
-            'width': '70%',
-            'left': '15%',
-            'right': '15%',
-            'textStyle': {
-                'width': 80,  # 设置图例文本的宽度
-                'overflow': 'truncate',  # 当文本超出宽度时，截断文本
-                'ellipsis': '...',  # 截断时末尾添加的字符串
-            },
-            'tooltip': {
-                'show': True  # 启用悬停时的提示框
-            }
-        },
-        'series': [
-            {
-                'name': task_names[tid],
-                'type': 'line',
-                'data': infos_dict[mode_ref.value][tid],
-                'connectNulls': True,  # 连接数据中的空值
-            }
-            for tid in infos_dict[mode_ref.value]
-        ],
-        'dataZoom': [
-            {
-                'type': 'inside',  # 放大和缩小
-                'orient': 'vertical',
-                'start': 0,
-                'end': 100,
-                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-            },
-            {
-                'type': 'inside',
-                'start': 0,
-                'end': 100,
-                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-            }
-        ],
-    }
-
-
-# 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
-def get_local_option(info_dict: dict, mode_ref, info_name: str):
-    return {
-        'grid': {
-            'left': '10%',  # 左侧留白
-            'right': '10%',  # 右侧留白
-            'bottom': '10%',  # 底部留白
-            'top': '10%',  # 顶部留白
-            'containLabel': True  # 包含坐标轴在内的宽高设置
-        },
-        'tooltip': {
-            'trigger': 'axis',
-            'axisPointer': {
-                'type': 'cross',
-                'lineStyle': {  # 设置纵向指示线
-                    'type': 'dashed',
-                    'color': "rgba(198, 196, 196, 0.75)"
-                }
-            },
-            'crossStyle': {  # 设置横向指示线
-                'color': "rgba(198, 196, 196, 0.75)"
-            },
-            'formatter': "客户{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
-            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-        },
-        "xAxis": {
-            "type": 'value',
-            "name": mode_ref.value,
-            'minInterval': 1 if mode_ref.value == 'round' else None,
-        },
-        "yAxis": {
-            "type": "value",
-            "name": info_name,
-            "axisLabel": {
-                'interval': 'auto',  # 根据图表的大小自动计算步长
-            },
-            'splitNumber': 5,  # 分成5个区间
-        },
-        'legend': {
-            'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]]
-        },
-        'series': [
-            {
-                'name': '客户' + str(cid),
-                'type': 'line',
-                'data': info_dict[mode_ref.value][cid],
-                'connectNulls': True,  # 连接数据中的空值
-            }
-            for cid in info_dict[mode_ref.value]
-        ],
-        'dataZoom': [
-            {
-                'type': 'inside',  # 放大和缩小
-                'orient': 'vertical',
-                'start': 0,
-                'end': 100,
-                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-            },
-            {
-                'type': 'inside',
-                'start': 0,
-                'end': 100,
-                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-            }
-        ],
-    }
 
 # 查看历史保存的实验完整信息界面
 def self_experiment():
@@ -644,7 +478,8 @@ def self_experiment():
         {'name': 'user', 'label': '完成者', 'field': 'user'},
         {'name': 'des', 'label': '实验描述', 'field': 'des'},
     ]
-    records:List[Experiment] = []
+    records: List[Experiment] = []
+
     async def get_info() -> List[dict] and List[Experiment]:
         rows = []
         uid = app.storage.user['user']['id']
@@ -662,6 +497,7 @@ def self_experiment():
                 'type': uid == record.user
             })
         return rows, records
+
     rows, records = asyncio.run(get_info())
     table = ui.table(columns=columns, rows=rows, row_key='id').props('grid')
     table.add_slot('item', r'''
@@ -688,6 +524,7 @@ def self_experiment():
     table.on('view', view)
     table.on('delete', delete)
 
+
 def view_dis(visual_data_infos, same):
     if same:  # 直接展示全局划分数据
         with rxui.grid(columns=1).classes('w-full'):
@@ -710,73 +547,6 @@ def view_dis(visual_data_infos, same):
                             target = name_mapping[item]
                             rxui.label(target).classes('w-full')
                             ui.echart(cal_dis_dict(visual_data_infos[name][item], target=target)).classes('w-full')
-                closure(tid)
 
-def cal_dis_dict(infos, target='训练集'):
-    infos_each = infos['each']
-    infos_all = infos['all']
-    num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0])  # 现在还有噪声数据，必须取元组的首元素
-    num_classes = len(infos_each)
-    colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
-    legend_dict, series_dict = get_dicts(colors, infos_each, infos_all)
-    return {
-        "xAxis": {
-            "type": "category",
-            "name": target + 'ID',
-            "data": [target + str(i) for i in range(num_clients)],
-        },
-        "yAxis": {
-            "type": "value",
-            "name": '样本分布',
-            "minInterval": 1,  # 设置Y轴的最小间隔
-            "axisLabel": {
-                'interval': 'auto',  # 根据图表的大小自动计算步长
-            },
-        },
-        'legend': {
-            'data': legend_dict,
-            'type': 'scroll',  # 启用图例的滚动条
-            'pageButtonItemGap': 5,
-            'pageButtonGap': 20,
-            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-        },
-        "series": series_dict,
-        'tooltip': {
-            'trigger': 'item',
-            'axisPointer': {
-                'type': 'shadow'
-            },
-            'formatter': "{b} <br/>{a} <br/> 数量{c}",
-            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-        },
-        'grid': {
-            'left': '3%',
-            'right': '4%',
-            'bottom': '10%',
-            'containLabel': True
-        },
-        'dataZoom': [{
-            'type': 'slider',
-            'xAxisIndex': [0],
-            'start': 10,
-            'end': 90,
-            'height': 5,
-            'bottom': 10,
-            # 'showDetail': False,
-            'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
-            'handleSize': '80%',
-            'handleStyle': {
-                'color': '#fff',
-                'shadowBlur': 3,
-                'shadowColor': 'rgba(0, 0, 0, 0.6)',
-                'shadowOffsetX': 2,
-                'shadowOffsetY': 2
-            },
-            'textStyle': {
-                'color': "transparent"
-            },
-            # 使用 borderColor 透明来隐藏非激活状态的边框
-            'borderColor': "transparent"
-        }],
-    }
+                closure(tid)
 

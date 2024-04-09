@@ -1,7 +1,5 @@
 from datetime import datetime
 from functools import partial
-from tkinter import filedialog
-import tkinter as tk
 from ex4nicegui import to_ref, on, deep_ref
 from ex4nicegui.reactive import rxui, local_file_picker
 from nicegui import ui, app

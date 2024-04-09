@@ -1,7 +1,7 @@
 # 任务运行结果界面
 import time
 from datetime import datetime
-
+from visual.parts.func import get_global_option, get_local_option, control_global_echarts, control_local_echarts
 from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
@@ -189,7 +189,7 @@ class res_ui:
                                                     'hover:bg-blue-700')
                     with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_dict[info_spot]:
-                            self.control_global_echarts(info_name, self.infos_dict[info_spot][info_name])
+                            control_global_echarts(info_name, self.infos_dict[info_spot][info_name], self.task_names)
                 elif info_spot == 'local':
                     with rxui.column().classes('w-full'):
                         rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
@@ -198,179 +198,6 @@ class res_ui:
                         for tid in self.infos_dict[info_spot]:
                             rxui.label(self.task_names[tid]).tailwind(
                                 'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                            self.control_local_echarts(self.infos_dict[info_spot][tid])
+                            control_local_echarts(self.infos_dict[info_spot][tid])
 
-    def control_global_echarts(self, info_name, infos_dicts):
-        mode_ref = to_ref(list(infos_dicts.keys())[0])
-        with rxui.column():
-            rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
-            rxui.echarts(lambda: self.get_global_option(infos_dicts, mode_ref, info_name), not_merge=False).classes(
-                'w-full')
 
-    def control_local_echarts(self, infos_dicts):
-        with rxui.grid(columns=2).classes('w-full'):
-            for info_name in infos_dicts:
-                with rxui.column().classes('w-full'):
-                    mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
-                    rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
-                    rxui.echarts(
-                        lambda mode_ref=mode_ref, info_name=info_name: self.get_local_option(infos_dicts[info_name],
-                                                                                             mode_ref, info_name),
-                        not_merge=False).classes('w-full')
-
-    # 全局信息使用算法-指标-轮次/时间的方式展示
-    def get_global_option(self, infos_dict, mode_ref, info_name):
-        return {
-            'grid': {
-                'left': '10%',  # 左侧留白
-                'right': '10%',  # 右侧留白
-                'bottom': '10%',  # 底部留白
-                'top': '10%',  # 顶部留白
-            },
-            'tooltip': {
-                'trigger': 'axis',
-                'axisPointer': {
-                    'type': 'cross',
-                    'lineStyle': {  # 设置纵向指示线
-                        'type': 'dashed',
-                        'color': "rgba(198, 196, 196, 0.75)"
-                    }
-                },
-                'crossStyle': {  # 设置横向指示线
-                    'color': "rgba(198, 196, 196, 0.75)"
-                },
-                'formatter': "算法{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
-                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-            },
-            "xAxis": {
-                "type": 'value',
-                "name": mode_ref.value,
-                'minInterval': 1 if mode_ref.value == 'round' else None,
-            },
-            "yAxis": {
-                "type": "value",
-                "name": info_name,
-                "axisLabel": {
-                    'interval': 'auto',  # 根据图表的大小自动计算步长
-                },
-                'splitNumber': 5,  # 分成5个区间
-                # 'nameGap': '20%',
-            },
-            'legend': {
-                'data': [self.task_names[tid] for tid in self.task_names],
-                'type': 'scroll',  # 启用图例的滚动条
-                'orient': 'horizontal',  # 横向排列
-                'pageButtonItemGap': 5,
-                'pageButtonGap': 20,
-                'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-                'itemWidth': 25,  # 控制图例标记的宽度
-                'itemHeight': 14,  # 控制图例标记的高度
-                'width': '70%',
-                'left': '15%',
-                'right': '15%',
-                'textStyle': {
-                    'width': 80,  # 设置图例文本的宽度
-                    'overflow': 'truncate',  # 当文本超出宽度时，截断文本
-                    'ellipsis': '...',  # 截断时末尾添加的字符串
-                },
-                'tooltip': {
-                    'show': True  # 启用悬停时的提示框
-                }
-            },
-            'series': [
-                {
-                    'name': self.task_names[tid],
-                    'type': 'line',
-                    'data': infos_dict[mode_ref.value][tid],
-                    'connectNulls': True,  # 连接数据中的空值
-                }
-                for tid in infos_dict[mode_ref.value]
-            ],
-            'dataZoom': [
-                {
-                    'type': 'inside',  # 放大和缩小
-                    'orient': 'vertical',
-                    'start': 0,
-                    'end': 100,
-                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-                },
-                {
-                    'type': 'inside',
-                    'start': 0,
-                    'end': 100,
-                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-                }
-            ],
-        }
-
-    # 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
-    def get_local_option(self, info_dict: dict, mode_ref, info_name: str):
-        return {
-            'grid': {
-                'left': '10%',  # 左侧留白
-                'right': '10%',  # 右侧留白
-                'bottom': '10%',  # 底部留白
-                'top': '10%',  # 顶部留白
-                'containLabel': True  # 包含坐标轴在内的宽高设置
-            },
-            'tooltip': {
-                'trigger': 'axis',
-                'axisPointer': {
-                    'type': 'cross',
-                    'lineStyle': {  # 设置纵向指示线
-                        'type': 'dashed',
-                        'color': "rgba(198, 196, 196, 0.75)"
-                    }
-                },
-                'crossStyle': {  # 设置横向指示线
-                    'color': "rgba(198, 196, 196, 0.75)"
-                },
-                'formatter': "客户{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
-                'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
-            },
-            "xAxis": {
-                "type": 'value',
-                "name": mode_ref.value,
-                'minInterval': 1 if mode_ref.value == 'round' else None,
-            },
-            "yAxis": {
-                "type": "value",
-                "name": info_name,
-                "axisLabel": {
-                    'interval': 'auto',  # 根据图表的大小自动计算步长
-                },
-                'splitNumber': 5,  # 分成5个区间
-                # 'nameGap': '20%',
-            },
-            'legend': {
-                'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]]
-            },
-            'series': [
-                {
-                    'name': '客户' + str(cid),
-                    'type': 'line',
-                    'data': info_dict[mode_ref.value][cid],
-                    'connectNulls': True,  # 连接数据中的空值
-                }
-                for cid in info_dict[mode_ref.value]
-            ],
-            'dataZoom': [
-                {
-                    'type': 'inside',  # 放大和缩小
-                    'orient': 'vertical',
-                    'start': 0,
-                    'end': 100,
-                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-                },
-                {
-                    'type': 'inside',
-                    'start': 0,
-                    'end': 100,
-                    'minSpan': 1,  # 最小缩放比例，可以根据需要调整
-                    'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
-                }
-            ],
-        }

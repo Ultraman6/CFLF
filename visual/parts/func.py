@@ -2,10 +2,11 @@ import base64
 import colorsys
 import os
 import random
+import shutil
 from tkinter import filedialog
 import tkinter as tk
 import requests
-from ex4nicegui.reactive import local_file_picker
+from ex4nicegui.reactive import local_file_picker, rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
 from nicegui import app, ui
 from visual.parts.local_file_picker import local_file_picker
@@ -299,3 +300,270 @@ def color(value):
         a2 = digit.index(value[3]) * 16 + digit.index(value[4])
         a3 = digit.index(value[5]) * 16 + digit.index(value[6])
         return (a1, a2, a3)
+
+
+def cal_dis_dict(infos, target='训练集'):
+    infos_each = infos['each']
+    infos_all = infos['all']
+    num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0])  # 现在还有噪声数据，必须取元组的首元素
+    num_classes = len(infos_each)
+    colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
+    legend_dict, series_dict = get_dicts(colors, infos_each, infos_all)
+    return {
+        "xAxis": {
+            "type": "category",
+            "name": target + 'ID',
+            "data": [target + str(i) for i in range(num_clients)],
+        },
+        "yAxis": {
+            "type": "value",
+            "name": '样本分布',
+            "minInterval": 1,  # 设置Y轴的最小间隔
+            "axisLabel": {
+                'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+        },
+        'legend': {
+            'data': legend_dict,
+            'type': 'scroll',  # 启用图例的滚动条
+            'pageButtonItemGap': 5,
+            'pageButtonGap': 20,
+            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+        },
+        "series": series_dict,
+        'tooltip': {
+            'trigger': 'item',
+            'axisPointer': {
+                'type': 'shadow'
+            },
+            'formatter': "{b} <br/>{a} <br/> 数量{c}",
+            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+        },
+        'grid': {
+            'left': '3%',
+            'right': '4%',
+            'bottom': '10%',
+            'containLabel': True
+        },
+        'dataZoom': [{
+            'type': 'slider',
+            'xAxisIndex': [0],
+            'start': 10,
+            'end': 90,
+            'height': 5,
+            'bottom': 10,
+            # 'showDetail': False,
+            'handleIcon': 'M8.2,13.4V6.2h4V2.2H5.4V6.2h4v7.2H5.4v4h7.2v-4H8.2z',
+            'handleSize': '80%',
+            'handleStyle': {
+                'color': '#fff',
+                'shadowBlur': 3,
+                'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                'shadowOffsetX': 2,
+                'shadowOffsetY': 2
+            },
+            'textStyle': {
+                'color': "transparent"
+            },
+            # 使用 borderColor 透明来隐藏非激活状态的边框
+            'borderColor': "transparent"
+        }],
+    }
+
+# 全局信息使用算法-指标-轮次/时间的方式展示
+def get_global_option(infos_dict, mode_ref, info_name, task_names):
+    return {
+        'grid': {
+            'left': '10%',  # 左侧留白
+            'right': '10%',  # 右侧留白
+            'bottom': '10%',  # 底部留白
+            'top': '10%',  # 顶部留白
+        },
+        'tooltip': {
+            'trigger': 'axis',
+            'axisPointer': {
+                'type': 'cross',
+                'lineStyle': {  # 设置纵向指示线
+                    'type': 'dashed',
+                    'color': "rgba(198, 196, 196, 0.75)"
+                }
+            },
+            'crossStyle': {  # 设置横向指示线
+                'color': "rgba(198, 196, 196, 0.75)"
+            },
+            'formatter': "算法{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
+            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+        },
+        "xAxis": {
+            "type": 'value',
+            "name": mode_ref.value,
+            'minInterval': 1 if mode_ref.value == 'round' else None,
+        },
+        "yAxis": {
+            "type": "value",
+            "name": info_name,
+            "axisLabel": {
+                'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'splitNumber': 5,  # 分成5个区间
+        },
+        'legend': {
+            'data': [task_names[tid] for tid in task_names],
+            'type': 'scroll',  # 启用图例的滚动条
+            'orient': 'horizontal',  # 横向排列
+            'pageButtonItemGap': 5,
+            'pageButtonGap': 20,
+            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+            'itemWidth': 25,  # 控制图例标记的宽度
+            'itemHeight': 14,  # 控制图例标记的高度
+            'width': '70%',
+            'left': '15%',
+            'right': '15%',
+            'textStyle': {
+                'width': 80,  # 设置图例文本的宽度
+                'overflow': 'truncate',  # 当文本超出宽度时，截断文本
+                'ellipsis': '...',  # 截断时末尾添加的字符串
+            },
+            'tooltip': {
+                'show': True  # 启用悬停时的提示框
+            }
+        },
+        'series': [
+            {
+                'name': task_names[tid],
+                'type': 'line',
+                'data': infos_dict[mode_ref.value][tid],
+                'connectNulls': True,  # 连接数据中的空值
+            }
+            for tid in infos_dict[mode_ref.value]
+        ],
+        'dataZoom': [
+            {
+                'type': 'inside',  # 放大和缩小
+                'orient': 'vertical',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            },
+            {
+                'type': 'inside',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            }
+        ],
+    }
+
+
+# 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
+def get_local_option(info_dict: dict, mode_ref, info_name: str):
+    return {
+        'grid': {
+            'left': '10%',  # 左侧留白
+            'right': '10%',  # 右侧留白
+            'bottom': '10%',  # 底部留白
+            'top': '10%',  # 顶部留白
+            'containLabel': True  # 包含坐标轴在内的宽高设置
+        },
+        'tooltip': {
+            'trigger': 'axis',
+            'axisPointer': {
+                'type': 'cross',
+                'lineStyle': {  # 设置纵向指示线
+                    'type': 'dashed',
+                    'color': "rgba(198, 196, 196, 0.75)"
+                }
+            },
+            'crossStyle': {  # 设置横向指示线
+                'color': "rgba(198, 196, 196, 0.75)"
+            },
+            'formatter': "客户{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
+            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+        },
+        "xAxis": {
+            "type": 'value',
+            "name": mode_ref.value,
+            'minInterval': 1 if mode_ref.value == 'round' else None,
+        },
+        "yAxis": {
+            "type": "value",
+            "name": info_name,
+            "axisLabel": {
+                'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'splitNumber': 5,  # 分成5个区间
+        },
+        'legend': {
+            'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]]
+        },
+        'series': [
+            {
+                'name': '客户' + str(cid),
+                'type': 'line',
+                'data': info_dict[mode_ref.value][cid],
+                'connectNulls': True,  # 连接数据中的空值
+            }
+            for cid in info_dict[mode_ref.value]
+        ],
+        'dataZoom': [
+            {
+                'type': 'inside',  # 放大和缩小
+                'orient': 'vertical',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            },
+            {
+                'type': 'inside',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            }
+        ],
+    }
+
+def control_global_echarts(info_name, infos_dicts, task_names):
+    mode_ref = to_ref(list(infos_dicts.keys())[0])
+    with rxui.column():
+        rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
+        rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names), not_merge=False).classes('w-full')
+
+def control_local_echarts(infos_dicts):
+    with rxui.grid(columns=2).classes('w-full'):
+        for info_name in infos_dicts:
+            with rxui.column().classes('w-full'):
+                mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
+                rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
+                rxui.echarts(
+                    lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name), not_merge=False).classes('w-full')
+
+
+async def move_all_files(old_path, new_path):
+    try:
+        os.makedirs(new_path, exist_ok=True)  # 确保新目录存在
+        for filename in os.listdir(old_path):
+            old_file = os.path.join(old_path, filename)
+            new_file = os.path.join(new_path, filename)
+            if os.path.isfile(old_file):  # 确保是文件而不是目录
+                shutil.move(old_file, new_file)
+        print(f"所有文件已从{old_path}移动到{new_path}")
+    except Exception as e:
+        print(f"移动文件时出错: {e}")
+
+def locked_page_height():
+    """
+    锁定页面内容区域的高度，等于屏幕高度减去顶部和底部的高度
+    意味着 内容区创建的第一个容器，可以通过 h-full 让其高度等于屏幕高度(减去顶部和底部的高度).
+
+    此函数创建时的 nicegui 版本为:1.4.20
+    """
+    client = context.get_client()
+    q_page = client.page_container.default_slot.children[0]
+    q_page.props(
+        ''':style-fn="(offset, height) => ( { height: offset ? `calc(100vh - ${offset}px)` : '100vh' })"'''
+    )
+    client.content.classes("h-full")

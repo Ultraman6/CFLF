@@ -73,8 +73,8 @@ def ai_interface():
                     "items-center w-full cursor-pointer text-black w-2/3 text-base font-semibold md:text-[2rem]")
             ui.label("").bind_text_from(chat_app, "current_chat_name").classes(
                 "text-black overflow-auto text-elipsis h-full w-full")
-
-        with ui.page_sticky("left").classes("my-heightfull bg-blue-50") as drawer:
+        # 右侧内容
+        with ui.column().classes("p-4 overflow-y-auto").style("grid-area:content") as drawer:
             with ui.column().classes("w-full justify-around"):
                 with ui.column().classes("w-full items-center"):
                     embedding_switch = ui.switch("Chat with your Data", on_change=lambda e: chat_app.on_value_change(
@@ -82,8 +82,7 @@ def ai_interface():
                     ui.button(icon="add", on_click=handle_new_chat, color="slate-400").props("rounded")
                 with ui.expansion("Settings").classes("w-full"):
                     ui.label("Model").classes("pt-5")
-                    ui.select(models, value=app.storage.user.get('last_model', models[0]),on_change=lambda e: chat_app.on_value_change(ename=e.value)).classes(
-                        "bg-slate-200 w-full")
+                    ui.select(models, value=app.storage.user['user']['ai_configs'].get('last_model', models[0]),on_change=lambda e: chat_app.on_value_change(ename=e.value)).classes("bg-slate-200 w-full")
                     ui.label("Temperature").classes("pt-5")
                     ui.slider(min=0, max=2, step=0.1, value=0.1,on_change=lambda e: chat_app.on_value_change(etemp=e.value)).props("label-always")
                 with ui.column().classes("w-full no-wrap justify-center items-center pt-5"):
@@ -93,28 +92,28 @@ def ai_interface():
                     with ui.row():
                         ui.label("Total Cost:")
                         ui.label("").bind_text_from(chat_app, "total_cost").classes("pb-2")
+                ui.button('保存配置', on_click=lambda: User.set_ai_config(app.storage.user['user']['id'], app.storage.user['user']['ai_configs'])).classes("w-full")
                 ui.label("Chat History").classes("pt-4 pb-2 text-xl").bind_visibility_from(embedding_switch, "value",
                                                                                            value=False)
                 chat_app.chat_history_grid()
-                embeddinglist()
+                await embeddinglist()
                 ui.label("Upload more Files").classes("pt-4 bp-4").bind_visibility_from(embedding_switch, "value")
                 ui.upload(on_upload=handle_upload, multiple=True, auto_upload=True).classes("w-full").props(
                     'color=black accept=".pdf,.txt"').bind_visibility_from(embedding_switch, "value")
 
         with ui.column().classes('w-full items-stretch items-center justiy-center'):
             await chat_app.chat_messages()
-        with ui.page_sticky(position='bottom', x_offset=12, y_offset=15).classes('my-widthfull'), ui.column().classes('bg-white w-full min-w-10xl mx-auto'):
-            with ui.row().classes('w-full no-wrap items-center'):
+        with ui.column().classes("items-center").style("grid-area:bottom-bar"):
+            with ui.row().classes("items-center"):
                 placeholder = 'message' if os.environ.get('OPEN_API_KEY') != 'not-set' else \
                     'Please provide your OPENAI key in the Python script first!'
-                with ui.textarea(placeholder=placeholder).props('rounded outlined input-class=mx-3') \
-                        .classes('w-full self-center') as textarea:
-                    ui.button(color='blue-8', on_click=send, icon='send').props('flat dense').bind_visibility_from(textarea,'value')
-                ui.button('上传附件', on_click=lambda: show_record_dialog(info_ref)).props('flat dense')
+                with ui.textarea(placeholder=placeholder).classes("min-w-[50vw]").props("desen outlined autogrow").on('key.enter', send) as textarea:
+                    ui.button(color='blue-8', on_click=send, icon='send').props('flat dense').bind_visibility_from(textarea, 'value')
+                ui.button("附件", on_click=lambda: show_record_dialog(info_ref)).props("flat")
             ui.markdown('simple chat app built with [NiceGUI](https://nicegui.io)').classes('text-xs self-end mr-8 m-[-1em] text-primary')
         ui.add_css(".q-page-sticky.my-widthfull > div{width: 50%;}")
-    # btn = ui.button('开启对话', on_click=open_chat)
-    asyncio.run(open_chat())
+    btn = ui.button('开启对话', on_click=open_chat)
+    # asyncio.run(open_chat())
 
 
 def show_record_dialog(info_ref):
@@ -218,7 +217,13 @@ def show_record_dialog(info_ref):
 
 
 def ai_config():
-    config_ref = deep_ref(app.storage.user["user"]["ai_config"])
+    async def put():
+        await User.set_ai_config(app.storage.user["user"]['id'], config)
+        ai_interface.refresh()
+        ui.notify('AI配置成功！', color='positive')
+
+    config = app.storage.user["user"]["ai_config"]
+    config_ref = deep_ref(config)
     rxui.input(label='配置openai的api_key', value=my_vmodel(config_ref.value, 'api_key'))
     with ui.row():
         with rxui.card().tight():
@@ -233,39 +238,5 @@ def ai_config():
             rxui.button(text='文件索引存放路径', icon='file',on_click=
             partial(han_fold_choice, my_vmodel(config_ref.value, 'index_files'))).classes('w-full')
             rxui.label(lambda: config_ref.value['index_files'])
+    ui.button('保存AI配置', on_click=put)
 
-    ui.button('保存AI配置', on_click=lambda: put())
-
-    async def put():
-        await User.filter(id=app.storage.user["user"]['id']).update(**{'ai_config': to_raw(config_ref.value)})
-        ai_interface.refresh()
-        ui.notify('AI配置成功！', color='positive')
-
-
-# with ui.header().classes():
-#     ui.label('这是标题')
-#
-# # with ui.left_drawer(bottom_corner=True).classes("bg-neutral-100"):
-# #     ui.label('这是左抽屉')
-#
-# with ui.page_sticky("top-left").classes("my-heightfull' bg-neutral-100"):
-#     with ui.column().classes("h-[100vh] p-4"):
-#         for i in range(50):
-#             ui.label("这是page_sticky左抽屉")
-#
-# with ui.page_sticky(position='bottom', x_offset=12, y_offset=15).classes('my-widthfull'), ui.column().classes('bg-white w-full min-w-10xl mx-auto'):
-#     with ui.row().classes('w-full no-wrap items-center'):
-#         placeholder = 'message' if os.environ.get('OPEN_API_KEY') != 'not-set' else \
-#             'Please provide your OPENAI key in the Python script first!'
-#         with ui.textarea(placeholder=placeholder).props('rounded outlined input-class=mx-3') \
-#                 .classes('w-full self-center') as textarea:
-#             ui.button(color='blue-8', icon='send').props('flat dense').bind_visibility_from(textarea,'value')
-#         ui.button('上传附件').props('flat dense')
-#     ui.markdown('simple chat app built with [NiceGUI](https://nicegui.io)').classes('text-xs self-end mr-8 m-[-1em] text-primary')
-#
-# ui.add_css(".q-page-sticky.my-widthfull > div{width: 50%;}")
-# ui.add_css(".q-page-sticky.my-heightfull > div{height: 100%;}")
-# with ui.footer():
-#     ui.label('这是页脚')
-#
-# ui.run()
