@@ -88,16 +88,16 @@ class preview_ui:
         btn: ui.button = e.sender
         btn.disable()
         box.clear()
-        # with box:
-        #     loading = ui.refreshable(build_task_loading)
-        #     loading("创建实验对象", is_done=False, state='positive')
-        self.assemble_params()
-            # loading.refresh(is_done=True, state='positive')
+        with box:
+            loading = ui.refreshable(build_task_loading)
+            loading("创建实验对象", is_done=False, state='positive')
+            await run.io_bound(self.assemble_params)
+            loading.refresh(is_done=True, state='positive')
 
-            # loading = ui.refreshable(build_task_loading)
-            # loading("装载实验参数", is_done=False, state='positive')
-        self.experiment.assemble_parameters()
-            # loading.refresh(is_done=True, state='positive')
+            loading = ui.refreshable(build_task_loading)
+            loading("装载实验参数", is_done=False, state='positive')
+            await run.io_bound(self.experiment.assemble_parameters)
+            loading.refresh(is_done=True, state='positive')
         btn.enable()
 
     def show_distribution(self):
