@@ -7,10 +7,10 @@ dl_configs = {
         'options': ["mnist", "fmnist", "femnist", "cifar10", "cinic10", "shakespare", "synthetic"],
         'metrics': {
             'synthetic': {
-                    'mean': {"name": '均值', 'format': '%.3f'},
-                    'variance': {"name": '方差', 'format': '%.3f'},
-                    'dimension': {"name": '输入维度(特征)', 'format': '%.0f'},
-                    'num_class': {'name': '输出维度(类别)', 'format': '%.0f'}
+                'mean': {"name": '均值', 'format': '%.3f'},
+                'variance': {"name": '方差', 'format': '%.3f'},
+                'dimension': {"name": '输入维度(特征)', 'format': '%.0f'},
+                'num_class': {'name': '输出维度(类别)', 'format': '%.0f'}
             }
         },
         'inner': {
@@ -77,7 +77,8 @@ dl_configs = {
         }
     },
     'learning_rate': {'name': '学习率', 'format': '%.4f', 'help': '模型训练学习率'},
-    'loss_function': {'name': '损失函数', 'options': {'ce': '交叉熵', 'bce': '二值交叉熵', 'mse': '均方误差'}, 'help': '模型训练损失函数'},
+    'loss_function': {'name': '损失函数', 'options': {'ce': '交叉熵', 'bce': '二值交叉熵', 'mse': '均方误差'},
+                      'help': '模型训练损失函数'},
     'grad_norm': {'name': '标准化系数', 'format': '%.4f', 'help': '梯度标准化，为0不开启'},
     'grad_clip': {'name': '裁剪系数', 'format': '%.4f', 'help': '梯度裁剪，为0不开启'},
 }
@@ -88,106 +89,108 @@ fl_configs = {
     'num_clients': {'name': '客户总数', 'format': '%.0f', 'help': '请大于0'},
     'valid_ratio': {'name': '验证集比例', 'format': '%.4f', 'help': '大于0,小于等于1'},
     'train_mode': {'name': '本地训练模式', 'help': '客户训练过程的执行方式',
-       'options': {'serial': '顺序串行', 'thread': '线程并行'},
-       'metrics': {
-           "thread": {'max_threads': {'name': '最大进程数', 'format': '%.0f'}}
-       }
-    },
+                   'options': {'serial': '顺序串行', 'thread': '线程并行'},
+                   'metrics': {
+                       "thread": {'max_threads': {'name': '最大进程数', 'format': '%.0f'}}
+                   }
+                   },
     'local_test': {'name': '本地测试模式', 'help': '开启与否'},
     'standalone': {'name': 'standalone模式', 'help': '开启与否'},
     'data_type': {'name': '标签分布方式', 'help': '数据的横向划分',
-         'options': {'homo': '同构划分', 'dirichlet': '狄拉克分布划分','shards': '碎片划分', 'custom_class': '自定义类别划分'},
-         'metrics': {
-            'dirichlet':{
-                'dir_alpha':{'name': '狄拉克分布的异构程度', 'format': '%.4f'}
-            },
-            'shards': {
-                 'class_per_client': {'name': '本地类别数(公共)', 'format': '%.0f'}
-            },
-            'custom_class':{
-                'class_mapping': {
-                    'name': '标签分布',
-                    'mapping': {
-                        'label': {'name': '标签量', 'default': 3, 'format': '%.0f'}
-                    },
-                    'watch': 'num_clients'
-                },
-            }
-         }
-    },
+                  'options': {'homo': '同构划分', 'dirichlet': '狄拉克分布划分', 'shards': '碎片划分',
+                              'custom_class': '自定义类别划分'},
+                  'metrics': {
+                      'dirichlet': {
+                          'dir_alpha': {'name': '狄拉克分布的异构程度', 'format': '%.4f'}
+                      },
+                      'shards': {
+                          'class_per_client': {'name': '本地类别数(公共)', 'format': '%.0f'}
+                      },
+                      'custom_class': {
+                          'class_mapping': {
+                              'name': '标签分布',
+                              'mapping': {
+                                  'label': {'name': '标签量', 'default': 3, 'format': '%.0f'}
+                              },
+                              'watch': 'num_clients'
+                          },
+                      }
+                  }
+                  },
     'num_type': {'name': '样本分布方式', 'help': '数据的纵向划分',
-          'options': {'average': '平均分配', 'random': '随机分配', 'custom_single': '自定义单个分配',
-                        'custom_each': '自定义每个分配', 'imbalance_control': '不平衡性分配'},
-          'metrics': {
-              'imbalance_control': {
-                  'imbalance_alpha': {'name': '不平衡系数', 'format': '%.4f'}
-              },
-              'custom_single': {
-                  'sample_per_client': {'name': '本地样本数(公共)', 'format': '%.0f'}
-              },
-              'custom_each': {
-                  'sample_mapping': {
-                      'name': '样本分布',
-                      'mapping': {
-                          'num': {'name': '样本量', 'default': 1000, 'format': '%.0f'}
-                      },
-                      'watch': 'num_clients'
-                  }
-              }
-          }
-    },
+                 'options': {'average': '平均分配', 'random': '随机分配', 'custom_single': '自定义单个分配',
+                             'custom_each': '自定义每个分配', 'imbalance_control': '不平衡性分配'},
+                 'metrics': {
+                     'imbalance_control': {
+                         'imbalance_alpha': {'name': '不平衡系数', 'format': '%.4f'}
+                     },
+                     'custom_single': {
+                         'sample_per_client': {'name': '本地样本数(公共)', 'format': '%.0f'}
+                     },
+                     'custom_each': {
+                         'sample_mapping': {
+                             'name': '样本分布',
+                             'mapping': {
+                                 'num': {'name': '样本量', 'default': 1000, 'format': '%.0f'}
+                             },
+                             'watch': 'num_clients'
+                         }
+                     }
+                 }
+                 },
     'noise_type': {'name': '噪声分布方式', 'help': '数据的噪声划分',
-          'options': {'none': '无噪声', 'gaussian': '高斯噪声分布(特征)', 'custom_label': '自定义噪声(标签)',
-                      'custom_feature': '自定义噪声(特征)'},
-          'metrics': {
-              'gaussian': {
-                  'gaussian_params':{
-                      'name': '高斯分布参数',
-                      'dict': {
-                          'mean': {'name': '均值', 'format': '%.3f', 'default': 0.5},
-                          'std': {'name': '方差', 'format': '%.3f', 'default': 0.5}
-                      },
-                  }
-              },
-              'custom_feature': {
-                  'noise_mapping': {
-                      'name': '标签噪声分布',
-                      'mapping': {
-                          'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'},
-                          'intensity': {'name': '强度', 'default': 0.5, 'format': '%.3f'}
-                      },
-                  }
-              },
-              'custom_label': {
-                  'noise_mapping': {
-                      'name': '特征噪声分布',
-                      'mapping': {
-                          'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'},
-                          'intensity': {'name': '强度', 'default': 0.5, 'format': '%.3f', 'discard': None}
-                      },
-                  }
-              },
-          }
-    },
+                   'options': {'none': '无噪声', 'gaussian': '高斯噪声分布(特征)', 'custom_label': '自定义噪声(标签)',
+                               'custom_feature': '自定义噪声(特征)'},
+                   'metrics': {
+                       'gaussian': {
+                           'gaussian_params': {
+                               'name': '高斯分布参数',
+                               'dict': {
+                                   'mean': {'name': '均值', 'format': '%.3f', 'default': 0.5},
+                                   'std': {'name': '方差', 'format': '%.3f', 'default': 0.5}
+                               },
+                           }
+                       },
+                       'custom_feature': {
+                           'noise_mapping': {
+                               'name': '标签噪声分布',
+                               'mapping': {
+                                   'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'},
+                                   'intensity': {'name': '强度', 'default': 0.5, 'format': '%.3f'}
+                               },
+                           }
+                       },
+                       'custom_label': {
+                           'noise_mapping': {
+                               'name': '特征噪声分布',
+                               'mapping': {
+                                   'ratio': {'name': '占比', 'default': 0.5, 'format': '%.3f'},
+                                   'intensity': {'name': '强度', 'default': 0.5, 'format': '%.3f', 'discard': None}
+                               },
+                           }
+                       },
+                   }
+                   },
 }
 
 exp_configs = {
     'name': {'name': '实验名称', 'help': '实验的名称', 'type': 'text'},
-    'dataset_root':{'name': '数据集根目录', 'type': 'root'},
-    'result_root': {'name': '结果存放根目录', 'type': 'root'},
+    'dataset_root': {'name': '数据集根目录', 'type': 'root'},
+    'result_root': {'name': '结果根目录', 'type': 'root'},
     'algo_params': {'name': '算法冗余参数', 'type': 'table'},
     'run_mode': {
-        'name': '实验运行模式', 'type': 'choice', 'options': {'serial': '顺序执行', 'thread': '线程并行', 'process': '进程并行'},
-        'metrics':{
+        'name': '实验运行模式', 'type': 'choice',
+        'options': {'serial': '顺序执行', 'thread': '线程并行', 'process': '进程并行'},
+        'metrics': {
             'thread': {'max_threads': {'name': '最大线程数', 'format': '%.0f', 'type': 'number'}},
             'process': {'max_processes': {'name': '最大进程数', 'format': '%.0f', 'type': 'number'}}
         }
     },
     'same_model': {'name': '相同模型', 'help': '是否给所有任务使用相同模型', 'type': 'bool'},
-    'same_data': {'name': '相同数据', 'help': '是否给所有任务使用相同数据', 'type': 'bool'}
+    'same_data': {'name': '相同数据', 'help': '是否给所有任务使用相同数据', 'type': 'bool'},
+    'local_excel': {'name': '本地保存', 'help': '实验结果保存为本地excel', 'type': 'bool'},
+    'local_visual': {'name': '本地可视化', 'help': '实验结果在plot可视化', 'type': 'bool'}
 }
-
-
 
 # 算法配置（包括每种算法特定的详细参数）
 algo_type_options = [
@@ -244,8 +247,6 @@ algo_name_options = {
     ]
 }
 
-
-
 running_mode = {'serial': '顺序串行', 'thread': '线程并行', 'process': '进程并行'}
 thread = {'max_threads': {'name': '最大线程数', 'format': '%.0f'}}
 process = {'max_processes': {'name': '最大进程数', 'format': '%.0f'}}
@@ -256,7 +257,7 @@ algo_params = {
         'device': {'name': '设备', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
         'gpu': {'name': '显卡', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
     },
-    'fedavg': {
+    'ditfe': {
         'gamma': {'name': '质量评估超参数', 'format': '%.4f', 'type': 'number', 'default': 0.1, 'options': None},
         'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
         'fair': {'name': '公平系数', 'format': '%.4f', 'type': 'number', 'default': 3.0, 'options': None},
@@ -270,7 +271,6 @@ algo_params = {
         'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
     }
 }
-
 
 profile_dict = {
     'edu': {
@@ -287,15 +287,20 @@ path_dict = {
 }
 ai_config_dict = {
     'api_key': {'name': '接口密钥', 'default': ''},
-    'last_model': {'name': '上次模型', 'default': ''},
-    'temperature': {'name': '温度', 'default': 0.1},
+    'api_base': {'name': '代理地址', 'default': 'https://api.openai.com/v1/chat'},
+    'last_model': {'name': '上次模型', 'default': 'gpt-3.5-turbo',
+                   'options': ['gpt-3.5-turbo', 'text-davinci-002', 'gpt-4-1106-preview', 'gpt-4']},
+    'embed_model': {'name': '向量模型', 'default': 'text-embedding-3-small',
+                    'options': ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]},
+    'temperature': {'name': '热力值', 'default': 0.1},
+    'max_tokens': {'name': '回答长度', 'default': 1024},
+    'max_retries': {'name': '最大重试次数', 'default': 2},
     'chat_history': {'name': '对话记录路径', 'default': os.path.abspath(os.path.join('..', 'files', 'chat_history'))},
-    'embedding_files': {'name': '文件记录路径','default': os.path.abspath(os.path.join('..', 'files', 'embedding_files'))},
+    'embedding_files': {'name': '文件记录路径',
+                        'default': os.path.abspath(os.path.join('..', 'files', 'embedding_files'))},
     'index_files': {'name': '文件索引路径', 'default': os.path.abspath(os.path.join('..', 'files', 'index_files'))},
 }
 idx_dict = {'登录': '/login', '注册': '/register', '答疑': '/doubt'}
 state_dict = {True: 'positive', False: 'negative'}
 
-
 unrestricted_page_routes = {'/hall', '/login', '/register', '/doubt'}
-

@@ -108,13 +108,11 @@ class ModelTrainer:
 
         # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
         round_avg_loss = sum(epoch_losses) / len(epoch_losses)
-        self.all_epoch_losses.append({
-            "client_id": self.cid,
-            "global_round": global_round,
+        self.all_epoch_losses[global_round]= {
             "avg_loss": round_avg_loss,
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
-        })
+        }
         self.upgrate_lr(global_round)  # 更新学习率
         return average_hessian_estimation
 

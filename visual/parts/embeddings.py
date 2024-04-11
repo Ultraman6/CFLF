@@ -5,7 +5,7 @@ from langchain.agents import initialize_agent
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 from llama_index.legacy import load_index_from_storage, ServiceContext, LLMPredictor, SimpleDirectoryReader, \
-    GPTVectorStoreIndex, StorageContext
+    GPTVectorStoreIndex, StorageContext, OpenAIEmbedding
 from nicegui import app
 
 
@@ -13,17 +13,19 @@ class Embedding:
     """
     This class is used to create and load embeddings, and to query them using langchain.
     """
-    def __init__(self, openai_api_key, embedding_files, index_files):
+    def __init__(self, config):
         """
         Initializes the Embedding class with the necessary directories and services.
         """
-        self.openai_api_key = openai_api_key
-        self.openai_models = ["gpt-3.5-turbo", "gpt-4-1106-preview"]
-        self.embedding_file_dir = embedding_files
-        self.vector_dir = index_files
-        self.service_context = (ServiceContext.from_defaults
-                                (llm=ChatOpenAI(temperature=0, model_name=app.storage.user.
-                                                get('last_model', self.openai_models[0]), request_timeout=120))) if self.openai_api_key != '' else None
+        self.api_key = config['api_key']
+        self.api_base = config['api_base']
+        self.last_model = config['last_model']
+        self.embed_model = config['embed_model']
+        self.embedding_file_dir = config['embedding_files']
+        self.vector_dir = config['index_files']
+        self.service_context = ServiceContext.from_defaults(embed_model=OpenAIEmbedding(model=self.embed_model),
+                                                llm=ChatOpenAI(temperature=0, openai_api_key=self.api_key, openai_api_base=self.api_base,
+                                                model_name=self.last_model, request_timeout=120)) if self.api_key != '' else None
     async def create_index(self):
         """
         Asynchronously creates an index from the documents in the embedding file directory.

@@ -159,7 +159,7 @@ class algo_table:
             if row["id"] == e.args["id"]:
                 row["algo"] = e.args["algo"]  # 更新算法名称
                 # 新加入 同时也要更新冗余参数信息(列表形式)
-                algo_param = algo_params[row["algo"]]
+                algo_param = algo_params.get(row["algo"], {})
                 for k in row['params']:
                     if k not in self.tem_args and k not in algo_params['common']:
                         del row['params'][k]
@@ -304,7 +304,8 @@ class algo_table:
                                         if 'algo' in self.rows.value[rid]:
                                             algo = self.rows.value[rid]['algo']
                                             if algo:
-                                                if key in algo_params[algo]:
+                                                params = algo_params.get(algo, {})
+                                                if key in params:
                                                     name = algo_params[algo][key]['name']
                                                     type = algo_params[algo][key]['type']
                                                     format = algo_params[algo][key]['format']

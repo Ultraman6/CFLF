@@ -39,6 +39,37 @@ def pack_result(task_name, result):
     return create_result(task_name, global_acc, list(range(len(global_acc))), global_loss)
 
 
+def conv_result(result):
+    new_result = {'global_info': {}, 'client_info': {}}
+    for key, value in result['global'].items():  # 访问参数
+        for i, item in enumerate(value['round']):
+            r = item['round']  # round本身无需加入字典，但其他类型以及参数都需加入
+            if r not in new_result['global_info']:
+                new_result['global_info'][r] = {}
+                new_result['global_info'][r][key] = item[-1]
+            if key not in new_result['global_info'][r]:
+                new_result['global_info'][r][key] = item[-1]
+            for k, v in value.items():
+                if k not in new_result['global_info'][r]: # 其余类型应该和round同索引
+                    new_result['global_info'][r][k] = v[i][0]
+
+    for key, value in result['local'].items():  # 访问参数
+        for k, v in value.items():  # 访问类型
+            for cid, v1 in v.items():  # 先判断cid是否在，再判断不同类型的相同参数是否在，最后判断类型对应的值是否在
+                if cid not in new_result['client_info']:
+                    new_result['client_info'][cid] = []
+                    new_result['client_info'][cid].append({k: v1[0], key: v1[-1]})
+                if k not in new_result['client_info'][cid][-1]:
+                    new_result['client_info'][cid][-1][k] = v1[0]
+                if key not in new_result['client_info'][cid][-1]:
+                    new_result['client_info'][cid][-1][key] = v1[-1]
+                if new_result['client_info'][cid][-1][k] != v1[0]:
+                    new_result['client_info'][cid].append({k: v1[0], key: v1[-1]})
+
+    return new_result
+
+
+
 async def handle_mes_ref(data, ref):
     """递归遍历并更新data_ref字典"""
     for k, v in data.items():
@@ -102,6 +133,7 @@ class ExperimentManager:
         self.task_info_refs = {}  # 任务信息容器
         self.task_control = {}  # 插件-任务控制器
         self.results = {}
+        self.local_results = {}
 
     def judge_algo(self, algorithm_name):
         """
@@ -140,6 +172,10 @@ class ExperimentManager:
             args.round = int(args.round)
         if hasattr(args, 'epoch'):
             args.epoch = int(args.epoch)
+        if hasattr(args, 'dataset_root'):
+            args.dataset_root = self.exp_args['dataset_root']
+        if hasattr(args, 'result_root'):
+            args.result_root = self.exp_args['result_root']
 
     def assemble_parameters(self):
         """
@@ -164,8 +200,6 @@ class ExperimentManager:
                 experiment_name_parts = [f"{param}{value}" for param, value in param_combination.items() if
                                          params_with_multiple_options[param]]
                 experiment_name = f"{algo_name}_{'_'.join(experiment_name_parts)}" if experiment_name_parts else algo_name
-                print(experiment_name)
-                print(vars(args))
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 device = setup_device(args)  # 设备设置
@@ -271,11 +305,19 @@ class ExperimentManager:
         for tid in self.task_info_refs:  # 处理结果
             self.results[tid] = self.convert_result(tid)
 
+            if self.exp_args['local_visual'] or self.exp_args['local_excel']:
+                self.local_results[tid] = conv_result(self.results[tid])
+
+        if self.exp_args['local_visual']:
+            self.visual_results(self.task_queue.keys())
+        if self.exp_args['local_excel']:
+            self.save_results(self.task_queue.keys())
+
+
     def convert_result(self, tid):
         result = {}
         copy_raw_ref(self.task_info_refs[tid], result)
         result.pop('statue')  # 去除状态信息
-        print(result)
         return result
 
     @staticmethod
@@ -366,7 +408,7 @@ class ExperimentManager:
         """
         results_list = []
         for tid in tides:
-            task_name, result = self.task_queue[tid].task_name, self.results[tid]
+            task_name, result = self.task_queue[tid].task_name, self.local_results[tid]
             results_list.append(pack_result(task_name, result))
         plot_results(results_list)
 
@@ -374,14 +416,14 @@ class ExperimentManager:
     def save_results(self, tides):
         root_save_path = self.handle_root()
         for tid in tides:
-            task_name, result = self.task_queue[tid].task_name, self.results[tid]
-            task_name, result = self.task_queue[tid].task_name, self.results[tid]
+            task_name, result = self.task_queue[tid].task_name, self.local_results[tid]
             save_file_name = os.path.join(str(root_save_path), f"{task_name}_results.xlsx")
             save_results_to_excel(result, save_file_name)
             print("Results saved to Excel {}.".format(save_file_name))
 
+
     def handle_root(self):
-        root_save_path = os.path.join(self.args_template.result_root, self.exp_name)
+        root_save_path = os.path.join(self.exp_args['result_root'], self.exp_name)
         if not os.path.exists(root_save_path):
             os.makedirs(root_save_path)
         return root_save_path

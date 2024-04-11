@@ -21,11 +21,11 @@ async def close_db() -> None:
     await Tortoise.close_connections()
 
 
+# prompt分为三个部分 {}question{}config/result{} 用户可自行设置
 class ConfigPromptBuilder:
-    def __init__(self):
+    def __init__(self, prompt_pattern: str = None):
         """初始化一个固定模式，用于构建prompt字符串。"""
-        self.prompt_pattern = "Experiment Configurations:\n{}"
-
+        self.prompt_pattern = "Federated Learning Experiment Configurations:\n{}"
     def build_prompt(self, configs: dict, question: str) -> str:
         """根据配置信息和用户问题构建prompt字符串。
         :param configs: 包含不同种类记录的字典。

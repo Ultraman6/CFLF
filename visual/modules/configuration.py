@@ -27,7 +27,6 @@ class config_ui:
         self.algo_saver = RecordManager('algo', self)
 
         self.unit_dict = {}
-        self.mapping_default = [3, 1000, 0.2, 0.2]
 
         self.exp_args = vars(exp_args_parser())
         self.exp_ref = deep_ref(self.exp_args)
@@ -240,7 +239,7 @@ class config_ui:
             elif type(item) is dict:
                 algo_args[k] = convert_dict_to_tuple(item)
 
-        print(algo_args)
-        print(exp_args)
+        print(algo_args['sample_mapping'])
+        print(algo_args['class_mapping'])
         return algo_args, exp_args
 

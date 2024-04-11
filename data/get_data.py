@@ -10,6 +10,7 @@ from data.dataset.fashionmnist import get_fashionmnist
 from data.dataset.svhn import get_svhn
 from data.utils.distribution import split_data
 from data.utils.partition import balance_sample
+from experiment.options import algo_args_parser
 
 
 def get_data(args):
@@ -61,8 +62,6 @@ def load_dataset(train, test, args, kwargs):
                 sample_mapping[k] = int(sample_mapping[k] * test_len / train_len)
 
             args.sample_mapping = json.dumps(sample_mapping)
-            print(sample_mapping)
-            print(args.sample_mapping)
         test_loaders = split_data(test, args, kwargs, is_shuffle=False, is_test=True)  # 再用新的去划分本地测试机
         return train_loaders, valid_loader, test_loaders
     return train_loaders, valid_loader
@@ -145,3 +144,9 @@ def get_distribution(dataloader, dataset_name, mode='pro'):
     else:
         raise ValueError("Mode not recognized. Please use 'num' or 'pro'.")
 
+
+
+# 模块内自己调用自己则会执行两次
+if __name__ == '__main__':
+    args = algo_args_parser()
+    get_dataloaders(args)

@@ -12,7 +12,7 @@ from visual.pages.frameworks import FramWindow
 from visual.models import User
 from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
 from visual.parts.constant import idx_dict, unrestricted_page_routes, state_dict
-from visual.parts.func import to_base64, han_fold_choice, my_vmodel
+from visual.parts.func import to_base64, han_fold_choice, my_vmodel, locked_page_height
 from visual.parts.lazy.lazy_card import build_card
 
 async def detect_use():
@@ -28,6 +28,7 @@ async def main_page() -> None:
     await detect_use()
     main = FramWindow()
     main.create_main_window()
+    locked_page_height()
 
 # 个人设置界面
 @ui.page('/self')
@@ -152,7 +153,7 @@ async def register() -> Optional[RedirectResponse]:
 
     sign_info = User.get_tem_dict()
     print(sign_info['profile']['edu']['default'].value)
-    with ui.card().classes('absolute-center'):
+    with ui.card().classes('absolute-center overflow-auto'):
         rxui.input('Username', value=sign_info['uname'])
         rxui.input('Password', value=sign_info['pwd'], password=True, password_toggle_button=True)
         with ui.column():
@@ -195,4 +196,4 @@ app.on_startup(init_db)
 app.on_shutdown(close_db)
 app.add_middleware(AuthMiddleware)
 os.environ['NICEGUI_STORAGE_PATH'] = 'running/storage'
-ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=True)
+ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED')

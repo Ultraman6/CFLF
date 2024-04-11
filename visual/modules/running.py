@@ -1,7 +1,4 @@
-import colorsys
-import random
-import threading
-from visual.parts.func import get_global_option, get_local_option
+from visual.parts.func import get_global_option, get_local_option, control_global_echarts, control_local_echarts
 from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
 from nicegui import ui, run
@@ -278,29 +275,11 @@ class run_ui:
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
                     with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_ref[info_spot]:
-                            self.control_global_echarts(info_name, self.infos_ref[info_spot][info_name])
+                            control_global_echarts(info_name, self.infos_ref[info_spot][info_name], self.task_names)
                 elif info_spot == 'local':
-                    print(self.infos_ref[info_spot])
+                    # print(self.infos_ref[info_spot])
                     with rxui.column().classes('w-full'):
                         rxui.label('局部信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
                         for tid in self.infos_ref[info_spot]:
                             rxui.label(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                            self.control_local_echarts(self.infos_ref[info_spot][tid])
-
-    def control_global_echarts(self, info_name, infos_dicts):
-        mode_ref = to_ref(list(infos_dicts.keys())[0])
-        with rxui.column():
-            rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
-            rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, self.task_names), not_merge=False).classes(
-                'w-full')
-
-    def control_local_echarts(self, infos_dicts):
-        with rxui.grid(columns=2).classes('w-full'):
-            for info_name in infos_dicts:
-                with rxui.column().classes('w-full'):
-                    mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
-                    rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
-                    rxui.echarts(
-                        lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name),
-                        not_merge=False).classes('w-full')
-
+                            control_local_echarts(self.infos_ref[info_spot][tid])

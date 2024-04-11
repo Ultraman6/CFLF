@@ -1,14 +1,18 @@
 import base64
 import colorsys
+import json
 import os
 import random
 import shutil
+import time
 from tkinter import filedialog
 import tkinter as tk
+
+import aiohttp
 import requests
 from ex4nicegui.reactive import local_file_picker, rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
-from nicegui import app, ui
+from nicegui import app, ui, context
 from visual.parts.local_file_picker import local_file_picker
 
 def get_image_data(image_path):
@@ -44,7 +48,7 @@ def to_base64(input_data):
 
 async def han_fold_choice(ref):
     result = await local_file_picker(ref.value, upper_limit=None, directories_only=True)
-    if result is not None:
+    if result is not None and len(result) !=0 :
         ref.value = result[0]
 
 async def han_file_choice(ref, limited):
@@ -83,7 +87,7 @@ def convert_list_to_dict(mapping_list, mapping_dict):
             in_list = []
             for k in mapping_dict:
                 in_list.append(item[k])
-            mapping[item['id']] = tuple(in_list)
+            mapping[item['id']] = in_list[0] if len(in_list) == 1 else in_list
     return mapping
 
 
@@ -248,13 +252,12 @@ def get_dicts(colors, infos_each, infos_all, ):
             })
     return legend_dict, series_dict
 
-def build_task_loading(message: str, is_done=False):
+def build_task_loading(message: str, is_done=False, state='positive'):
     with ui.row().classes("flex-center"):
         if not is_done:
             ui.spinner(color="negative")
         else:
-            ui.icon("done", color="positive")
-
+            ui.icon("done", color=state)
         with ui.row():
             ui.label(message)
 
@@ -432,7 +435,7 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             {
                 'name': task_names[tid],
                 'type': 'line',
-                'data': infos_dict[mode_ref.value][tid],
+                'data': list(infos_dict[mode_ref.value][tid].value),  # 受制于rx，这里必须告知前端为list类型
                 'connectNulls': True,  # 连接数据中的空值
             }
             for tid in infos_dict[mode_ref.value]
@@ -502,7 +505,7 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
             {
                 'name': '客户' + str(cid),
                 'type': 'line',
-                'data': info_dict[mode_ref.value][cid],
+                'data': list(info_dict[mode_ref.value][cid].value),   # 受制于rx，这里必须告知前端为list类型
                 'connectNulls': True,  # 连接数据中的空值
             }
             for cid in info_dict[mode_ref.value]
@@ -567,3 +570,74 @@ def locked_page_height():
         ''':style-fn="(offset, height) => ( { height: offset ? `calc(100vh - ${offset}px)` : '100vh' })"'''
     )
     client.content.classes("h-full")
+
+
+async def test_api_access(api_key, api_base, model=None, model_type="generation") -> (bool, str):
+    """
+    异步测试API key和API基地址能否访问特定模型，并记录测试时间。
+
+    参数:
+    - api_key: API密钥。
+    - api_base: API基地址。
+    - model: 要测试的模型名称。如果未提供，则使用默认模型进行测试。
+
+    返回值:
+    - bool: 表示是否成功访问。
+    - str: 访问成功或失败的详细信息，包括测试时间（用中文回显）。
+    """
+    if model is None:
+        model = "gpt-3.5-turbo"
+
+    async with aiohttp.ClientSession() as session:
+        url = f"{api_base}/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        if model_type == "generation":
+            if model is None:
+                model = "gpt-3.5-turbo"
+            url = f"{api_base}/completions"
+            data = {
+                "model": model,
+                "prompt": "Hello, world!",
+                "max_tokens": 5
+            }
+        elif model_type == "embedding":
+            if model is None:
+                model = "text-embedding-ada-002"
+            url = f"{api_base}/embeddings"
+            data = {
+                "model": model,
+                "input": "Hello, world!"
+            }
+        else:
+            return False, "未知的模型类型。"
+
+        start_time = time.perf_counter()
+        try:
+            async with session.post(url, headers=headers, json=data) as response:
+                elapsed = time.perf_counter() - start_time
+                status = response.status
+                try:
+                    response_body = await response.json()
+                except Exception:
+                    response_body = await response.text()
+
+                if status == 200:
+                    return True, f"访问成功。测试时间：{elapsed:.2f}秒。"
+                elif status == 401:
+                    return False, f"未授权访问。请检查API密钥是否正确。测试时间：{elapsed:.2f}秒。"
+                elif status == 403:
+                    return False, f"禁止访问。API密钥缺少权限。测试时间：{elapsed:.2f}秒。"
+                elif status == 404:
+                    return False, f"资源未找到。请检查API基地址或模型名称。测试时间：{elapsed:.2f}秒。"
+                elif status == 429:
+                    return False, f"请求过多。已超出速率限制。测试时间：{elapsed:.2f}秒。"
+                else:
+                    return False, f"发生错误：HTTP {status}。响应：{response_body}。测试时间：{elapsed:.2f}秒。"
+
+        except aiohttp.ClientConnectorError as e:
+            return False, f"无法连接到主机。可能是网络问题、目标服务器不可达、或SSL问题。异常信息：{e}"
+        except Exception as e:
+            return False, f"发生未预期的错误。异常信息：{e}"

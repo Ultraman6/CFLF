@@ -61,6 +61,7 @@ class Task:
             algo.iter()
             pbar.update(1)  # 更新进度条
             algo.round_idx += 1  # 更新 round_idx
+
         pbar.close()  # 完成后关闭进度条
         return 'success'
 

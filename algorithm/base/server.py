@@ -61,7 +61,7 @@ class BaseServer:
         self.task.control.set_statue('text', "################Selected Client Indexes : {}".format(self.client_indexes))
         self.execute_iteration()
         self.global_update()
-        self.global_record()
+        self.local_update()
 
     def client_sampling(self, cid_list, num_to_selected, scores=None):  # 记录客户历史选中次数，不再是静态方法
         self.client_indexes.clear()
@@ -120,7 +120,7 @@ class BaseServer:
         self.task.control.set_info('global', 'Loss', (self.round_idx, this_time, test_loss))
         self.task.control.set_info('global', 'Accuracy', (self.round_idx, this_time, test_acc))
 
-    def global_record(self):
+    def local_update(self):
         # 收集客户端信息
         for cid in self.client_indexes:
             client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]

@@ -3,6 +3,7 @@ from nicegui import ui, app
 from visual.modules.subscribers import self_info, self_record, self_experiment
 from visual.pages.AI import ai_interface, ai_config
 from visual.pages.epxeriment import experiment_page
+from visual.parts.func import locked_page_height
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
 
@@ -39,7 +40,7 @@ class FramWindow:
         for key in self.tab_mapping:
             self.tabs.add(ui.tab(key))
         self.tabs.move(header)
-        left_drawer = ui.left_drawer(top_corner=False, bottom_corner=True).classes('bg-neutral-100')
+        left_drawer = ui.left_drawer(top_corner=False, bottom_corner=True).classes('bg-neutral-100 p-4 overflow-y-auto')
         ui.space().move(header)
         with ui.avatar() as avatar:
             ui.image(source=app.storage.user["user"]['avatar']).classes('w-full h-full')
@@ -51,7 +52,7 @@ class FramWindow:
             ui.button(on_click=lambda: (app.storage.user.clear(), ui.navigate.to('/hall')), icon='logout').props('round')
         opt.move(header)
         self.sub_tabs.move(left_drawer)
-        with lazy_tab_panels(self.sub_tabs).classes('w-full') as panels:
+        with lazy_tab_panels(self.sub_tabs).classes('w-full h-full') as panels:
             for key, value in self.tab_mapping.items():
                 for v in value:
                     panel = panels.tab_panel(v)

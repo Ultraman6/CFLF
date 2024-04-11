@@ -1,10 +1,7 @@
 import argparse
-import colorsys
-import random
 from visual.parts.func import cal_dis_dict
 from ex4nicegui.reactive import rxui
 from nicegui import ui, run
-
 from manager.manager import ExperimentManager
 from visual.parts.func import ncolors, color, get_dicts, build_task_loading
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
@@ -82,9 +79,6 @@ class preview_ui:
                     closure(tid)
 
     def assemble_params(self):
-        self.experiment.assemble_parameters()
-
-    def create_experiment(self):
         for item in self.exp_args['algo_params']:
             item['params']['device'] = [item['params']['device'], ]
             item['params']['gpu'] = [item['params']['gpu'], ]
@@ -94,20 +88,20 @@ class preview_ui:
         btn: ui.button = e.sender
         btn.disable()
         box.clear()
-        with box:
-            loading = ui.refreshable(build_task_loading)
-            loading("创建实验对象")
-            await run.io_bound(self.create_experiment)
-            loading.refresh(is_done=True)
+        # with box:
+        #     loading = ui.refreshable(build_task_loading)
+        #     loading("创建实验对象", is_done=False, state='positive')
+        self.assemble_params()
+            # loading.refresh(is_done=True, state='positive')
 
-            loading = ui.refreshable(build_task_loading)
-            loading("装载实验参数")
-            await run.io_bound(self.assemble_params)
-            loading.refresh(is_done=True)
+            # loading = ui.refreshable(build_task_loading)
+            # loading("装载实验参数", is_done=False, state='positive')
+        self.experiment.assemble_parameters()
+            # loading.refresh(is_done=True, state='positive')
         btn.enable()
 
     def show_distribution(self):
-        if self.exp_args['same']['data']:  # 直接展示全局划分数据
+        if self.exp_args['same_data']:  # 直接展示全局划分数据
             self.visual_data_infos = self.experiment.get_global_loader_infos()
         else:
             self.visual_data_infos, self.args_queue = self.experiment.get_local_loader_infos()

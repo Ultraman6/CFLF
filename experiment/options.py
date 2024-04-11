@@ -145,7 +145,7 @@ def algo_args_parser():
     federated_learning.add_argument(
         '--num_clients',
         type=int,
-        default=20,
+        default=5,
         help='number of all available clients'
     )
     federated_learning.add_argument(
@@ -197,9 +197,9 @@ def algo_args_parser():
         type=str,
         default=json.dumps({
             "0": 1000, "1": 1000, "2": 1000, "3": 1000, "4": 1000,
-            "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
-            "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
-            "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
+            # "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
+            # "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
+            # "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
         }),
         help='Volume of data each client for custom_single num_type'
     )
@@ -228,9 +228,9 @@ def algo_args_parser():
         type=str,
         default=json.dumps({
             "0": 1, "1": 1, "2": 2, "3": 2, "4": 3,
-            "5": 3, "6": 4, "7": 4, "8": 5, "9": 5,
-            "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
-            "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
+            # "5": 3, "6": 4, "7": 4, "8": 5, "9": 5,
+            # "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
+            # "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
         }),
         help='Volume of classes each client for custom_class data_type'
     )
@@ -410,4 +410,6 @@ def exp_args_parser():
     parser.add_argument('--max_processes',default=5,type=int)
     parser.add_argument('--same_model',default=True,type=bool)
     parser.add_argument('--same_data',default=True,type=bool)
+    parser.add_argument('--local_excel',default=False,type=bool)
+    parser.add_argument('--local_visual',default=False,type=bool)
     return parser.parse_args()

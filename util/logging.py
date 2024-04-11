@@ -1,6 +1,4 @@
 import json
-import os
-
 import openpyxl
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
@@ -142,6 +140,5 @@ def json_str_to_int_key_dict(json_str):
     # 解析 JSON 字符串
     original_dict = json.loads(json_str)
     # 将所有键转换为整数
-    print(original_dict)
     converted_dict = {int(k): int(v) if type(v) is float else v for k, v in original_dict.items()}
     return converted_dict

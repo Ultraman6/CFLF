@@ -307,12 +307,12 @@ class User(models.Model):
         try:
             for k, v in new_ai_config.items():
                 if k in ['chat_history', 'embedding_files', 'index_files']:
-                    if not os.path.exists(v):
-                        return False, f"AI配置{k}设置失败: {v}不存在"
-                    elif not os.path.isfile(v):
-                        return False, f"AI配置{k}设置失败: {v}不是文件"
-                    last_path = user.local_path[k]
+                    last_path = user.ai_config[k]
                     if last_path != v:
+                        if not os.path.exists(v):
+                            return False, f"AI配置{k}设置失败: {v}不存在"
+                        elif not os.path.isdir(v):
+                            return False, f"AI配置{k}设置失败: {v}不是目录"
                         await move_all_files(last_path, v)
 
             user.ai_config = new_ai_config

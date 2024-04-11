@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader
 index_func = lambda x: [xi[-1] for xi in x]
 
 # 如何调整本地训练样本数量
-
 def split_data(dataset, args, kwargs, is_shuffle=True, is_test=False):
     """ 每种划分都可以自定义样本数量，内嵌imbalance方法，以下方案按照不同的类别划分区分
     return dataloaders
@@ -73,5 +72,5 @@ if __name__ == '__main__':
     args = algo_args_parser()
     dataloaders = split_data(train, args, {'num_workers': 0, 'pin_memory': True})
     # print(dataloaders[2].dataset.sample_info)
-    print(dataloaders[2].dataset.noise_idxs)
-    print(dataloaders[2].dataset.noise_info)
+    # print(dataloaders[2].dataset.noise_idxs)
+    # print(dataloaders[2].dataset.noise_info)
