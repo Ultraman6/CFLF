@@ -40,10 +40,8 @@ def pack_result(task_name, result):
 
 
 def conv_result(result):
-    print(result)
     new_result = {'global_info': {}, 'client_info': {}}
     for key, value in result['global'].items():  # 访问参数
-        print(key, value)
         for i, item in enumerate(value['round']):
             r = item[0]  # round本身无需加入字典，但其他类型以及参数都需加入
             if r not in new_result['global_info']:
@@ -52,23 +50,29 @@ def conv_result(result):
             if key not in new_result['global_info'][r]:
                 new_result['global_info'][r][key] = item[-1]
             for k, v in value.items():
-                if k not in new_result['global_info'][r]: # 其余类型应该和round同索引
-                    new_result['global_info'][r][k] = v[i][0]
-    print(new_result['global_info'])
+                if k != 'round':
+                    if k not in new_result['global_info'][r]: # 其余类型应该和round同索引
+                        new_result['global_info'][r][k] = v[i][0]
+
+    print(result['local'])
     for key, value in result['local'].items():  # 访问参数
-        for k, v in value.items():  # 访问类型
-            for cid, v1 in v.items():  # 先判断cid是否在，再判断不同类型的相同参数是否在，最后判断类型对应的值是否在
-                if cid not in new_result['client_info']:
-                    new_result['client_info'][cid] = []
-                for it in v1:
-                    if len(new_result['client_info'][cid]) ==0 or new_result['client_info'][cid][-1][0] !=
-                    new_result['client_info'][cid].append({k: v1[0], key: v1[-1]})
-                    if k not in new_result['client_info'][cid][-1]:
-                        new_result['client_info'][cid][-1][k] = v1[0]
-                    if key not in new_result['client_info'][cid][-1]:
-                        new_result['client_info'][cid][-1][key] = v1[-1]
-                    if new_result['client_info'][cid][-1][k] != v1[0]:
-                        new_result['client_info'][cid].append({k: v1[0], key: v1[-1]})
+        for cid, v in value['round'].items():
+            print(v)
+            if cid not in new_result['client_info']:
+                new_result['client_info'][cid] = {}
+            for i, v1 in enumerate(v):  # 先判断cid是否在，再判断不同类型的相同参数是否在，最后判断类型对应的值是否在
+                print(v1)
+                r = v1[0]  # round本身无需加入字典，但其他类型以及参数都需加入
+                if r not in new_result['client_info'][cid]:
+                    new_result['client_info'][cid][r] = {}
+                    new_result['client_info'][cid][r][key] = v1[-1]
+                if key not in new_result['client_info'][cid][r]:
+                    new_result['client_info'][cid][r][key] = v1[-1]
+                for k2, v2 in value.items():
+                    if k2 != 'round':
+                        if k2 not in new_result['client_info'][cid][r]:  # 其余类型应该和round同索引
+                            new_result['client_info'][cid][r][k2] = v2[cid][i][0]
+
     print(new_result['client_info'])
     return new_result
 
