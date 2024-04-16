@@ -167,7 +167,7 @@ class ExperimentManager:
             algo_name, variations = algo['algo'], algo['params']
             algo_class = self.judge_algo(algo_name)
             # 确定哪些参数是有多个配置的
-            params_with_multiple_options = {param: len(values) > 1 for param, values in variations.items()}
+            params_with_multiple_options = {param: len(values) > 1 or getattr(self.args_template, param) != values[0] for param, values in variations.items()}
             for param_dict in itertools.product(*variations.values()):
                 param_combination = dict(zip(variations.keys(), param_dict))
                 args = copy.deepcopy(self.args_template)
@@ -306,6 +306,7 @@ class ExperimentManager:
         """
         control_seed(task.args.seed)
         res = task.run()  # 从此任务类无需知晓具体的控制模式
+
         return task.task_id, res
 
     def adj_info_ref(self, args, algo_name):  # 细腻度的绑定，直接和每个参数进行绑定

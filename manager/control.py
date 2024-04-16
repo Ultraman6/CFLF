@@ -79,7 +79,10 @@ class TaskController:
     def set_info(self, spot, name, value, cid=None):
         if self.check_visual(spot, name):
             v = value[-1]
-            types = list(algo_record[self.algo][spot]['type'].keys())
+            if self.algo in algo_record and spot in algo_record[self.algo] and name in algo_record[self.algo][spot]['param']:
+                types = list(algo_record[self.algo][spot]['type'].keys())
+            else:
+                types = list(algo_record['common'][spot]['type'].keys())
             for i, v1 in enumerate(value[:-1]):
                 type = types[i]
                 if self.check_visual(spot, type, 'type'):
@@ -88,7 +91,6 @@ class TaskController:
                             self.informer[spot][name][type].value.append((v1, v))
                         else:
                             self.informer[spot][name][type][cid].value.append((v1, v))
-                            print(name, self.informer[spot][name][type][cid].value)
                     else:
                         if cid is None:
                             mes = {spot: {name: {type: (v1, v)}}}

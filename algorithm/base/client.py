@@ -43,10 +43,11 @@ class BaseClient:
             model_trainer.set_model_params(copy.deepcopy(w_global))
             return model_trainer.test(self.test_dataloader, origin)
 
-
-
     def update_data(self, new_train_dataloader):
         self.train_dataloader = new_train_dataloader
+
+    def update_model(self, new_model_dict):
+        self.model_trainer.set_model_params(new_model_dict)
 
     # def get_sample_num_per_label(self):
     #         class_count = 0

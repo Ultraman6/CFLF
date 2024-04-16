@@ -14,7 +14,7 @@ from ex4nicegui.reactive import local_file_picker, rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
 from nicegui import app, ui, context
 
-from visual.parts.constant import record_names, record_types
+from visual.parts.constant import record_names, record_types, type_name_mapping
 from visual.parts.local_file_picker import local_file_picker
 
 
@@ -386,13 +386,20 @@ def cal_dis_dict(infos, target='训练集'):
 
 # 全局信息使用算法-指标-轮次/时间的方式展示
 def get_global_option(infos_dict, mode_ref, info_name, task_names):
-    return {
+    record_type = record_types['global']['param'][info_name]
+    record_name = record_names['global']['param'][info_name]
+    alloc_type = ''
+    if record_type.split('_')[0] == 'scatter':
+        record_type = 'scatter'
+        alloc_type = record_type.split('_')[1] if len(record_type.split('_')) > 1 else ''
+
+    options = {
         'grid': {
-            'left': '10%',  # 左侧留白
-            'right': '10%',  # 右侧留白
-            # 'bottom': '5%',  # 底部留白
-            # 'top': '20%',  # 顶部留白
-            'containLabel': False  # 包含坐标轴在内的宽高设置
+            "left": '10%',
+            "top": '10%',
+            "right": '10%',
+            "bottom": '10%',
+            "containLabel": True
         },
         'tooltip': {
             'trigger': 'axis',
@@ -406,19 +413,23 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "算法{a}<br/>" + record_names['global']['type'][mode_ref.value] + ',' + record_names['global']['param'][info_name] + "<br/>{c}",
+            'formatter': "算法{a}<br/>" + record_names['global']['type'][mode_ref.value] + ',' + record_type + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
         "xAxis": {
-            "type": 'value',
-            "name": record_names['global']['type'][mode_ref.value],
+            "type": 'category' if record_type == 'bar' else 'value',
+            "name": record_names['global']['type'][mode_ref.value]
+            if info_name not in type_name_mapping else type_name_mapping[info_name],
             'minInterval': 1 if mode_ref.value == 'round' else None,
         },
         "yAxis": {
             "type": "value",
-            "name": record_names['global']['param'][info_name],
+            "name": record_name,
             "axisLabel": {
                 'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'axisLine': {
+                'show': True
             },
             'splitNumber': 5,  # 分成5个区间
         },
@@ -446,7 +457,7 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
         'series': [
             {
                 'name': task_names[tid],
-                'type': record_types['global']['param'][info_name],
+                'type': record_type,
                 'data': list(infos_dict[mode_ref.value][tid].value),  # 受制于rx，这里必须告知前端为list类型
                 'connectNulls': True,  # 连接数据中的空值
             }
@@ -470,17 +481,29 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             }
         ],
     }
+    if alloc_type == 'seg' and list(infos_dict[mode_ref.value][0].value):
+        m = max(max(t) for t in list(infos_dict[mode_ref.value][0].value))
+        options['series'].append({
+            "type": 'line',
+            "data": [[0, 0], [m, m]],  # y=x
+            "lineStyle": {
+                "color": 'red',
+                "type": 'dashed',
+                "width": 1
+            }
+        })
+    return options
 
 
 # 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
 def get_local_option(info_dict: dict, mode_ref, info_name: str):
     return {
         'grid': {
-            'left': '10%',  # 左侧留白
-            'right': '10%',  # 右侧留白
-            # 'bottom': '10%',  # 底部留白
-            # 'top': '20%',  # 顶部留白
-            'containLabel': False  # 包含坐标轴在内的宽高设置
+            "left": '10%',
+            "top": '10%',
+            "right": '10%',
+            "bottom": '10%',
+            "containLabel": True
         },
         'tooltip': {
             'trigger': 'axis',
@@ -507,6 +530,9 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
             "name": record_names['local']['param'][info_name],
             "axisLabel": {
                 'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'axisLine': {
+                'show': True
             },
             'splitNumber': 5,  # 分成5个区间
         },
@@ -564,22 +590,21 @@ def control_global_echarts(info_name, infos_dicts, task_names):
     mode_list = list(infos_dicts.keys())
     mode_mapping = {mode: record_names['global']['type'][mode] for mode in mode_list}
     mode_ref = to_ref(mode_list[0])
-    with ui.column().classes('w-full h-full'):
+    with ui.column().classes("h-[40rem] w-[40rem]"):
         rxui.select(value=mode_ref, options=mode_mapping)
         rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names),
-                     not_merge=False).classes('w-full h-full')
-
+                     not_merge=False).classes("h-[40rem] w-[40rem]")
 
 def control_local_echarts(infos_dicts):
-    with rxui.grid(columns=2).classes('w-full'):
+    with rxui.grid(columns=2).classes('w-full h-full'):
         for info_name in infos_dicts:
-            with ui.column().classes('w-full h-full'):
+            with ui.column().classes("h-[40rem] w-[40rem]"):
                 mode_list = list(infos_dicts[info_name].keys())
                 mode_ref = to_ref(mode_list[0])
                 mode_mapping = {mode: record_names['local']['type'][mode] for mode in mode_list}
                 rxui.select(value=mode_ref, options=mode_mapping)
                 rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name),
-                             not_merge=False).classes('w-full h-full')
+                             not_merge=False).classes("h-[40rem] w-[40rem]")
 
 
 async def move_all_files(old_path, new_path):

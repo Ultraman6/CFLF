@@ -33,7 +33,9 @@ class Task:
         print(f"联邦学习任务：{self.task_name} 开始")
         self.control.set_statue('text', f"联邦学习任务：{self.task_name} 开始")
         algorithm = self.algo_class(self)  # 每次都是重新创建一个算法对象
+
         run_res = self.iterate(algorithm)  # 得到运行结果
+
         print('联邦学习任务：{} 结束 状态：{}'.format(self.task_name, run_res))
         self.control.set_statue('text', '联邦学习任务：{} 结束 状态：{}'.format(self.task_name, run_res))
         self.control.set_done()
@@ -41,8 +43,11 @@ class Task:
 
     # 此方法模拟迭代控制过程
     def iterate(self, algo):
+        # 初始化进度条
         pbar = tqdm(total=self.args.round, desc=self.task_name, position=self.task_id, leave=False)
-        while algo.round_idx <= self.args.round and self.pre_quit:
+        self.control.set_statue('progress', (self.args.round, algo.round_idx))
+        # 初始化进度条
+        while algo.round_idx <= self.args.round and not self.pre_quit:
             next = self.watch_control(algo)  # 先做任务状态检查
             if next == 0:    # 结束当前迭代
                 pbar.n = 0   # 重置进度条
@@ -55,13 +60,12 @@ class Task:
                 return next
             if algo.round_idx == 0:
                 algo.global_initialize()
-                algo.round_idx += 1  # 更新 round_idx
-                continue
-            algo.iter()
-            pbar.update(1)  # 更新进度条
-            self.control.set_statue('progress', algo.round_idx)
+            else:
+                algo.iter()
+                pbar.update(1)  # 更新进度条
+                self.control.set_statue('progress', (self.args.round, algo.round_idx))
             algo.round_idx += 1  # 更新 round_idx
-
+        algo.global_final()  # 善终操作
         pbar.close()  # 完成后关闭进度条
         if self.pre_quit:
             self.control.set_statue('text', self.quit_mes)
@@ -95,7 +99,7 @@ class Task:
 
     def setup_device(self):
         # 检查是否有可用的 GPU
-        if self.args.cuda and torch.cuda.is_available():
+        if self.args.device == 'gpu' and torch.cuda.is_available():
             device = torch.device(f'cuda:{self.args.gpu}')
         else:
             device = torch.device("cpu")

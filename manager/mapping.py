@@ -1,6 +1,7 @@
 from algorithm.base.server import BaseServer
 from algorithm.integrity.CFFL.cffl_api import CFFL_API
 from algorithm.integrity.DITFE.ditfe_api import DITFE_API
+from algorithm.integrity.FedAtt.fedatt_api import FedAtt_API
 from algorithm.integrity.RANK.rank_api import RANK_API
 from algorithm.integrity.RFFL.rffl_api import RFFL_API
 from algorithm.integrity.TMC_Shapely.tmc_api import TMC_API
@@ -75,7 +76,8 @@ algorithm_mapping = {
     'fusion_mask': Fusion_Mask_API,
     'margin_loss': Margin_Loss_API,
     'auto_fusion': Auto_Fusion_API,
-    'ditfe': DITFE_API
+    'ditfe': DITFE_API,
+    'fedatt': FedAtt_API
 }
 
 

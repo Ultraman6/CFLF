@@ -86,6 +86,10 @@ class BaseServer:
                 self.class_num.append(new_loader.dataset.num_classes)
                 client.update_data(self.train_loaders[new_idx])
 
+    def _update_model_per_client(self):
+        for client in self.client_list:
+            client.update_model(self.local_params[client.id])
+
     # 此方法表示每个算法的迭代过程，子类可以自定义该迭代本体及其所需的部件
     def iter(self):
         self.task.control.set_statue('text', "################Communication round : {}".format(self.round_idx))
@@ -118,7 +122,7 @@ class BaseServer:
         # 初始化全局信息和客户信息(已经放到task中完成，便于绑定) 弃用，直接在task中初始化
         # 预全局测试
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
-        self.task.control.set_statue('progress', self.round_idx)  # 首先要进入第0轮
+        # self.task.control.set_statue('progress', self.round_idx)  # 首先要进入第0轮
         self.task.control.set_statue('text', "轮次 : 0 全局测试损失 : {:.4f} 全局测试精度 : {:.4f}".format(test_loss, test_acc))
         self.task.control.set_info('global', 'Loss', (0, 0.0, test_loss))
         self.task.control.set_info('global', 'Accuracy', (0, 0.0, test_acc))
@@ -167,27 +171,55 @@ class BaseServer:
         for cid in self.client_indexes:
             self.local_params[cid] = copy.deepcopy(self.global_params)
 
-    def valid_record(self):
-        # 全局测试
-        if self.args.local_test:
-            t_cor, t_tol, t_los = 0, 0, 0.0
-            if self.args.train_mode == 'serial':
-                for client in self.client_list:
-                    cor, tol, los = client.local_test(w_global=self.global_params, origin=True)
+    def _local_valid_test(self):
+        t_cor, t_tol, t_los = 0, 0, 0.0
+        if self.args.train_mode == 'serial':
+            for client in self.client_list:
+                cor, tol, los = client.local_test(w_global=self.global_params, origin=True)
+                t_cor += cor
+                t_tol += tol
+                t_los += los
+        elif self.args.train_mode == 'thread':
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = [executor.submit(self.thread_test, cid=cid, w=self.global_params,
+                                           valid=None, origin=True, mode='global') for cid in self.client_indexes]
+                for future in futures:
+                    cor, tol, los = future.result()
                     t_cor += cor
                     t_tol += tol
                     t_los += los
-            elif self.args.train_mode == 'thread':
-                with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                    futures = [executor.submit(self.thread_test, cid=cid, w=self.global_params,
-                                               valid=None, origin=True, mode='global') for cid in self.client_indexes]
-                    for future in futures:
-                        cor, tol, los = future.result()
-                        t_cor += cor
-                        t_tol += tol
-                        t_los += los
-            test_acc, test_loss = t_cor / t_tol, t_los / t_tol
+        return t_cor / t_tol, t_los / t_tol
 
+    def _standalone_test(self, final=False):
+        s_list, c_list = [], []
+        cid_list = self.client_indexes if not final else list(range(self.args.num_clients))
+
+        if self.args.train_mode == 'serial':
+            for cid in cid_list:
+                acc_s, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
+                s_list.append(acc_s)
+                acc_c, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='cooper')
+                c_list.append(acc_c)
+
+        elif self.args.train_mode == 'thread':
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
+                                                valid=self.valid_global, origin=False, mode='stand') for cid in cid_list}
+                for cid, future in futures.items():
+                    acc_s, _ = future.result()
+                    s_list.append(acc_s)
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
+                                                valid=self.valid_global, origin=False, mode='cooper') for cid in cid_list}
+                for cid, future in futures.items():
+                    acc_c, _ = future.result()
+                    c_list.append(acc_c)
+            return s_list, c_list
+
+    def valid_record(self):
+        # 全局测试
+        if self.args.local_test:
+            test_acc, test_loss = self._local_valid_test()
         else:
             self.model_trainer.set_model_params(self.global_params)
             test_acc, test_loss = self.model_trainer.test(self.valid_global)
@@ -206,35 +238,21 @@ class BaseServer:
             self.task.control.set_info('local', 'learning_rate', (self.round_idx, client_losses['learning_rate']), cid)
 
         if self.args.standalone:  # 如果开启了非协作基线训练
-            s_list, c_list = [], []
-            if self.args.train_mode == 'serial':
-                for cid in self.client_indexes:
-                    acc_s, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
-                    self.task.control.set_info('local', 'standalone_acc', (self.round_idx, acc_s), cid)
-                    s_list.append(acc_s)
-                    acc_c, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='cooper')
-                    self.task.control.set_info('local', 'cooperation_acc', (self.round_idx, acc_c), cid)
-                    c_list.append(acc_c)
-
-            elif self.args.train_mode == 'thread':
-                with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                    futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
-                                                    valid=self.valid_global, origin=False, mode='stand') for cid in
-                               self.client_indexes}
-                    for cid, future in futures.items():
-                        acc_s, _ = future.result()
-                        self.task.control.set_info('local', 'standalone_acc', (self.round_idx, acc_s), cid)
-                        s_list.append(acc_s)
-                with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                    futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
-                                                    valid=self.valid_global, origin=False, mode='cooper') for cid in
-                               self.client_indexes}
-                    for cid, future in futures.items():
-                        acc_c, _ = future.result()
-                        self.task.control.set_info('local', 'cooperation_acc', (self.round_idx, acc_c), cid)
-                        c_list.append(acc_c)
-                executor.shutdown()
-            print(s_list)
-            print(c_list)
+            s_list, c_list = self._standalone_test()
+            for s_acc, c_acc, cid in zip(s_list, c_list, self.client_indexes):
+                self.task.control.set_info('local', 'standalone_acc', (self.round_idx, s_acc), cid)
+                self.task.control.set_info('local', 'cooperation_acc', (self.round_idx, c_acc), cid)
             self.task.control.set_info('global', 'jfl', (self.round_idx, cal_JFL(s_list, c_list)))
             self.task.control.set_info('global', 'pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))
+
+    # 全局轮结束后的工作
+    def global_final(self, up=False):
+        if self.args.standalone:
+            if up:  # 方便给子类api的接口
+                self._update_model_per_client()
+            s_list, c_list = self._standalone_test(final=True)
+            for s_acc, c_acc, cid in zip(s_list, c_list, self.client_indexes):
+                self.task.control.set_info('global', 'final_stand_acc', (cid, s_acc))
+                self.task.control.set_info('global', 'final_cooper_acc', (cid, c_acc))
+            self.task.control.set_info('global', 'final_jfl', (self.round_idx, cal_JFL(s_list, c_list)))
+            self.task.control.set_info('global', 'final_pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))

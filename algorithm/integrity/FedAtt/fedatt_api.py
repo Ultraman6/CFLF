@@ -6,7 +6,7 @@ interval = 5
 
 
 
-class Layer_Att_API(BaseServer):
+class FedAtt_API(BaseServer):
     def __init__(self, task):
         super().__init__(task)
         self.step = self.args.step  # 注意力融合的步长

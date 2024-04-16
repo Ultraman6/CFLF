@@ -318,6 +318,7 @@ algo_name_options = {
         # 更多aggregrate下的API细节...
     ],
     'fusion': [
+        {'value': 'fedatt', 'label': '联邦注意力融合(FedAtt)'},
         {'value': 'layer_att', 'label': '层注意力融合(FedAtt)'},
         {'value': 'cross_up_att', 'label': '损失交叉层注意力'},
         {'value': 'auto_fusion', 'label': '自注意力融合(DITFE)'},
@@ -335,7 +336,7 @@ algo_name_options = {
         {'value': 'fedavg', 'label': '联邦平均'}
     ],
     'fair': [
-        {'value': 'qfll', 'label': '质量联邦学习'},
+        {'value': 'qfll', 'label': '质量公平联邦学习'},
         {'value': 'fusion_mask', 'label': 'DITFE(质量公平融合)'},
         {'value': 'cffl', 'label': '数据点SV(CFFL)'},
         {'value': 'tmc', 'label': '蒙特卡洛SV(TMC)'},
@@ -353,7 +354,7 @@ algo_record = {
             "name": "状态信息",
             "param": {
                 "progress": {"name": "进度", "type": "circle"},
-                "text": {"name": "日志", "type": "textarea"}
+                "text": {"name": "日志", "type": "text"}
             },
             "default": ["progress", "text"]
         },
@@ -363,7 +364,11 @@ algo_record = {
                 "Loss": {"name": "全局验证损失", "type": "line"},
                 "Accuracy": {"name": "全局验证精度", "type": "line"},
                 "jfl": {"name": "奖励公平系数(JFL)", "type": "line"},
-                "pcc": {"name": "奖励公平系数(PCC)", "type": "line"}
+                "pcc": {"name": "奖励公平系数(PCC)", "type": "line"},
+                "final_stand_acc": {"name": "最终独立训练测试精度", "type": "scatter"},
+                "final_cooper_acc": {"name": "最终合作训练测试精度", "type": "scatter"},
+                "final_jfl": {"name": "最终奖励公平系数(JFL)", "type": "bar"},
+                "final_pcc": {"name": "最终奖励公平系数(PCC)", "type": "bar"}
             },
             "default": ["Loss", "Accuracy", "round", "time"],
             "type": {
@@ -383,7 +388,7 @@ algo_record = {
             "type": {
                 "round": {'name': "轮次"},
             }
-        }
+        },
     },
     "fusion_mask": {
         "global": {
@@ -391,8 +396,10 @@ algo_record = {
             "param": {
                 "e_acc": {"name": "融合测试精度", "type": "line"},
                 "e_round": {"name": "融合退火轮次数", "type": "line"},
-                "sva": {"name": "Shapely值估算精度", "type": "bar"},
-                "svt": {"name": "Shapely值估算开销", "type": "bar"}
+                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
+                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
+                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
+                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
             },
             "default": ["e_acc", "e_round", "round"],
             "type": {
@@ -423,11 +430,14 @@ algo_record = {
         "global": {
             "name": "全局信息",
             "param": {
+                "bid": {"name": "本轮报价", "type": "bar"},  # bar_seg表示分段柱状图
+                "idx": {"name": "本轮指标", "type": "bar"},
+                "pay": {"name": "本轮支付", "type": "bar"},
                 "bid_pay": {"name": "报价vs支付", "type": "scatter"},
-                "regret": {"name": "累计遗憾值", "type": "line"},
+                # "regret": {"name": "累计遗憾值", "type": "line"},
                 "total_reward": {"name": "累计奖励值", "type": "bar"},
             },
-            "default": ["bid_pay", "regret", "total_reward"],
+            "default": ["bid", "idx", "pay", "bid_pay", "regret", "total_reward"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -435,14 +445,14 @@ algo_record = {
         "local": {
             "name": "局部信息",
             "param": {
-                "bid": {"name": "本轮报价", "type": "line"},
-                "pay": {"name": "本轮支付", "type": "line"},
+                "emp": {"name": "本轮经验指标", "type": "line"},
+                "ucb": {"name": "本轮ucb指标", "type": "line"},
             },
-            "default": ["bid", "pay"],
+            "default": ["emp", "ucb"],
             "type": {
                 "round": {'name': "轮次"},
             }
-        },
+        }
     },
     "cffl": {
         "local": {
@@ -470,7 +480,16 @@ algo_record = {
         }
     }
 }
-
+type_name_mapping = {
+    'final_stand_acc': '客户id', 'final_cooper_acc': '客户id', 'final_jfl': '算法', 'final_pcc': '算法',
+    'sva_final': '算法', 'svt_final': '算法', 'bid': '客户id', 'idx': '客户id', 'pay': '客户id', 'bid_pay': '声明成本',
+}
+# type_mapping = {
+#     'line': 'value',
+#     'scatter': 'value',
+#     'bar': 'category',
+#     'bar_seg': 'category',
+# }
 # 融合逻辑
 def merge_params_types(algo_record, i):
     merged_result = {}

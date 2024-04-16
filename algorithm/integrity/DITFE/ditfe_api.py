@@ -2,6 +2,8 @@ import random
 import time
 import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import combinations
+
 import numpy as np
 from scipy.stats import wasserstein_distance
 from tqdm import tqdm
@@ -37,7 +39,7 @@ class DITFE_API(BaseServer):
         self.tao = self.args.tao          # 贪婪的的随机因子
         self.budgets = random.randint(int(self.args.budgets[0]), int(self.args.budgets[1]))  # 每轮的预算范围(元组)
         self.bids = self.args.bids        # 客户的投标范围
-        self.scores = self.args.scores        # 客户的投标范围
+        self.scores = self.args.scores        # 客户的得分范围
         self.rho = self.args.rho          # 贡献记忆因子
         # 第二阶段参数
         self.time_mode = self.args.time_mode
@@ -50,7 +52,8 @@ class DITFE_API(BaseServer):
         self.real_sv = self.args.real_sv  # 是否使用真实Shapely值
 
         self.cum_budget = 0.0   # 已消耗的预算
-        self.cum_regret = 0.0   # 累计遗憾值
+        self.cum_reward = 0.0   # 累计奖励值
+        # self.cum_regret = 0.0   # 累计遗憾值
         self.samples_emd = [calculate_emd(get_distribution(loader, self.args.dataset)) for loader in self.train_loaders]
         self.his_bids = []  # 客户的投标
         self.his_scores = []  # 客户的质量属性得分
@@ -73,17 +76,29 @@ class DITFE_API(BaseServer):
         # 确定投标价格范围
         min_bid = self.bids[0]
         max_bid = self.bids[1]
+        bids, scores = [], []
+
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户投标 开始")
         if self.args.bid_mode == 'random':
-            self.his_bids = np.random.uniform(min_bid, max_bid, size=self.args.num_clients)
+            bids = np.random.uniform(min_bid, max_bid, size=self.args.num_clients)
         elif self.args.bid_mode == 'uniform':
-            self.his_bids = np.linspace(min_bid, max_bid, num=self.args.num_clients)
+            bids = np.linspace(min_bid, max_bid, num=self.args.num_clients)
+        bids = sorted([(cid, bid) for cid, bid in enumerate(bids)], key=lambda x: x[1], reverse=True)
+
         for client in self.client_list:
             cid, did = client.id, client.train_dataloader.dataset.id
-            self.task.control.set_info('local', 'bid', (self.round_idx, self.his_bids[cid]), cid)
-            self.his_scores[cid] = data_quality_function(self.samples_emd[did], self.sample_num[did])
-            self.task.control.set_info('local', 'score', (self.round_idx, self.scores[cid]), cid)
-            self.client_indexes.append(cid)
+            scores[cid] = (cid, data_quality_function(self.samples_emd[did], self.sample_num[did]))
+
+        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        score_max, score_min = max(scores, key=lambda x: x[1])[1], min(scores, key=lambda x: x[1])[1]
+
+        self.task.control.clear_informer('bid')
+        for c1, bid, c2, score in zip(bids, scores):
+            self.his_bids[c1] = bid
+            self.task.control.set_info('global', 'bid', (c1, bid))
+            self.his_scores[c2] = self.scores[0] + (score - score_min) / (score_max - score_min) * (self.scores[1] - self.scores[0])
+            # self.task.control.set_info('global', 'score', (c2, self.his_scores[c2]))
+
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户投标 结束")
 
     # 拍卖选择方法确定选中客户
@@ -98,20 +113,29 @@ class DITFE_API(BaseServer):
         # 根据不同的拍卖策略排序
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户选择 开始 模式{self.args.budget_mode}")
         if self.args.auction_mode == 'cmab':
-            cid_list = sorted(self.client_indexes, key=lambda cid: self.ucb_rewards[cid] * self.scores[cid] / self.bids[cid], reverse=True)
+            cid_with_metrics = sorted([(cid, self.ucb_rewards[cid] * self.scores[cid] / self.bids[cid])
+                                       for cid in range(self.args.num_clients)],key=lambda x: x[1], reverse=True)
         elif self.args.auction_mode == 'greedy':
             if random.random() < self.tao:
-                cid_list = random.shuffle(self.client_indexes)
+                cid_with_metrics = [(cid, 1) for cid in range(self.args.num_clients)]
+                cid_with_metrics = random.shuffle(cid_with_metrics)
             else:
-                cid_list = sorted(self.client_indexes, key=lambda cid: sum(self.his_rewards[cid].values()) / len(self.his_rewards[cid].values()), reverse=True)
+                cid_with_metrics = sorted([(cid, sum(self.his_rewards[cid].values()) / len(self.his_rewards[cid].values()))
+                                           for cid in range(self.args.num_clients)], key=lambda x: x[1], reverse=True)
         elif self.args.auction_mode == 'bid_first':
-            cid_list = sorted(self.client_indexes, key=lambda cid: self.his_bids[cid][self.round_idx])
+            cid_with_metrics = sorted([(cid, self.his_bids[cid]) for cid in range(self.args.num_clients)], key=lambda x: x[1], reverse=True)
         else:
-            cid_list = self.client_indexes
+            cid_with_metrics = [(cid, 0) for cid in range(self.args.num_clients)]
+        cid_list = []
+        self.task.control.clear_informer('idx')
+        for cid, idx in cid_with_metrics:
+            cid_list.append(cid)
+            self.task.control.set_info('global', 'idx', (cid, idx))
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户选择 结束 模式{self.args.budget_mode}")
 
         # 根据预算模式，决定选择算法
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户竞标 开始 模式{self.args.budget_mode}")
+        pays = []
         if self.args.budget_mode == 'total':
             total_pay = 0.0
             k = self.args.num_selected
@@ -120,10 +144,11 @@ class DITFE_API(BaseServer):
                 r_i = self.ucb_rewards[cid],
                 pay = min(r_i * max_score * b_k / (r_K * s_k), max_bid)
                 self.winner_pays[cid][self.round_idx] = pay
-                self.task.control.set_info('global', 'bid_pay', (self.his_bids[cid], pay)) # 输送报价 vs 支付信息
+                pays.append((cid, pay))
                 self.cum_budget += pay
                 total_pay += pay
                 self.client_indexes.append(cid)
+                self.client_selected_times[cid] += 1
             self.task.control.set_info('statue', 'budget', (self.budgets, self.cum_budget))  # 输送报价 vs 支付信息
             if self.cum_budget > self.budgets:
                 self.task.get_pre_quit("总预算耗尽, FL迭代提前结束")
@@ -143,10 +168,15 @@ class DITFE_API(BaseServer):
                 cid, pay = cid_list[i], final_pays[i]
                 self.winner_pays[cid][self.round_idx] = pay
                 self.cum_budget += pay
+                pays.append((cid, pay))
                 self.client_indexes.append(cid)
-                self.task.control.set_info('global', 'bid_pay', (self.his_bids[cid], pay)) # 输送报价 vs 支付信息
             self.task.control.set_info('statue', 'budget', (self.budgets, self.cum_budget))  # 输送报价 vs 支付信息
-
+        pays.sort(key=lambda x: x[1])
+        self.task.control.clear_informer('bid_pay')
+        self.task.control.clear_informer('pay')
+        for cid, pay in pays:
+            self.task.control.set_info('global', 'bid_pay', (self.his_bids[cid], pay))  # 输送报价 vs 支付信息
+            self.task.control.set_info('global', 'pay', (cid, pay))
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户竞标 结束 模式{self.args.budget_mode}")
 
 
@@ -196,60 +226,40 @@ class DITFE_API(BaseServer):
         self.task.control.set_info('global', 'svt', (self.round_idx, time_e - time_s))
         self.task.control.set_statue('text', f"完成计算用户近似贡献 计算模式: 梯度投影")
 
-        if self.real_sv:
-            self.task.control.set_statue('text', "开始计算用户真实贡献")
-            self.cal_real_contrib()
-            self.task.control.set_statue('text', "完成计算用户真实贡献")
-            contrib_list = []
-            real_contrib_list = []
-            for cid in self.client_indexes:
-                contrib_list.append(self.his_contrib[cid][self.round_idx])
-                real_contrib_list.append(self.his_real_contrib[cid][self.round_idx])
-            self.task.control.set_info('global', 'sva',
-                                       (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
+        # if self.real_sv:
+        #     self.task.control.set_statue('text', "开始计算用户真实贡献")
+        #     self.cal_real_contrib()
+        #     self.task.control.set_statue('text', "完成计算用户真实贡献")
+        #     contrib_list = []
+        #     real_contrib_list = []
+        #     for cid in self.client_indexes:
+        #         contrib_list.append(self.his_contrib[cid][self.round_idx])
+        #         real_contrib_list.append(self.his_real_contrib[cid][self.round_idx])
+        #     self.task.control.set_info('global', 'sva',
+        #                                (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
 
         # 然后计算累计贡献以及每个客户的奖励
         self.task.control.set_statue('text', f"开始计算客户奖励 计算模式: 梯度掩码")
         self.alloc_mask()  # 分配梯度奖励
         self.task.control.set_statue('text', f"结束计算客户奖励 计算模式: 梯度掩码")
 
-    def cal_quality_score(self):  # 目前只考虑质量属性
-        # -----------------质量属性得分计算-----------------
-        for client in self.client_list:
-            id = client.train_dataloader.dataset.id
-            sample_emd = self.samples_emd[id]
-            sample_num = self.sample_num[id]
-            self.scores[client.id] = data_quality_function(sample_emd, sample_num)
+        self.task.control.set_statue('text', f"开始更新客户UCB指标")
+        self.update_ucb()  # 更新ucb指标
+        self.task.control.set_statue('text', f"结束更新客户UCB指标")
 
-    def cal_ucb_reward(self, cid, rid):  # 计算UCB指标(客户被选中才去更新，其times也得到了更新)
-        self.his_rewards[cid] = self.his_rewards[cid] + self.emp_rewards[cid]
-        self.emp_rewards[cid] = (
-                    (self.emp_rewards[cid] * (self.client_selected_times[cid] - 1) + self.his_rewards[cid])
-                    / self.client_selected_times[cid])
-        self.ucb_rewards[cid] = (self.emp_rewards[cid]
-                                 + np.sqrt((self.k + 1) * np.log(rid)
-                                           / self.client_selected_times[cid]))
-
-    def client_sampling_with_budget(self, indexes, budget):  # 记录客户历史选中次数，不再是静态方法（返回选中客户及其支付，选中次数已更新）
-        sorted_cid_idx = sorted(indexes, key=lambda item: item[1], reverse=True)  # 得到排序后的cid（按照udc的idx）
-        cid_to_selected = {}  # 记录被选中的客户，及其支付
-        for cid in sorted_cid_idx:  # 更新被选中次数（相当于遍历k，找到最大的k使得刚好超出预算）每轮的尝试都不加入k，而是判断以k为末尾时，前面的支付预算是否充足
-            b_k = self.bids[cid]
-            s_k = self.scores[cid]
-            ucb_r_k = self.ucb_rewards[cid]
-            for i in cid_to_selected:
-                cid_to_selected[i] = self.ucb_rewards[i] * self.S[1] / (ucb_r_k * s_k) * b_k
-            acc_pay = np.sum(list(cid_to_selected.values()))
-            if budget > acc_pay:  # 预算充足，则加入该客户
-                cid_to_selected[cid] = 0.0  # 加入k后，初始支付为0，待下轮计算
-                self.client_selected_times[cid] += 1  # 选中次数更新到位
+    def update_ucb(self):
+        for cid in range(self.args.num_clients):
+            beta = self.client_selected_times[cid]
+            factor = np.sqrt((self.k + 1) * np.log(self.round_idx + 1) / beta)
+            if cid in self.client_indexes:
+                self.emp_rewards[cid] = (self.emp_rewards[cid] * (beta - 1) + self.his_rewards[cid][self.round_idx]) / beta
+                self.ucb_rewards[cid] = self.emp_rewards[cid] + factor
             else:
-                break
-        return cid_to_selected
+                self.ucb_rewards[cid] = self.emp_rewards[cid] + factor
 
-    def alloc_pay(self, cid_with_pay, rid):  # 分配某轮的支付
-        for cid, pay in cid_with_pay.items():
-            self.winner_pays[cid][rid] = pay
+            self.task.control.set_info('local', 'emp', (self.round_idx, self.emp_rewards[cid]), cid)
+            self.task.control.set_info('local', 'ucb', (self.round_idx, self.ucb_rewards[cid]), cid)
+
 
     def cal_contrib(self):
         for idx, cid in enumerate(self.client_indexes):
@@ -262,20 +272,21 @@ class DITFE_API(BaseServer):
             self.his_contrib[cid][self.round_idx] = ctb
             self.task.control.set_info('local', 'contrib', (self.round_idx, ctb), cid)
 
-    # 真实Shapely值计算
-    def _subset_cos_poj(self, cid, subset_g, subset_w):  # 还是真实SV计算
-        g_s = _modeldict_sum(subset_g)
-        g_s_i = _modeldict_sum(subset_g + (self.modified_g_locals[cid],))
-        for name, v in self.agg_layer_weights[cid].items():
-            sum_name = sum(s_w[name] for s_w in subset_w)
-            sum_name_i = sum_name + v
-            for key in self.g_global.keys():
-                if name in key:  # 更新子集的聚合梯度
-                    g_s[key] /= sum_name
-                    g_s_i[key] /= sum_name_i
-        v_i = float(_modeldict_norm(g_s).cpu()) * float(_modeldict_cossim(self.g_global, g_s).cpu())
-        v = float(_modeldict_norm(g_s_i).cpu()) * float(_modeldict_cossim(self.g_global, g_s_i).cpu())
-        return v - v_i
+    def cal_real_contrib(self):
+        # 使用多线程计算每个客户的余弦距离，并限制最大线程数
+        if self.args.train_mode == 'serial':
+            for idx, cid in enumerate(self.client_indexes):
+                real_contrib = self._compute_cos_poj_for_client(idx)
+                self.his_real_contrib[cid][self.round_idx] = real_contrib
+                self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
+        elif self.args.train_mode == 'thread':
+            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+                futures = {cid: executor.submit(self._compute_cos_poj_for_client, cid)
+                           for cid in self.client_indexes}
+                for cid, future in futures.items():
+                    real_contrib = future.result()
+                    self.his_real_contrib[cid][self.round_idx] = real_contrib
+                    self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
 
     def _compute_cos_poj_for_client(self, cid):
         margin_sum = 0.0
@@ -303,21 +314,20 @@ class DITFE_API(BaseServer):
 
         return margin_sum / cmb_num
 
-    def cal_real_contrib(self):
-        # 使用多线程计算每个客户的余弦距离，并限制最大线程数
-        if self.args.train_mode == 'serial':
-            for idx, cid in enumerate(self.client_indexes):
-                real_contrib = self._compute_cos_poj_for_client(idx)
-                self.his_real_contrib[cid][self.round_idx] = real_contrib
-                self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
-        elif self.args.train_mode == 'thread':
-            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self._compute_cos_poj_for_client, cid)
-                           for cid in self.client_indexes}
-                for cid, future in futures.items():
-                    real_contrib = future.result()
-                    self.his_real_contrib[cid][self.round_idx] = real_contrib
-                    self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
+    # 真实Shapely值计算
+    def _subset_cos_poj(self, cid, subset_g, subset_w):  # 还是真实SV计算
+        g_s = _modeldict_sum(subset_g)
+        g_s_i = _modeldict_sum(subset_g + (self.modified_g_locals[cid],))
+        for name, v in self.agg_layer_weights[cid].items():
+            sum_name = sum(s_w[name] for s_w in subset_w)
+            sum_name_i = sum_name + v
+            for key in self.g_global.keys():
+                if name in key:  # 更新子集的聚合梯度
+                    g_s[key] /= sum_name
+                    g_s_i[key] /= sum_name_i
+        v_i = float(_modeldict_norm(g_s).cpu()) * float(_modeldict_cossim(self.g_global, g_s).cpu())
+        v = float(_modeldict_norm(g_s_i).cpu()) * float(_modeldict_cossim(self.g_global, g_s_i).cpu())
+        return v - v_i
 
     def fusion_weights(self):
         # 质量检测
@@ -340,9 +350,7 @@ class DITFE_API(BaseServer):
 
     def alloc_mask(self):
         time_contrib = self.cal_reward()
-        # print(time_contrib)
         rewards = {cid: np.tanh(self.fair * v) for cid, v in time_contrib.items()}
-        # print(rewards)
         max_reward = np.max(list(rewards.values()))  # 计算得到奖励比例系数
         self.task.control.set_statue('text', "开始定制客户梯度奖励")
         for cid, r in rewards.items():  # 计算每位客户的梯度奖励（按层次）
@@ -370,6 +378,7 @@ class DITFE_API(BaseServer):
                 r = time_contrib[cid] / sum_reward
                 self.his_rewards[cid][self.round_idx] = r
                 time_contrib[cid] = r
+                self.cum_reward+=r
 
         elif self.time_mode == 'exp':
             for cid in self.client_indexes:
@@ -382,11 +391,12 @@ class DITFE_API(BaseServer):
                     r_i = max(numerator / denominator, 0)  # 时间贡献用于奖励计算
                 sum_reward += r_i
                 time_contrib[cid] = r_i
-
             for cid in self.client_indexes:
                 r = time_contrib[cid] / sum_reward
                 self.his_rewards[cid][self.round_idx] = r
                 time_contrib[cid] = r
+                self.cum_reward+=r
 
+        self.task.control.set_info('global', 'total_reward', (self.round_idx, self.cum_reward))
         return time_contrib
 

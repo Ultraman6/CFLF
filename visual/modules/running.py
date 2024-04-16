@@ -244,7 +244,7 @@ class run_ui:
 
                 elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
-                    with rxui.grid(columns=2).classes('w-full'):
+                    with rxui.grid(columns=2).classes('w-full h-full'):
                         for info_name in self.infos_ref[info_spot]:
                             control_global_echarts(info_name, self.infos_ref[info_spot][info_name], self.task_names)
 
@@ -270,12 +270,12 @@ class run_ui:
                             rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
                             rxui.circular_progress(show_value=False, value=lambda pro_ref=pro_ref:
-                                                   list(pro_ref.value)[-1] if len(pro_ref.value) > 0 else 0,
+                                                   list(pro_ref.value)[-1][-1] if len(pro_ref.value) > 0 else 0,
                                                    max=lambda pro_ref=pro_ref:
-                                                   list(pro_ref.value)[0] if len(pro_ref.value) > 0 else 0)
+                                                   list(pro_ref.value)[0][0] if len(pro_ref.value) > 0 else 0)
                             rxui.label(
-                                text=lambda pro_ref=pro_ref: (str(list(pro_ref.value)[-1])
-                                    if len(pro_ref.value) > 0 else '0') + '/' + (str(list(pro_ref.value)[0])
+                                text=lambda pro_ref=pro_ref: (str(list(pro_ref.value)[-1][-1])
+                                    if len(pro_ref.value) > 0 else '0') + '/' + (str(list(pro_ref.value)[0][0])
                                     if len(pro_ref.value) > 0 else '0'))
             elif type == 'linear':
                 with rxui.grid(columns=5).classes('w-full'):

@@ -242,7 +242,5 @@ class config_ui:
             elif type(item) is dict:
                 algo_args[k] = convert_dict_to_tuple(item)
 
-        print(algo_args['sample_mapping'])
-        print(algo_args['class_mapping'])
         return algo_args, exp_args
 
