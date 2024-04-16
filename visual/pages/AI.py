@@ -17,8 +17,8 @@ from visual.parts.func import my_vmodel, han_fold_choice, locked_page_height, te
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 
 template = """
-    'header header'
-    'separator separator'
+    'left-drawer header'
+    'left-drawer separator'
     'left-drawer content'
     'left-drawer bottom-bar'
 """
@@ -61,7 +61,7 @@ def ai_interface():
             chat_app.chat_history_grid.refresh()
 
         async def handle_upload(e: events.UploadEventArguments):
-            folder_path = "embedding_files"
+            folder_path = embedding_files
             os.makedirs(folder_path, exist_ok=True)
             filename = e.name
             filedata = e.content.read()
@@ -105,12 +105,12 @@ def ai_interface():
                     ui.label("历史对话记录").classes("pt-4 pb-2 text-xl").bind_visibility_from(embedding_switch, "value", value=False)
                     chat_app.chat_history_grid()
                     embeddinglist()
-                    ui.label("Upload more Files").classes("pt-4 bp-4").bind_visibility_from(embedding_switch, "value")
+                    ui.label("上传文件").classes("pt-4 bp-4").bind_visibility_from(embedding_switch, "value")
                     ui.upload(on_upload=handle_upload, multiple=True, auto_upload=True).classes("w-full").props(
                         'color=black accept=".pdf,.txt"').bind_visibility_from(embedding_switch, "value")
             # 右侧内容
             with ui.column().classes("p-4 overflow-y-auto items-center").style("grid-area:content"):
-                await chat_app.chat_messages()
+                chat_app.chat_messages()
             # 底部栏
             with ui.column().classes("items-center").style("grid-area:bottom-bar"):
                 with ui.row().classes("items-center"):

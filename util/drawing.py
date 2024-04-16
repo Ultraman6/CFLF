@@ -9,11 +9,10 @@ def plot_results(results):
                     每个字典应包含 'name', 'rounds', 'times', 'accuracies' 和 'losses' 键。
     """
     plt.figure(figsize=(12, 10))
-
     # 绘制所有算法基于轮次的精度图
     plt.subplot(2, 2, 1)
     for result in results:
-        plt.plot(result['rounds'], result['accuracies'], label=result['name'])
+        plt.plot(result['rounds'], result['accuracies'] if 'accuracies' in result else 0.0, label=result['name'])
     plt.xlabel('Rounds')
     plt.ylabel('Accuracy')
     plt.title('Accuracy vs Rounds')
@@ -22,7 +21,7 @@ def plot_results(results):
     # 绘制所有算法基于轮次的损失图
     plt.subplot(2, 2, 2)
     for result in results:
-        plt.plot(result['rounds'], result['losses'], label=result['name'])
+        plt.plot(result['rounds'], result['losses'] if 'losses' in result else 0.0, label=result['name'])
     plt.xlabel('Rounds')
     plt.ylabel('Loss')
     plt.title('Loss vs Rounds')
@@ -60,14 +59,22 @@ def create_result(algorithm_name, accuracies, rounds, losses, times=None):
     :param losses: 损失数组。
     :return: 表示算法运行结果的字典。
     """
+    if len(losses) != 0:
+        result = {
+            'name': algorithm_name,
+            'rounds': rounds,
+            'times': times,
+            'accuracies': accuracies,
+            'losses': losses
+        }
+    else:
+        result = {
+            'name': algorithm_name,
+            'rounds': rounds,
+            'times': times,
+            'accuracies': accuracies,
+        }
 
-    result = {
-        'name': algorithm_name,
-        'rounds': rounds,
-        'times': times,
-        'accuracies': accuracies,
-        'losses': losses
-    }
     return result
 
 # # 示例使用

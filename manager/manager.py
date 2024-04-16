@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
 import torch
 from ex4nicegui import deep_ref, to_raw
-from nicegui import run
+from nicegui import run, ui
 from data.get_data import get_dataloaders
 from manager.control import TaskController
 from manager.mapping import algorithm_mapping
@@ -14,30 +14,23 @@ from util.drawing import plot_results, create_result
 from util.logging import save_results_to_excel
 from util.running import control_seed
 from manager.task import Task
+from visual.parts.constant import algo_record
+from visual.parts.func import clear_ref
+
 
 # 由于多进程原因，ref存储从task层移植到manager层中
-global_info_dicts = {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']}
-local_info_dicts = {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-statuse_dicts = ['progress', 'text']
-
-
-def setup_device(args):
-    # 检查是否有可用的 GPU
-    if args.device == 'gpu' and torch.cuda.is_available():
-        device = torch.device(f'cuda:{args.gpu}')
-    else:
-        device = torch.device("cpu")
-    print(f"使用设备：{device}")
-    return device
 
 
 def pack_result(task_name, result):
     # 从 global_info 中提取精度和损失
     global_info = result["global_info"]
-    global_acc = [info["Accuracy"] for info in global_info.values()]
-    global_loss = [info["Loss"] for info in global_info.values()]
+    global_acc, global_loss = [], []
+    for info in global_info.values():
+        if "Accuracy" in info:
+            global_acc.append(info["Accuracy"])
+        if "Loss" in info:
+            global_loss.append(info["Loss"])
     return create_result(task_name, global_acc, list(range(len(global_acc))), global_loss)
-
 
 def conv_result(result):
     new_result = {'global_info': {}, 'client_info': {}}
@@ -51,17 +44,14 @@ def conv_result(result):
                 new_result['global_info'][r][key] = item[-1]
             for k, v in value.items():
                 if k != 'round':
-                    if k not in new_result['global_info'][r]: # 其余类型应该和round同索引
+                    if k not in new_result['global_info'][r]:  # 其余类型应该和round同索引
                         new_result['global_info'][r][k] = v[i][0]
 
-    print(result['local'])
     for key, value in result['local'].items():  # 访问参数
         for cid, v in value['round'].items():
-            print(v)
             if cid not in new_result['client_info']:
                 new_result['client_info'][cid] = {}
             for i, v1 in enumerate(v):  # 先判断cid是否在，再判断不同类型的相同参数是否在，最后判断类型对应的值是否在
-                print(v1)
                 r = v1[0]  # round本身无需加入字典，但其他类型以及参数都需加入
                 if r not in new_result['client_info'][cid]:
                     new_result['client_info'][cid][r] = {}
@@ -73,9 +63,7 @@ def conv_result(result):
                         if k2 not in new_result['client_info'][cid][r]:  # 其余类型应该和round同索引
                             new_result['client_info'][cid][r][k2] = v2[cid][i][0]
 
-    print(new_result['client_info'])
     return new_result
-
 
 
 async def handle_mes_ref(data, ref):
@@ -88,26 +76,6 @@ async def handle_mes_ref(data, ref):
             # 否则，追加值到相应的数组中
             ref[k].value.append(v)
 
-
-def run_task(attr, queue=None):
-    """
-    运行单个算法任务。
-    """
-    task = Task(*attr)
-    control_seed(task.args.seed)
-    # if queue is not None:
-    result = task.run()
-    # else:
-    #     result = task.run(ref=self.task_info_refs[tid])
-    return task.task_id, result
-
-
-def clear_ref(info_dict):
-    for v in info_dict.values():
-        if type(v) == dict:
-            clear_ref(v)
-        else:
-            v.value.clear()
 
 def copy_raw_ref(info_dict, copy_dict):
     for k, v in info_dict.items():
@@ -123,7 +91,7 @@ def copy_raw_ref(info_dict, copy_dict):
 # 现在全部的配置都在类创建时完成，算法的配置和args 当相同配置仅微调args_mapping为args_template
 
 class ExperimentManager:
-    def __init__(self, args_template, exp_args):
+    def __init__(self, args_template, exp_args, visual_control: dict):
         exp_args = vars(exp_args)
         self.exp_args = exp_args
         self.exp_name = exp_args.get('name', 'DefaultExperiment')
@@ -134,6 +102,7 @@ class ExperimentManager:
                            'max_processes': exp_args.get('max_processes', 4)}
         self.args_template = args_template
         self.handle_type(self.args_template)
+        self.visual_control = visual_control
 
         self.model_global = None
         self.dataloaders_global = None
@@ -185,7 +154,8 @@ class ExperimentManager:
         if hasattr(args, 'result_root'):
             args.result_root = self.exp_args['result_root']
 
-    def assemble_parameters(self):
+
+    async def assemble_parameters(self):
         """
         解析并组装实验参数，形成实验任务列表。
         在此过程中直接创建Task对象。
@@ -210,12 +180,13 @@ class ExperimentManager:
                 experiment_name = f"{algo_name}_{'_'.join(experiment_name_parts)}" if experiment_name_parts else algo_name
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
-                device = setup_device(args)  # 设备设置
-                self.task_info_refs[task_id] = self.adj_info_ref(args)  # 最终数据绑定对象
-                self.task_control[task_id] = TaskController(task_id, self.run_mode,
-                                                            self.task_info_refs[task_id])  # control会根据mode决定是否接收ref
-                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, device,
-                                                self.task_control[task_id])
+                self.task_info_refs[task_id] = self.adj_info_ref(args, algo_name)  # 最终数据绑定对象
+                if algo_name in self.visual_control:
+                    visual = {'common': self.visual_control['common'], algo_name: self.visual_control[algo_name]}
+                else:
+                    visual = {'common': self.visual_control['common']}
+                self.task_control[task_id] = TaskController(task_id, self.run_mode, algo_name, self.task_info_refs[task_id], visual)  # control会根据mode决定是否接收ref
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, self.task_control[task_id])
                 task_id += 1
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
@@ -337,21 +308,47 @@ class ExperimentManager:
         res = task.run()  # 从此任务类无需知晓具体的控制模式
         return task.task_id, res
 
-    def adj_info_ref(self, args):  # 细腻度的绑定，直接和每个参数进行绑定
-        info_ref = {'statue': {}, 'global': {}, 'local': {}}  # 这里决定ui模块的顺序
-        for key in global_info_dicts['info']:
-            info_ref['global'][key] = {}
-            for k in global_info_dicts['type']:
-                info_ref['global'][key][k] = deep_ref([])
-        for key in local_info_dicts['info']:
-            info_ref['local'][key] = {}
-            for k in local_info_dicts['type']:
-                info_ref['local'][key][k] = {}
-                for cid in range(args.num_clients):
-                    info_ref['local'][key][k][cid] = deep_ref([])
-        for k in statuse_dicts:
-            info_ref['statue'][k] = deep_ref([])
+    def adj_info_ref(self, args, algo_name):  # 细腻度的绑定，直接和每个参数进行绑定
+        info_ref = {}  # 这里决定ui模块的顺序
+        for spot, value in algo_record['common'].items():
+            info_ref[spot] = {}
+            for param in value['param']:
+                if self.visual_control['common'][spot]['param'][param].value:
+                    if 'type' in value:
+                        info_ref[spot][param] = {}
+                        for type in value['type']:
+                            if self.visual_control['common'][spot]['type'][type].value:
+                                if spot == 'local':
+                                    info_ref[spot][param][type] = {}
+                                    for i in range(args.num_clients):
+                                        info_ref[spot][param][type][i] = deep_ref([])
+                                else:
+                                    info_ref[spot][param][type] = deep_ref([])
+                    else:  # 表明是进度信息
+                        info_ref[spot][param] = deep_ref([])
 
+        if algo_name in algo_record:
+            for spot, value in algo_record[algo_name].items():
+                if spot not in info_ref:
+                    info_ref[spot] = {}
+                for param in value['param']:
+                    if self.visual_control[algo_name][spot]['param'][param].value:
+                        if param not in info_ref[spot]:
+                            info_ref[spot][param] = {}
+                            if 'type' in value:
+                                if param not in info_ref[spot]:
+                                    info_ref[spot][param] = {}
+                                for type in value['type']:
+                                    if self.visual_control['common'][spot]['type'][type].value:
+                                        if type not in info_ref[spot][param]:
+                                            if spot == 'local':
+                                                info_ref[spot][param][type] = {}
+                                                for i in range(args.num_clients):
+                                                    info_ref[spot][param][type][i] = deep_ref([])
+                                            else:
+                                                info_ref[spot][param][type] = deep_ref([])
+                            else:
+                                info_ref[spot][param] = deep_ref([])
         return info_ref
 
     def control_same(self):
@@ -403,8 +400,8 @@ class ExperimentManager:
             task_id, message = await loop.run_in_executor(None, queue.get)
             if message == "done":
                 return
-            elif message == "clear":
-                clear_ref(self.task_info_refs[task_id])
+            elif message[0] == "clear":
+                clear_ref(self.task_info_refs[task_id], message[1])
             else:
                 await handle_mes_ref(message, self.task_info_refs[task_id])
             # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
@@ -428,7 +425,6 @@ class ExperimentManager:
             save_file_name = os.path.join(str(root_save_path), f"{task_name}_results.xlsx")
             save_results_to_excel(result, save_file_name)
             print("Results saved to Excel {}.".format(save_file_name))
-
 
     def handle_root(self):
         root_save_path = os.path.join(self.exp_args['result_root'], self.exp_name)

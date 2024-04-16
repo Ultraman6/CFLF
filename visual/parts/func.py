@@ -13,12 +13,16 @@ import requests
 from ex4nicegui.reactive import local_file_picker, rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
 from nicegui import app, ui, context
+
+from visual.parts.constant import record_names, record_types
 from visual.parts.local_file_picker import local_file_picker
+
 
 def get_image_data(image_path):
     with open(image_path, 'rb') as image_file:
         image_data = image_file.read()
     return image_data
+
 
 def to_base64(input_data):
     """
@@ -46,10 +50,12 @@ def to_base64(input_data):
     # 将图片内容转换为Base64编码
     return 'data:image/png;base64,' + base64.b64encode(image_data).decode('utf-8')
 
+
 async def han_fold_choice(ref):
     result = await local_file_picker(ref.value, upper_limit=None, directories_only=True)
-    if result is not None and len(result) !=0 :
+    if result is not None and len(result) != 0:
         ref.value = result[0]
+
 
 async def han_file_choice(ref, limited):
     result = await local_file_picker(ref.value, upper_limit=None, multiple=True, allowed_file_types=limited)
@@ -59,9 +65,11 @@ async def han_file_choice(ref, limited):
             if item not in ref.value:
                 ref.value.append(item)  # 若不存在，则添加到ref.value中
 
+
 def my_vmodel(data, key):
     def setter(new):
         data[key] = new
+
     return to_ref_wrapper(lambda: data[key], setter)
 
 
@@ -208,7 +216,8 @@ def get_dicts(colors, infos_each, infos_all, ):
                                 "y2": 1,
                                 "colorStops": [
                                     {"offset": 0, "color": colors[label]},  # 原始颜色
-                                    {"offset": (1 - noise / dist) if dist != 0 else 0, "color": colors[label]},  # 与原始颜色相同，此处为噪声数据位置
+                                    {"offset": (1 - noise / dist) if dist != 0 else 0, "color": colors[label]},
+                                    # 与原始颜色相同，此处为噪声数据位置
                                     {"offset": (1 - noise / dist) if dist != 0 else 1, "color": 'grey'},  # 从噪声数据位置开始渐变
                                     {"offset": 1, "color": 'grey'}  # 底部透明
                                 ]
@@ -251,6 +260,7 @@ def get_dicts(colors, infos_each, infos_all, ):
                 }
             })
     return legend_dict, series_dict
+
 
 def build_task_loading(message: str, is_done=False, state='positive'):
     with ui.row().classes("flex-center"):
@@ -373,14 +383,16 @@ def cal_dis_dict(infos, target='训练集'):
         }],
     }
 
+
 # 全局信息使用算法-指标-轮次/时间的方式展示
 def get_global_option(infos_dict, mode_ref, info_name, task_names):
     return {
         'grid': {
             'left': '10%',  # 左侧留白
             'right': '10%',  # 右侧留白
-            'bottom': '10%',  # 底部留白
-            'top': '10%',  # 顶部留白
+            # 'bottom': '5%',  # 底部留白
+            # 'top': '20%',  # 顶部留白
+            'containLabel': False  # 包含坐标轴在内的宽高设置
         },
         'tooltip': {
             'trigger': 'axis',
@@ -394,17 +406,17 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "算法{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
+            'formatter': "算法{a}<br/>" + record_names['global']['type'][mode_ref.value] + ',' + record_names['global']['param'][info_name] + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
         "xAxis": {
             "type": 'value',
-            "name": mode_ref.value,
+            "name": record_names['global']['type'][mode_ref.value],
             'minInterval': 1 if mode_ref.value == 'round' else None,
         },
         "yAxis": {
             "type": "value",
-            "name": info_name,
+            "name": record_names['global']['param'][info_name],
             "axisLabel": {
                 'interval': 'auto',  # 根据图表的大小自动计算步长
             },
@@ -417,13 +429,13 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'pageButtonItemGap': 5,
             'pageButtonGap': 20,
             'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            'itemWidth': 25,  # 控制图例标记的宽度
-            'itemHeight': 14,  # 控制图例标记的高度
-            'width': '70%',
-            'left': '15%',
-            'right': '15%',
+            # 'itemWidth': 25,  # 控制图例标记的宽度
+            # 'itemHeight': 14,  # 控制图例标记的高度
+            # 'width': '70%',
+            # 'left': '15%',
+            # 'right': '15%',
             'textStyle': {
-                'width': 80,  # 设置图例文本的宽度
+                # 'width': 80,  # 设置图例文本的宽度
                 'overflow': 'truncate',  # 当文本超出宽度时，截断文本
                 'ellipsis': '...',  # 截断时末尾添加的字符串
             },
@@ -434,7 +446,7 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
         'series': [
             {
                 'name': task_names[tid],
-                'type': 'line',
+                'type': record_types['global']['param'][info_name],
                 'data': list(infos_dict[mode_ref.value][tid].value),  # 受制于rx，这里必须告知前端为list类型
                 'connectNulls': True,  # 连接数据中的空值
             }
@@ -466,9 +478,9 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
         'grid': {
             'left': '10%',  # 左侧留白
             'right': '10%',  # 右侧留白
-            'bottom': '10%',  # 底部留白
-            'top': '10%',  # 顶部留白
-            'containLabel': True  # 包含坐标轴在内的宽高设置
+            # 'bottom': '10%',  # 底部留白
+            # 'top': '20%',  # 顶部留白
+            'containLabel': False  # 包含坐标轴在内的宽高设置
         },
         'tooltip': {
             'trigger': 'axis',
@@ -482,30 +494,48 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "客户{a}<br/>" + mode_ref.value + ',' + info_name + "<br/>{c}",
+            'formatter': "客户{a}<br/>" + record_names['local']['type'][mode_ref.value] + ',' + record_names['local']['param'][info_name] + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
         "xAxis": {
             "type": 'value',
-            "name": mode_ref.value,
+            "name": record_names['local']['type'][mode_ref.value],
             'minInterval': 1 if mode_ref.value == 'round' else None,
         },
         "yAxis": {
             "type": "value",
-            "name": info_name,
+            "name": record_names['local']['param'][info_name],
             "axisLabel": {
                 'interval': 'auto',  # 根据图表的大小自动计算步长
             },
             'splitNumber': 5,  # 分成5个区间
         },
         'legend': {
-            'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]]
+            'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]],
+            'type': 'scroll',  # 启用图例的滚动条
+            'orient': 'horizontal',  # 横向排列
+            'pageButtonItemGap': 5,
+            'pageButtonGap': 20,
+            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+            # 'itemWidth': 25,  # 控制图例标记的宽度
+            # 'itemHeight': 14,  # 控制图例标记的高度
+            # 'width': '70%',
+            # 'left': '15%',
+            # 'right': '15%',
+            'textStyle': {
+                # 'width': 80,  # 设置图例文本的宽度
+                'overflow': 'truncate',  # 当文本超出宽度时，截断文本
+                'ellipsis': '...',  # 截断时末尾添加的字符串
+            },
+            'tooltip': {
+                'show': True  # 启用悬停时的提示框
+            }
         },
         'series': [
             {
                 'name': '客户' + str(cid),
-                'type': 'line',
-                'data': list(info_dict[mode_ref.value][cid].value),   # 受制于rx，这里必须告知前端为list类型
+                'type': record_types['local']['param'][info_name],
+                'data': list(info_dict[mode_ref.value][cid].value),  # 受制于rx，这里必须告知前端为list类型
                 'connectNulls': True,  # 连接数据中的空值
             }
             for cid in info_dict[mode_ref.value]
@@ -529,20 +559,27 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
         ],
     }
 
+
 def control_global_echarts(info_name, infos_dicts, task_names):
-    mode_ref = to_ref(list(infos_dicts.keys())[0])
-    with rxui.column():
-        rxui.select(value=mode_ref, options=list(infos_dicts.keys()))
-        rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names), not_merge=False).classes('w-full')
+    mode_list = list(infos_dicts.keys())
+    mode_mapping = {mode: record_names['global']['type'][mode] for mode in mode_list}
+    mode_ref = to_ref(mode_list[0])
+    with ui.column().classes('w-full h-full'):
+        rxui.select(value=mode_ref, options=mode_mapping)
+        rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names),
+                     not_merge=False).classes('w-full h-full')
+
 
 def control_local_echarts(infos_dicts):
     with rxui.grid(columns=2).classes('w-full'):
         for info_name in infos_dicts:
-            with rxui.column().classes('w-full'):
-                mode_ref = to_ref(list(infos_dicts[info_name].keys())[0])
-                rxui.select(value=mode_ref, options=list(infos_dicts[info_name].keys()))
-                rxui.echarts(
-                    lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name), not_merge=False).classes('w-full')
+            with ui.column().classes('w-full h-full'):
+                mode_list = list(infos_dicts[info_name].keys())
+                mode_ref = to_ref(mode_list[0])
+                mode_mapping = {mode: record_names['local']['type'][mode] for mode in mode_list}
+                rxui.select(value=mode_ref, options=mode_mapping)
+                rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name),
+                             not_merge=False).classes('w-full h-full')
 
 
 async def move_all_files(old_path, new_path):
@@ -556,6 +593,7 @@ async def move_all_files(old_path, new_path):
         print(f"所有文件已从{old_path}移动到{new_path}")
     except Exception as e:
         print(f"移动文件时出错: {e}")
+
 
 def locked_page_height():
     """
@@ -641,3 +679,14 @@ async def test_api_access(api_key, api_base, model=None, model_type="generation"
             return False, f"无法连接到主机。可能是网络问题、目标服务器不可达、或SSL问题。异常信息：{e}"
         except Exception as e:
             return False, f"发生未预期的错误。异常信息：{e}"
+
+
+def clear_ref(info_dict, name=None):
+    for k, v in info_dict.items():
+        if type(v) == dict:
+            if name is None or name == k:
+                clear_ref(v)
+            else:
+                clear_ref(v, name)
+        elif name is None or name == k:
+            v.value.clear()

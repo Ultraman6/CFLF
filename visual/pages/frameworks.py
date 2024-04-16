@@ -1,9 +1,7 @@
 from nicegui import ui, app
-
 from visual.modules.subscribers import self_info, self_record, self_experiment
 from visual.pages.AI import ai_interface, ai_config
 from visual.pages.epxeriment import experiment_page
-from visual.parts.func import locked_page_height
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
 

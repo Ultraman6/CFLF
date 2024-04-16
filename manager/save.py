@@ -57,7 +57,7 @@ class Filer:
                 timestamp, task_name = file.split('_', 1)
                 task_name = task_name.rsplit('.', 1)[0]  # 移除.pkl后缀
                 self.his_list.append({'time': convert_time_format(timestamp), 'name': task_name, 'file_name': file})
-        print(self.his_list)
+        self.his_list.reverse()
 
     def load_task_result(self, file_name):
         file_path = os.path.join(self.save_dir, file_name)

@@ -19,8 +19,9 @@ index_func = lambda x: [xi[-1] for xi in x]
 
 class DatasetSplit(Dataset):
     # 工具类，将原始数据集解耦为可迭代的(x，y)序列，按照映射访问特定的子集
-    def __init__(self, dataset, idxs=None, noise_idxs=None, num_classes=None, length=None, noise_type='none'):
+    def __init__(self, dataset, idxs=None, noise_idxs=None, num_classes=None, length=None, noise_type='none', id=0):
         super().__init__()
+        self.id = id
         self.dataset = dataset
         # 如果 idxs 为 None，则映射整个数据集
         self.idxs = range(len(dataset)) if idxs is None else idxs

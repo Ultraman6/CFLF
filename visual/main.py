@@ -3,11 +3,8 @@ from functools import partial
 from typing import Optional
 from ex4nicegui import deep_ref
 from ex4nicegui.reactive import rxui
-from fastapi import Request
 from fastapi.responses import RedirectResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from nicegui import Client, app, ui, events, context
-from tortoise import Tortoise
 from visual.pages.frameworks import FramWindow
 from visual.models import User
 from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
@@ -196,4 +193,4 @@ app.on_startup(init_db)
 app.on_shutdown(close_db)
 app.add_middleware(AuthMiddleware)
 os.environ['NICEGUI_STORAGE_PATH'] = 'running/storage'
-ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED')
+ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=True, reload=True, reconnect_timeout=100)

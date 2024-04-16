@@ -87,6 +87,10 @@ fl_configs = {
     'round': {'name': '全局通信轮次数', 'format': '%.0f', 'help': '请大于0'},
     'epoch': {'name': '本地训练轮次数', 'format': '%.0f', 'help': '请大于0'},
     'num_clients': {'name': '客户总数', 'format': '%.0f', 'help': '请大于0'},
+    'num_selected': {'name': '客户采样数', 'format': '%.0f', 'help': '请大于0 小于等于客户总数'},
+    'sample_mode': {'name': '客户采样模式', 'help': '请大于0 小于等于客户总数',
+                    'options': {'random': '随机选择', 'num': '样本量优先', 'class': '标签数优先'},
+                    },
     'valid_ratio': {'name': '验证集比例', 'format': '%.4f', 'help': '大于0,小于等于1'},
     'train_mode': {'name': '本地训练模式', 'help': '客户训练过程的执行方式',
                    'options': {'serial': '顺序串行', 'thread': '线程并行'},
@@ -94,6 +98,9 @@ fl_configs = {
                        "thread": {'max_threads': {'name': '最大进程数', 'format': '%.0f'}}
                    }
                    },
+    'agg_type': {'name': '模型聚合方式', 'help': '何种聚合方法',
+                 'options': {'avg_only': '直接平均', 'avg_sample': '样本量平均', 'avg_class': '类别数平均'}
+                 },
     'local_test': {'name': '本地测试模式', 'help': '开启与否'},
     'standalone': {'name': 'standalone模式', 'help': '开启与否'},
     'data_type': {'name': '标签分布方式', 'help': '数据的横向划分',
@@ -172,6 +179,91 @@ fl_configs = {
                    }
                    },
 }
+init_configs = dl_configs.copy()
+init_configs.update(fl_configs)
+
+algo_configs = {
+    'common': {
+        'device': {'name': '设备', 'format': '%s', 'type': 'choice', 'options': None},
+        'gpu': {'name': '显卡', 'format': '%s', 'type': 'choice', 'options': None},
+        'seed': {'name': '随机种子', 'format': '%.0f', 'type': 'number', 'options': None},
+    },
+    'ditfe': {
+        'auction_mode': {
+            'name': '拍卖激励方式', 'format': None, 'type': 'choice',
+            'options': {'cmab': '组合多臂老虎机', 'greedy': '贪婪选择', 'bid_first': '投标优先'},
+            'metrics': {
+                'cmab': {
+                    'k': {'name': '老虎机平衡因子', 'format': '%.4f', 'type': 'number', 'options': None},
+                },
+                'greedy': {
+                    'tao': {'name': '贪婪选择概率', 'format': '%.4f', 'type': 'number', 'options': None},
+                },
+            }
+        },
+        'budget_mode': {
+            'name': '拍卖预算模式', 'format': None, 'type': 'choice',
+            'options': {'total': '总预算固定', 'equal': '每轮预算均等'},
+            'metrics': {
+                'total': {
+                    'budgets': {
+                        'name': '总预算范围', 'format': '%.0f', 'type': 'dict',
+                        'dict': {
+                            'min': {'name': '最小预算值', 'format': '%.3f'},
+                            'max': {'name': '最大预算值', 'format': '%.3f'}
+                        },
+                    },
+                    'num_selected': {'name': '每轮客户采样数', 'format': '%.0f', 'type': 'number', 'options': None},
+                },
+                'equal': {
+                    'budgets': {
+                        'name': '每轮预算范围', 'format': '%.0f', 'type': 'dict',
+                        'dict': {
+                            'min': {'name': '最小预算值', 'format': '%.3f'},
+                            'max': {'name': '最大预算值', 'format': '%.3f'}
+                        },
+                    },
+                },
+            }
+        },
+    },
+    'fusion_mask': {
+        # 'eta': {'name': '模型质量筛选系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
+        'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice', 'options': {'local': '就地保存', 'optimal': '最优保存'}},
+        'fair': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'time_mode': {
+            'name': '时间模式', 'format': None, 'type': 'choice',
+            'options': {'exp': '指数时间遗忘', 'cvx': '凸组合时间遗忘'},
+            'metrics': {
+                'exp': {
+                    'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'options': None},
+                },
+                'cvx': {
+                    'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'options': None},
+                },
+            }
+        },
+        'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
+    },
+    'margin_loss': {
+        'gamma': {'name': '边际损失系数', 'format': '%.4f', 'type': 'number', 'options': None},
+    },
+    'tmc': {
+        'iters': {'name': 'TMC采样最大轮次', 'format': '%.0f', 'type': 'number', 'options': None},
+        'tole': {'name': 'TMC采样容忍度', 'format': '%.4f', 'type': 'number', 'options': None},
+        'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
+    },
+    'cffl': {
+        'a': {'name': '奖励分配系数', 'format': '%.4f', 'type': 'number', 'options': None},
+    },
+    'rffl': {
+        'sv_alpha': {'name': '声誉衰减系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
+    },
+}
 
 exp_configs = {
     'name': {'name': '实验名称', 'help': '实验的名称', 'type': 'text'},
@@ -199,18 +291,19 @@ algo_type_options = [
 ]
 algo_spot_options = {
     'method': [
-        {'value': 'aggregrate', 'label': '模型聚合'},
+        {'value': 'agg', 'label': '模型聚合'},
         {'value': 'fusion', 'label': '模型融合'},
         {'value': 'reward', 'label': '贡献奖励'}
     ],
     'integrity': [
         {'value': 'base', 'label': '基础服务器'},
-        {'value': 'fair', 'label': '公平'}
+        {'value': 'fair', 'label': '公平'},
+        {'value': 'incentive', 'label': '激励'},
     ]
 }
 algo_name_options = {
-    'aggregrate': [
-        {'value': 'Margin_Loss', 'label': '边际损失'},
+    'agg': [
+        {'value': 'margin_loss', 'label': '边际损失聚合(RRAFL)'},
         {'value': 'margin_dot', 'label': '边际点乘'},
         {'value': 'loss_up', 'label': '损失更新'},
         {'value': 'cross_up', 'label': '交叉更新'},
@@ -225,14 +318,13 @@ algo_name_options = {
         # 更多aggregrate下的API细节...
     ],
     'fusion': [
-        {'value': 'layer_att', 'label': '层注意力'},
+        {'value': 'layer_att', 'label': '层注意力融合(FedAtt)'},
         {'value': 'cross_up_att', 'label': '损失交叉层注意力'},
-        {'value': 'auto_fusion', 'label': '自动融合'},
+        {'value': 'auto_fusion', 'label': '自注意力融合(DITFE)'},
         {'value': 'auto_layer_fusion', 'label': '自动分层融合'},
         # 更多fusion下的API细节...
     ],
     'reward': [
-        {'value': 'fusion_mask', 'label': '融合掩码'},
         {'value': 'Stage_two', 'label': '第二阶段'},
         {'value': 'Cosine_Similiarity_Reward', 'label': '相似度奖励'},
         {'value': 'Cosine_Similarity_Out_Reward', 'label': '外部相似度奖励'},
@@ -243,34 +335,168 @@ algo_name_options = {
         {'value': 'fedavg', 'label': '联邦平均'}
     ],
     'fair': [
-        {'value': 'qfll', 'label': '质量联邦学习'}
-    ]
+        {'value': 'qfll', 'label': '质量联邦学习'},
+        {'value': 'fusion_mask', 'label': 'DITFE(质量公平融合)'},
+        {'value': 'cffl', 'label': '数据点SV(CFFL)'},
+        {'value': 'tmc', 'label': '蒙特卡洛SV(TMC)'},
+        {'value': 'rank', 'label': '排名奖励(Rank)'},
+        {'value': 'rffl', 'label': '余弦相似SV(RFFL)'},
+    ],
+    'incentive': [
+        {'value': 'ditfe', 'label': 'DITFE(多臂组合拍卖)'},
+    ],
 }
 
-running_mode = {'serial': '顺序串行', 'thread': '线程并行', 'process': '进程并行'}
-thread = {'max_threads': {'name': '最大线程数', 'format': '%.0f'}}
-process = {'max_processes': {'name': '最大进程数', 'format': '%.0f'}}
-
-algo_params = {
-    'common': {
-        'seed': {'name': '随机种子', 'format': '%.0f', 'type': 'number', 'default': 1, 'options': None},
-        'device': {'name': '设备', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
-        'gpu': {'name': '显卡', 'format': '%s', 'type': 'choice', 'default': 'cpu', 'options': None},
+algo_record = {
+    "common": {
+        "statue": {
+            "name": "状态信息",
+            "param": {
+                "progress": {"name": "进度", "type": "circle"},
+                "text": {"name": "日志", "type": "textarea"}
+            },
+            "default": ["progress", "text"]
+        },
+        "global": {
+            "name": "全局信息",
+            "param": {
+                "Loss": {"name": "全局验证损失", "type": "line"},
+                "Accuracy": {"name": "全局验证精度", "type": "line"},
+                "jfl": {"name": "奖励公平系数(JFL)", "type": "line"},
+                "pcc": {"name": "奖励公平系数(PCC)", "type": "line"}
+            },
+            "default": ["Loss", "Accuracy", "round", "time"],
+            "type": {
+                "round": {'name': "轮次"},
+                "time": {'name': "时间"}
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "avg_loss": {"name": "平均训练损失", "type": "line"},
+                "learning_rate": {"name": "训练学习率", "type": "line"},
+                "standalone_acc": {"name": "独立训练测试精度", "type": "line"},
+                "cooperation_acc": {"name": "合作训练测试精度", "type": "line"}
+            },
+            "default": ["avg_loss", "learning_rate", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        }
     },
-    'ditfe': {
-        'gamma': {'name': '质量评估超参数', 'format': '%.4f', 'type': 'number', 'default': 0.1, 'options': None},
-        'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
-        'fair': {'name': '公平系数', 'format': '%.4f', 'type': 'number', 'default': 3.0, 'options': None},
-        'eta': {'name': '模型质量筛选系数', 'format': '%.4f', 'type': 'number', 'default': 0.01, 'options': None},
-        'e': {'name': '模型融合迭代次数', 'format': '%.0f', 'type': 'number', 'default': 4, 'options': None},
-        'reward_mode': {'name': '奖励模式', 'format': None, 'type': 'choice', 'options': ['mask', 'grad'],
-                        'default': 'mask'},
-        'time_mode': {'name': '时间模式', 'format': None, 'type': 'choice', 'options': ['exp', 'cvx'],
-                      'default': 'exp'},
-        'lamb': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'default': 0.5, 'options': None},
-        'p_cali': {'name': '奖励均衡系数', 'format': '%.4f', 'type': 'number', 'default': 0.9, 'options': None},
+    "fusion_mask": {
+        "global": {
+            "name": "全局信息",
+            "param": {
+                "e_acc": {"name": "融合测试精度", "type": "line"},
+                "e_round": {"name": "融合退火轮次数", "type": "line"},
+                "sva": {"name": "Shapely值估算精度", "type": "bar"},
+                "svt": {"name": "Shapely值估算开销", "type": "bar"}
+            },
+            "default": ["e_acc", "e_round", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "contrib": {"name": "本轮贡献值", "type": "line"},
+                "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
+                "reward": {"name": "本轮奖励值", "type": "line"},
+            },
+            "default": ["contrib", "reward", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        }
+    },
+    "ditfe": {
+        "statue": {
+            "name": "状态信息",
+            "param": {
+                "budget": {"name": "预算消耗进度", "type": "linear"},
+            },
+            "default": ["budget"]
+        },
+        "global": {
+            "name": "全局信息",
+            "param": {
+                "bid_pay": {"name": "报价vs支付", "type": "scatter"},
+                "regret": {"name": "累计遗憾值", "type": "line"},
+                "total_reward": {"name": "累计奖励值", "type": "bar"},
+            },
+            "default": ["bid_pay", "regret", "total_reward"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "bid": {"name": "本轮报价", "type": "line"},
+                "pay": {"name": "本轮支付", "type": "line"},
+            },
+            "default": ["bid", "pay"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+    },
+    "cffl": {
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "reputation": {"name": "本轮声誉值", "type": "line"},
+                "reward": {"name": "本轮奖励值", "type": "line"}
+            },
+            "default": ["reputation", "reward", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        }
+    },
+    "rank": {
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "position": {"name": "本轮位次", "type": "line"}
+            },
+            "default": ["position", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        }
     }
 }
+
+# 融合逻辑
+def merge_params_types(algo_record, i):
+    merged_result = {}
+    for algo, details in algo_record.items():
+        for key, value in details.items():
+            if key not in merged_result:
+                merged_result[key] = {}
+                merged_result[key]['param'] = {}
+            for k, v in value['param'].items():
+                if k not in merged_result[key]['param']:
+                    merged_result[key]['param'][k] = {}
+                merged_result[key]['param'][k] = v[i]
+            if 'type' in value and i == 'name':
+                for k, v in value['type'].items():
+                    if k not in merged_result[key]:
+                        merged_result[key][k] = {}
+                        merged_result[key]['type'] = {}
+                    merged_result[key]['type'][k] = v[i]
+
+    return merged_result
+
+record_names = merge_params_types(algo_record, 'name')
+record_types = merge_params_types(algo_record, 'type')
+
+
+
 
 profile_dict = {
     'edu': {

@@ -7,17 +7,13 @@ from ex4nicegui import to_raw, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, events
 from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, \
-    algo_params,\
-    dl_configs, fl_configs
-from visual.parts.func import my_vmodel
+    algo_configs, \
+    dl_configs, fl_configs, init_configs
+from visual.parts.func import my_vmodel, convert_tuple_to_dict
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.params_tab import params_tab
 from ex4nicegui.utils.signals import to_ref_wrapper, on
 
-algo_param_mapping = {
-    'number': ui.number,
-    'choic': ui.select
-}
 
 
 def scan_local_device():
@@ -37,7 +33,8 @@ def scan_local_device():
 
 # 此表格已经提前绑定了事件、结构
 class algo_table:
-    def __init__(self, rows, tem_args):  # row 不传绑定
+    def __init__(self, rows, tem_args, configer):  # row 不传绑定
+        self.configer = configer
         self.devices = scan_local_device()
         self.tem_args = tem_args
         # print(self.tem_args['class_mapping'])
@@ -136,7 +133,7 @@ class algo_table:
                 row["spot"] = e.args["spot"]
                 row["algo"] = e.args["algo"]
                 for k in row['params']:
-                    if k not in self.tem_args and k not in algo_params['common']:
+                    if k not in self.tem_args and k not in algo_configs['common']:
                         del row['params'][k]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["type"]) + "类型")
@@ -148,7 +145,7 @@ class algo_table:
                 row["spot"] = e.args["spot"]  # 更新算法名称
                 row["algo"] = e.args["algo"]
                 for k in row['params']:
-                    if k not in self.tem_args and k not in algo_params['common']:
+                    if k not in self.tem_args and k not in algo_configs['common']:
                         del row['params'][k]
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["spot"]) + "场景")
@@ -159,12 +156,23 @@ class algo_table:
             if row["id"] == e.args["id"]:
                 row["algo"] = e.args["algo"]  # 更新算法名称
                 # 新加入 同时也要更新冗余参数信息(列表形式)
-                algo_param = algo_params.get(row["algo"], {})
+                algo_param = algo_configs.get(row["algo"], {})
                 for k in row['params']:
-                    if k not in self.tem_args and k not in algo_params['common']:
+                    if k not in self.tem_args and k not in algo_configs['common']:
                         del row['params'][k]
-                for key, item in algo_param.items():
-                    row['params'][key] = [copy.deepcopy(item['default']), ]
+                for key in algo_param:
+                    row['params'][key] = [copy.deepcopy(self.tem_args[key]), ]
+                    if 'metrics' in algo_param[key]:
+                        for k, v in algo_param[key]['metrics'].items():
+                            for k1, v1 in v.items():
+                                if 'dict' in v1:
+                                    if type(self.tem_args[k1]) is not dict:
+                                        self.tem_args[k1] = convert_tuple_to_dict(self.tem_args[k1], v1['dict'])
+                                        self.configer.convert_info[k1] = v1['dict']
+                                    row['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
+                                else:
+                                    row['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
+
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["algo"]) + "算法")
         self.table.element.update()  # 这里会更新slot内部的样式
@@ -187,9 +195,22 @@ class algo_table:
 
     def add_row(self) -> None:
         new_id = max((dx["id"] for dx in self.rows.value), default=-1) + 1
-        new_info = {'id': new_id, 'params': {'device': 'cpu', 'gpu': '0', 'seed': [1]}}
+        new_info = {'id': new_id, 'params': {'device': self.tem_args['device'], 'gpu': self.tem_args['gpu']}}
+        for k, v in init_configs.items():
+            new_info['params'][k] = [copy.deepcopy(self.tem_args[k]), ]
+            if 'metrics' in v:
+                for k1, v1 in v['metrics'].items():
+                    for k2 in v1:
+                        if k2 not in new_info['params']:
+                            new_info['params'][k2] = [copy.deepcopy(self.tem_args[k2]), ]
+            if 'inner' in v:
+                for k1 in v['inner']:
+                    if k1 not in new_info['params']:
+                        new_info['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
+
         for k, v in self.tem_args.items():
-            new_info['params'][k] = [copy.deepcopy(v), ]
+            if k not in new_info['params'] and k in algo_configs['common']:  # 排除唯一参数
+                new_info['params'][k] = [copy.deepcopy(v), ]
         self.rows.value.append(new_info)
         ui.notify(f"Added new row with ID {new_id}")
         self.table.element.update()
@@ -256,7 +277,7 @@ class algo_table:
                                 elif 'format' in value:
                                     params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='number',format=value['format'], default=self.tem_args[key])
                                 else:
-                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),type='check', default=self.tem_args[key])
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='check', default=self.tem_args[key])
                                 if 'metrics' in value:
                                     for k, v in value['metrics'].items():
                                         with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
@@ -279,40 +300,54 @@ class algo_table:
                 @panel.build_fn
                 def _(pan_name: str):
                     with rxui.grid(columns=5):
-                        for key in self.rows.value[rid]['params']:
+                        for key in algo_configs['common']:
                             if key == 'id' or key == 'gpu':
                                 continue
                             else:
-                                with ui.column():
+                                with ui.card().tight().classes('w-full'):
                                     if key == 'device':
                                         rxui.select(label='运行设备', value=my_vmodel(row_ref.value, key),
-                                                    options=list(self.devices.keys()))
+                                                    options=list(self.devices.keys())).classes('w-full')
                                         rxui.label('选择CPU: ' + self.devices['cpu']).bind_visible(
-                                            lambda key=key: row_ref.value[key] == 'cpu')
+                                            lambda key=key: row_ref.value[key] == 'cpu').classes('w-full')
                                         rxui.select(label='选择GPU', value=my_vmodel(row_ref.value, 'gpu'),
                                                     options=self.devices['gpu']).bind_visible(
-                                            lambda key=key: row_ref.value[key] == 'gpu')
+                                            lambda key=key: row_ref.value[key] == 'gpu').classes('w-full')
                                     elif key == 'seed':
-                                        name = algo_params['common'][key]['name']
-                                        type = algo_params['common'][key]['type']
-                                        format = algo_params['common'][key]['format']
-                                        options = algo_params['common'][key]['options']
+                                        name = algo_configs['common'][key]['name']
+                                        type = algo_configs['common'][key]['type']
+                                        format = algo_configs['common'][key]['format']
+                                        options = algo_configs['common'][key]['options']
                                         params_tab(name=name, nums=my_vmodel(row_ref.value, 'seed'), type=type,
-                                                   format=format, options=options,
-                                                   default=algo_params['common'][key]['default'])
-                                    else:
-                                        if 'algo' in self.rows.value[rid]:
-                                            algo = self.rows.value[rid]['algo']
-                                            if algo:
-                                                params = algo_params.get(algo, {})
-                                                if key in params:
-                                                    name = algo_params[algo][key]['name']
-                                                    type = algo_params[algo][key]['type']
-                                                    format = algo_params[algo][key]['format']
-                                                    options = algo_params[algo][key]['options']
-                                                    params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
-                                                               format=format, options=options,
-                                                               default=algo_params[algo][key]['default'])
+                                                   format=format, options=options)
+
+                        if 'algo' in self.rows.value[rid]:
+                            algo = self.rows.value[rid]['algo']
+                            if algo in algo_configs:
+                                for key in algo_configs[algo]:
+                                    name = algo_configs[algo][key]['name']
+                                    type = algo_configs[algo][key]['type']
+                                    format = algo_configs[algo][key]['format']
+                                    options = algo_configs[algo][key]['options']
+                                    with ui.card().tight().classes('w-full'):
+                                        params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
+                                                   format=format, options=options, default=self.tem_args[key])
+                                        if 'metrics' in algo_configs[algo][key]:
+                                            for k, v in algo_configs[algo][key]['metrics'].items():
+                                                with rxui.row().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                                    for k1, v1 in v.items():
+                                                        if 'dict' in v1:
+                                                            params_tab(name=v1['name'],
+                                                                       nums=my_vmodel(row_ref.value, k1),
+                                                                       type=v1['type'], format=v1['format'],
+                                                                       info_dict=v1['dict'],
+                                                                       default=self.tem_args[k1])
+                                                        else:
+                                                            params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
+                                                                       type=v1['type'], format=v1['format'], options=v1['options'],
+                                                                       default=self.tem_args[k1])
+
+
                     ui.notify(f"创建页面:{name}")
 
         self.dialog_list[rid] = dialog

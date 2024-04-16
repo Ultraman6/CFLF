@@ -9,23 +9,22 @@ from manager.control import TaskController
 from util.drawing import create_result
 
 
-def clear_ref(info_dict):
-    for v in info_dict.values():
-        if type(v) == dict:
-            clear_ref(v)
-        else:
-            v.value.clear()
-
 class Task:
-    def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, device=None, control=None):
+    def __init__(self, algo_class, args, model, dataloaders, task_name=None, task_id=None, control=None):
         self.algo_class = algo_class
         self.args = args
         self.task_name = task_name or algo_class.__name__
         self.task_id = task_id  # 任务进度条位置
         self.dataloaders = dataloaders
         self.model = model
-        self.device = device or self.setup_device()
+        self.device = self.setup_device()
         self.control = control
+        self.pre_quit = False
+        self.quit_mes = ''
+
+    def get_pre_quit(self, mes):
+        self.pre_quit = True
+        self.quit_mes = mes
 
     # 2024-03-26 将算法的迭代过程移植到任务中，为适配可视化UI的逻辑，也便于复写子类算法
     def run(self):
@@ -43,7 +42,7 @@ class Task:
     # 此方法模拟迭代控制过程
     def iterate(self, algo):
         pbar = tqdm(total=self.args.round, desc=self.task_name, position=self.task_id, leave=False)
-        while algo.round_idx <= self.args.round:
+        while algo.round_idx <= self.args.round and self.pre_quit:
             next = self.watch_control(algo)  # 先做任务状态检查
             if next == 0:    # 结束当前迭代
                 pbar.n = 0   # 重置进度条
@@ -60,9 +59,13 @@ class Task:
                 continue
             algo.iter()
             pbar.update(1)  # 更新进度条
+            self.control.set_statue('progress', algo.round_idx)
             algo.round_idx += 1  # 更新 round_idx
 
         pbar.close()  # 完成后关闭进度条
+        if self.pre_quit:
+            self.control.set_statue('text', self.quit_mes)
+            return 'pre_quit'
         return 'success'
 
     def watch_control(self, algo):

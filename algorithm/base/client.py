@@ -2,6 +2,7 @@ import copy
 import torch
 from model.base.model_dict import _modeldict_to_np, _modeldict_sub, _modeldict_norm, _modeldict_scale, _modeldict_add, \
     _modeldict_to_device
+from model.base.model_trainer import ModelTrainer
 
 
 class BaseClient:
@@ -9,7 +10,7 @@ class BaseClient:
         self.id = client_idx
         self.train_dataloader = train_dataloader
         self.test_dataloader = test_dataloader  # 测试数据集(开启才有)
-        self.model_trainer = model_trainer
+        self.model_trainer: ModelTrainer = model_trainer
         self.local_params = None  # 存放上一轮的模型
         self.args = args
         self.device = device
@@ -32,10 +33,17 @@ class BaseClient:
             self.standalone_trainer.train(self.train_dataloader, round_idx)
         return upgrade_params
 
-    def local_test(self, w_global=None): # 本地测试(本地模型协同、全局模型共同)
-        if w_global is not None:
-            self.model_trainer.set_model_params(w_global)
-        return self.model_trainer.test(self.test_dataloader)
+    def local_test(self, w_global=None, valid=None, origin=False, mode='global'):
+        if mode == 'stand':
+            return self.standalone_trainer.test(valid, origin)
+        elif mode == 'cooper':
+            return self.model_trainer.test(valid, origin)
+        elif mode == 'global':
+            model_trainer = copy.deepcopy(self.model_trainer)
+            model_trainer.set_model_params(copy.deepcopy(w_global))
+            return model_trainer.test(self.test_dataloader, origin)
+
+
 
     def update_data(self, new_train_dataloader):
         self.train_dataloader = new_train_dataloader

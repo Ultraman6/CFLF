@@ -47,7 +47,6 @@ class params_tab:
                     rxui.select(value=num, options=options)
                 elif type == "check":
                     rxui.checkbox(value=num)
-
                 elif type == 'dict':
                     with rxui.grid(columns=2):
                         for k, v in info_dict.items():

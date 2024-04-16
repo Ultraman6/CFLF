@@ -38,9 +38,9 @@ class ModelTrainer:
         self.model.zero_grad()
         self.optimizer.zero_grad()
 
-    def upgrate_lr(self, roundidx):
+    def upgrade_lr(self, round_idx):
         lr = self.optimizer.param_groups[0]['lr']
-        new_lr = schedule_lr(roundidx, lr, self.args)
+        new_lr = schedule_lr(round_idx, lr, self.args)
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = new_lr
 
@@ -67,7 +67,7 @@ class ModelTrainer:
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
         }
-        self.upgrate_lr(global_round - 1)  # 更新学习率
+        self.upgrade_lr(global_round - 1)  # 更新学习率
 
     def train_hessian(self, train_data, device, global_round):
         self.model.to(device)
@@ -113,13 +113,13 @@ class ModelTrainer:
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
         }
-        self.upgrate_lr(global_round)  # 更新学习率
+        self.upgrade_lr(global_round)  # 更新学习率
         return average_hessian_estimation
 
     def get_all_epoch_losses(self):
         return self.cid, self.all_epoch_losses
 
-    def test(self, test_data):
+    def test(self, test_data, origin=False):
         self.model.to(self.device)
         self.model.eval()
         metrics = {"test_correct": 0, "test_loss": 0, "test_total": 0}
@@ -133,7 +133,10 @@ class ModelTrainer:
                 metrics["test_correct"] += correct.item()
                 metrics["test_loss"] += loss.item() * target.size(0)
                 metrics["test_total"] += target.size(0)
-        return metrics["test_correct"] / metrics["test_total"], metrics["test_loss"] / metrics["test_total"]
+        if origin:
+            return metrics["test_correct"], metrics["test_total"], metrics["test_loss"]
+        else:
+            return metrics["test_correct"] / metrics["test_total"], metrics["test_loss"] / metrics["test_total"]
 
     def test_JSD(self, test_data):
         self.model.to(self.device)

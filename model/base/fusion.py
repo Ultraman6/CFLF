@@ -90,16 +90,22 @@ class FusionLayerModel(nn.Module):
                 x = layer_info['layer'](x)
         return x
 
-    def train_fusion(self, data_loader, num_epochs, device, learning_rate=0.01, loss_function='ce'):
+    def train_fusion(self, data_loader, num_epochs, num_tol, per_tol, tol_mode, device, learning_rate=0.01, loss_function='ce', control=None):
         self.to(device)
         self.train()
         self.dis_seq_grad()  # 必须冻结梯度,才能加入优化器
         # self.check_gradients()  # 检查梯度是否冻结
         criterion = nn.CrossEntropyLoss() if loss_function == 'ce' else create_loss_function(loss_function)
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
-                                     lr=learning_rate)
-
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate)
+        best_model_wts = copy.deepcopy(self.state_dict())
+        best_acc = 0.0
+        last_acc = 0.0
+        e = 0
+        best_e = 0
+        tol = 0
         for epoch in range(num_epochs):
+            correct = 0
+            total = 0
             for inputs, targets in data_loader:
                 inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
@@ -107,6 +113,36 @@ class FusionLayerModel(nn.Module):
                 loss = criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
+
+                _, predicted = torch.max(outputs.data, 1)
+                total += targets.size(0)
+                correct += (predicted == targets).sum().item()
+            acc = correct / total
+            if acc > best_acc:
+                best_acc = acc
+                best_e = e
+                best_model_wts = copy.deepcopy(self.state_dict())
+            if control is not None:
+                control.set_info('global', 'e_acc', (epoch, correct / total))
+            if (acc-last_acc) / acc <= per_tol:
+                if tol < num_tol:
+                    tol += 1
+                    if control is not None:
+                        control.set_statue('text', f'检测到融合性能退火 已融合次数:{e} 已容忍次数:{tol}/{num_tol}')
+                else:
+                    if control is not None:
+                        control.set_statue('text', f'检测到融合性能退火 已训练轮次数:{e} 已容忍次数:{tol}/{num_tol} 模型融合退出')
+                    break
+            else:  # 停止早停
+                tol = 0
+            last_acc = acc
+            e += 1
+
+        if tol_mode == 'optimal':
+            self.load_state_dict(best_model_wts)
+            return best_e
+        # self.check_gradients()  # 检查梯度是否冻结
+        return e  # 返回实际训练的轮次数
 
     def get_fused_model_params(self):
         fused_params = {}
@@ -130,7 +166,7 @@ class FusionLayerModel(nn.Module):
                     fused_params[f"{layer_name}.{param_key}"] = aggregated_param
 
         # 注意：这里不再将参数转移到CPU，而是保留在它们原来的设备上
-        return fused_params, client_agg_weights
+        return fused_params, client_agg_weights,
 
 
 # def train_fusion(model, data_loader, num_epochs, device, learning_rate=0.01, loss_function='ce'):

@@ -11,8 +11,9 @@ from visual.models import Experiment
 from visual.parts.constant import state_dict
 from visual.parts.record import RecordManager
 
-
+@ui.refreshable
 class res_ui:
+
     def __init__(self, experiment, configer, previewer):
         self.res_saver = RecordManager('res', self)
         self.configer = configer
@@ -24,7 +25,11 @@ class res_ui:
         self.rows = deep_ref([])
         self.handle_task_info()
         self.save_root = to_ref('../files/results')
+        self.show_panels()
+        self.draw_res()
 
+    @ui.refreshable_method
+    def show_panels(self):
         columns = [
             {'name': 'id', 'field': 'id', 'label': '编号', 'sortable': True},
             {'name': 'type', 'field': 'type', 'label': '类型', 'sortable': True},
@@ -55,7 +60,6 @@ class res_ui:
             table.on("delete", self.delete_res)
             table.on("save", self.save_res)
             ui.button('将本次实验结果保存至数据库', on_click=self.han_save).classes('w-full flat dense')
-        self.draw_res()
 
     # 将本次实验的全部信息保存至数据库
     def han_save(self):

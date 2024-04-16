@@ -19,7 +19,7 @@ init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',
 #     # 创建并运行任务
 #     tasks = [
 #         # Task(BaseServer, args, copy.deepcopy(model), 'base', dataloaders),
-#         #      Task(MarginLossAPI, args, copy.deepcopy(model), 'margin_Loss', dataloaders),
+#         #      Task(MarginLossAPI, args, copy.deepcopy(model), 'margin_loss', dataloaders),
 #              Task(MarginKLAPI, args, copy.deepcopy(model), 'margin_KL', dataloaders)]
 #     results = [task.run(root_save_path) for task in tasks]
 #     plot_results(results)

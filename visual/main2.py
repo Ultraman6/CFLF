@@ -1,24 +1,53 @@
-import asyncio
-import os
-from dotenv import load_dotenv
-from langchain.chains.conversation.base import ConversationChain
-from langchain_community.chat_models.openai import ChatOpenAI
-# from langchain.chains.conversation.base import ConversationChain
-from llama_index.legacy import ServiceContext, OpenAIEmbedding
+from nicegui import ui
+from random import random
 
-# os.environ["OPENAI_API_KEY"] = 'sk-d5O7zsDceTuR0TIc592b29D61a31451e924e56Ab94FaA22d'
-# os.environ["OPENAI_API_BASE"] = 'https://api.xty.app/v1'
+echart = ui.echart({
+    "tooltip": {
+        "trigger": 'axis',
+        "axisPointer": {
+            "type": 'shadow'
+        }
+    },
+    "legend": {
+        "data": ['Product A', 'Product B', 'Product C']
+    },
+    "grid": {
+        "left": '3%',
+        "right": '4%',
+        "bottom": '3%',
+        "containLabel": True
+    },
+    "xAxis": {
+        "type": 'category',
+        "data": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+    },
+    "yAxis": {
+        "type": 'value'
+    },
+    "series": [
+        {
+            "name": 'Product A',
+            "type": 'line',
+            "data": [320, 332, 301, 334, 390, 330]
+        },
+        {
+            "name": 'Product B',
+            "type": 'line',
+            "data": [120, 132, 101, 134, 90, 230]
+        },
+        {
+            "name": 'Product C',
+            "type": 'line',
+            "data": [220, 182, 191, 234, 290, 330]
+        }
+    ]
+}
+)
 
-# load_dotenv()#load environmental variables
-# llm = ChatOpenAI(model_name='gpt-3.5-turbo-0301', base_url='https://api.xty.app/v1',
-#                  api_key='sk-d5O7zsDceTuR0TIc592b29D61a31451e924e56Ab94FaA22d', temperature=0.1, context_length=4000)
-# s = ServiceContext.from_defaults(embed_model=OpenAIEmbedding(model="text-embedding-3-large"), llm=llm)
+def update():
+    echart.options['series'][0]['data'][0] = random()
+    echart.update()
 
-llm = ConversationChain(
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo-0301',
-                   openai_api_base='https://api.xty.app/v1',
-                   openai_api_key='sk-d5O7zsDceTuR0TIc592b29D61a31451e924e56Ab94FaA22d'))
-async def test():
-    print(await llm.arun('你好！'))
+ui.button('Update', on_click=update)
 
-asyncio.run(test())
+ui.run()

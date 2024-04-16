@@ -2,26 +2,20 @@ import multiprocessing
 import threading
 from multiprocessing import Manager
 
-inform_dicts = {
-    'global': {'info': ['Loss', 'Accuracy'], 'type': ['round', 'time']},
-    'local': {'info': ['avg_loss', 'learning_rate'], 'type': ['round']}
-}
+from visual.parts.constant import algo_record
+from visual.parts.func import clear_ref
 
-def clear_ref(info_dict):
-    for v in info_dict.values():
-        if type(v) == dict:
-            clear_ref(v)
-        else:
-            v.value.clear()
 
 # 注册自定义类到Manager中
 class TaskController:
 
-    def __init__(self, tid, mode, informer=None):
+    def __init__(self, tid, mode, algo, informer=None, visual=None):
         self.task_id = tid  # 任务ID
+        self.algo = algo
         self.status = Manager().Value('temp', 'init')  # 任务初始状态
         self.mode = mode
         self.informer = None  # 任务绑定信息(ref or queue)
+        self.visual = visual
         self.control = None  # 任务控制器
         self.han_inf_con(informer)
 
@@ -75,21 +69,32 @@ class TaskController:
         self.status.value = 'end'  # 告知每个任务，当前为重启状态
         self.control.set()  # 再将任务重启
 
+    def check_visual(self, spot, name, key='param'):
+        for value in self.visual.values():
+            if spot in value:
+                if name in value[spot][key]:
+                    return value[spot][key][name].value
+
     # 此value包含了type
     def set_info(self, spot, name, value, cid=None):
-        v = value[-1]
-        for i, type in enumerate(inform_dicts[spot]['type']):
-            if self.mode != 'process':
-                if cid is None:
-                    self.informer[spot][name][type].value.append((value[i], v))
-                else:
-                    self.informer[spot][name][type][cid].value.append((value[i], v))
-            else:
-                if cid is None:
-                    mes = {spot: {name: {type: (value[i], v)}}}
-                else:
-                    mes = {spot: {name: {type: {cid: (value[i], v)}}}}
-                self.informer.put((self.task_id, mes))
+        if self.check_visual(spot, name):
+            v = value[-1]
+            types = list(algo_record[self.algo][spot]['type'].keys())
+            for i, v1 in enumerate(value[:-1]):
+                type = types[i]
+                if self.check_visual(spot, type, 'type'):
+                    if self.mode != 'process':
+                        if cid is None:
+                            self.informer[spot][name][type].value.append((v1, v))
+                        else:
+                            self.informer[spot][name][type][cid].value.append((v1, v))
+                            print(name, self.informer[spot][name][type][cid].value)
+                    else:
+                        if cid is None:
+                            mes = {spot: {name: {type: (v1, v)}}}
+                        else:
+                            mes = {spot: {name: {type: {cid: (v1, v)}}}}
+                        self.informer.put((self.task_id, mes))
 
     def set_done(self):
         if self.mode == 'process':
@@ -97,15 +102,15 @@ class TaskController:
 
     # 暂时只能用异步消息队列
     def set_statue(self, name, value):
-        # self.statuser[name].value = value
-        if self.mode != 'process':
-            self.informer['statue'][name].value.append(value)
-        else:
-            mes = {'statue': {name: value}}
-            self.informer.put((self.task_id, mes))
+        if self.check_visual('statue', name):
+            if self.mode != 'process':
+                self.informer['statue'][name].value.append(value)
+            else:
+                mes = {'statue': {name: value}}
+                self.informer.put((self.task_id, mes))
 
-    def clear_informer(self):
+    def clear_informer(self, key=None):
         if self.mode != 'process':
-            clear_ref(self.informer)
+            clear_ref(self.informer, key)
         else:
-            self.informer.put((self.task_id, 'clear'))
+            self.informer.put((self.task_id, ('clear', key)))

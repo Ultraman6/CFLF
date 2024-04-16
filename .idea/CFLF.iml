@@ -17,7 +17,6 @@
         <option value="$MODULE_DIR$/model/fashion_mnist" />
         <option value="$MODULE_DIR$/model/shakespeare" />
         <option value="$MODULE_DIR$/model" />
-        <option value="$MODULE_DIR$/algorithm/method/margin_Loss" />
         <option value="$MODULE_DIR$/algorithm/method/gradient_influence" />
         <option value="$MODULE_DIR$/algorithm/method" />
         <option value="$MODULE_DIR$/algorithm" />
@@ -35,6 +34,11 @@
         <option value="$MODULE_DIR$/experiment/up_cluster" />
         <option value="$MODULE_DIR$/experiment" />
         <option value="$MODULE_DIR$/visual" />
+        <option value="$MODULE_DIR$/manager" />
+        <option value="$MODULE_DIR$/algorithm/integrity/CFFL" />
+        <option value="$MODULE_DIR$/algorithm/integrity/CGSV" />
+        <option value="$MODULE_DIR$/algorithm/integrity/DITFE" />
+        <option value="$MODULE_DIR$/algorithm/integrity/RANK" />
       </list>
     </option>
   </component>

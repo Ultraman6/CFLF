@@ -34,7 +34,6 @@ def get_data(args):
         else:
             raise ValueError('Dataset `{}` not found'.format(dataset))
 
-
 def get_dataloaders(args):
     kwargs = {'num_workers': 0, 'pin_memory': True} if torch.cuda.is_available() else {}
     params = get_data(args)

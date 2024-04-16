@@ -46,6 +46,7 @@ class Embedding:
         storage_context = StorageContext.from_defaults(persist_dir=self.vector_dir)
         self.index = load_index_from_storage(storage_context)
         return self.index
+
     async def querylangchain(self, prompt):
         """
         Uses the embedding from llamaindex with langchain.
@@ -56,7 +57,7 @@ class Embedding:
         Returns:
             The response from the langchain.
         """
-        llm = ChatOpenAI(temperature=0)
+        llm = ChatOpenAI(temperature=0, openai_api_key=self.api_key, openai_api_base=self.api_base, model_name=self.last_model, request_timeout=120)
         index = self.load_index()
         memory = ConversationBufferMemory(memory_key="chat_history")
 

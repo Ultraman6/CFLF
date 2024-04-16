@@ -1,21 +1,15 @@
 # 系统配置界面
 import copy
 import json
-import os
-from datetime import datetime
 from typing import Dict
-from ex4nicegui import deep_ref, to_ref, on, to_raw
-from ex4nicegui.reactive import rxui, local_file_picker
-from ex4nicegui.utils.signals import to_ref_wrapper
-from nicegui import ui, app
+from ex4nicegui import deep_ref, on, to_raw
+from ex4nicegui.reactive import rxui
+from nicegui import ui
 from functools import partial
-import tkinter as tk
-from tkinter import filedialog
-
 from visual.parts.func import my_vmodel, convert_tuple_to_dict, convert_dict_to_list, convert_list_to_dict, \
     convert_dict_to_tuple, han_fold_choice
 from visual.parts.lazy.lazy_table import algo_table
-from visual.parts.constant import running_mode, dl_configs, fl_configs, exp_configs
+from visual.parts.constant import dl_configs, fl_configs, exp_configs
 from experiment.options import algo_args_parser, exp_args_parser
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.record import RecordManager
@@ -36,6 +30,14 @@ class config_ui:
 
         self.convert_info = {}
         self.create_config_ui()
+
+        for key in self.algo_args:
+            on(lambda key=key: self.algo_ref.value[key])(lambda e, key=key: self.watch_tem(key))
+
+    def watch_tem(self, key):
+        for i, item in enumerate(self.exp_ref.value['algo_params']):
+            for j in range(len(item['params'][key])):
+                self.exp_ref.value['algo_params'][i]['params'][key][j] = self.algo_ref.value[key]
 
     def read_tem(self, record):
         for k, v in record['info'].items():
@@ -112,8 +114,9 @@ class config_ui:
             def _(name: str):
                 self.algo_saver.show_panel()
                 with rxui.column():
-                    algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args)
+                    self.table = algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args, configer=self)
                 ui.notify(f"创建页面:{name}")
+
 
     def create_tem_config(self):
         self.tem_saver.show_panel()

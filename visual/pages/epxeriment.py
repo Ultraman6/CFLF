@@ -26,7 +26,6 @@ def build_task_loading(message: str, is_done=False):
             ui.spinner(color="negative")
         else:
             ui.icon("done", color="positive")
-
         with ui.row():
             ui.label(message)
 
@@ -34,6 +33,7 @@ def build_task_loading(message: str, is_done=False):
 class experiment_page:
     algo_args = None
     exp_args = None
+    experiment = None
     visual_data_infos = {}
     args_queue = []
     def __init__(self):  # 这里定义引用，传进去同步更新
@@ -60,7 +60,7 @@ class experiment_page:
                 ui.notify(f"创建页面:{name}")
                 self.get_run_ui()
                 with ui.stepper_navigation():
-                    ui.button('Next', on_click=self.task_fusion_step)
+                    ui.button('Next', on_click=self.res_fusion_step)
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
 
             step_run = self.stepper.step('结果分析')
@@ -72,10 +72,9 @@ class experiment_page:
                     ui.button('Done', on_click=lambda: ui.notify('Yay!', type='positive'))
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
 
-
     @ui.refreshable_method
     def get_pre_ui(self):
-        self.pre_ui= preview_ui(self.exp_args, self.algo_args)
+        self.pre_ui = preview_ui(self.exp_args, self.algo_args)
 
     @ui.refreshable_method
     def get_run_ui(self):
@@ -83,17 +82,33 @@ class experiment_page:
 
     @ui.refreshable_method
     def get_res_ui(self):
-        self.run_ui = res_ui(self.pre_ui.experiment, self.cf_ui, self.pre_ui)
+        self.res_ui = res_ui(self.run_ui.experiment, self.cf_ui, self.pre_ui)
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()
         if len(self.exp_args['algo_params']) == 0:
             ui.notify('请添加算法参数')
             return
-        self.get_pre_ui.refresh()
+        if hasattr(self, 'pre_ui'):
+            self.get_pre_ui.refresh()
+            self.pre_ui.refresh_need.refresh()
         self.stepper.next()
 
     def task_fusion_step(self):
-        self.get_run_ui.refresh()
+        if hasattr(self, 'pre_ui'):
+            if self.pre_ui.experiment is None:
+                ui.notify('请装载实验对象')
+                return
+        if hasattr(self, 'run_ui'):
+            self.get_run_ui.refresh()
+            self.run_ui.refresh_need.refresh()
         self.stepper.next()
+
+    def res_fusion_step(self):
+        if hasattr(self, 'res_ui'):
+            self.get_res_ui.refresh()
+            self.res_ui.show_panels.refresh()
+            self.res_ui.draw_res.refresh()
+        self.stepper.next()
+
 

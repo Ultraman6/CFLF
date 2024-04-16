@@ -59,7 +59,8 @@ def split_data(dataset, args, kwargs, is_shuffle=True, is_test=False):
     num_classes = len(set(index_func(dataset)))
     for cid in data_mappings:
         length = len(data_mappings[cid])
-        client_dataset = DatasetSplit(dataset, data_mappings[cid], noise_mappings[cid] if cid in noise_mappings else None, num_classes, length, noise_type)
+        client_dataset = DatasetSplit(dataset, data_mappings[cid], noise_mappings[cid] if cid in noise_mappings else None,
+                                      num_classes, length, noise_type, cid)
         client_loader = DataLoader(client_dataset, batch_size=args.batch_size, shuffle=is_shuffle, **kwargs)
         data_loaders.append(client_loader)
 
