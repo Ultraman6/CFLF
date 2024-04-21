@@ -2,8 +2,9 @@
 (https://github.com/alpemreacar/FedDyn/blob/master/utils_models.py)
 """
 
-import torchvision.models
 import torch.nn as nn
+import torchvision.models
+
 from model.base.base_model import BaseModel
 
 
@@ -12,7 +13,7 @@ class ResNet18_femnist(BaseModel):
         super().__init__(mode)
         resnet18 = torchvision.models.resnet18()
         resnet18.fc = nn.Linear(512, 26)
-        resnet18.conv1 = nn.Conv2d(1,64,kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        resnet18.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         resnet18.bn1 = nn.GroupNorm(num_groups=2, num_channels=64)
 
         resnet18.layer1[0].bn1 = nn.GroupNorm(num_groups=2, num_channels=64)
@@ -41,6 +42,7 @@ class ResNet18_femnist(BaseModel):
 
     def forward(self, x):
         return self.model(x)
+
 
 class Loss(nn.Module):
     def __init__(self):

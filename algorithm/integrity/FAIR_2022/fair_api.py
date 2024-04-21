@@ -1,13 +1,14 @@
 import copy
 import logging
+
 import numpy as np
 from torch.utils.data import DataLoader
 
-from data.utils.distribution import show_distribution
-from model.mnist.cnn import AggregateModel
-from model.base.model_trainer import ModelTrainer
-from .client import Client
 from algorithm.aggregrate import average_weights_self
+from data.utils.distribution import show_distribution
+from model.base.model_trainer import ModelTrainer
+from model.mnist.cnn import AggregateModel
+from .client import Client
 
 # 设置时间间隔（以秒为单位）
 interval = 5
@@ -104,7 +105,7 @@ class Fair_API(object):
 
             # 聚合每个任务的全局模型
             for t_id, w_locals in enumerate(w_locals_tasks):
-                if len(w_locals) == 0: # 如果该模型没有得到更新
+                if len(w_locals) == 0:  # 如果该模型没有得到更新
                     print("task_id：{}, 由于无选中客户，不聚合".format(t_id))
                 else:
                     print("task_id：{}, 开始聚合".format(t_id))
@@ -241,7 +242,8 @@ class Fair_API(object):
             # 更新客户的任务分配状态和可用性
             for client_id in selected_clients_per_task[max_k]:
                 if client_available[client_id] == 1:  # 如果客户当前是可用的
-                    client_task_info[max_k].append((client_id, payments[max_k][client_id], client_bids[client_id][max_k][1]))  # 记录客户分配情况，包括支付和样本量
+                    client_task_info[max_k].append(
+                        (client_id, payments[max_k][client_id], client_bids[client_id][max_k][1]))  # 记录客户分配情况，包括支付和样本量
                     client_available[client_id] = 0  # 客户现在被分配，不再可用
 
         return client_task_info  # 返回每个任务分配的用户及其支付
@@ -261,7 +263,7 @@ class Fair_API(object):
         optim_weights, reverse_quality = optimal_agg.get_aggregation_weights_quality()  # 得到自动聚合权重、反向实际质量
         for id, (cid, _, _) in enumerate(cInfos):  # 给参与的客户更新对应任务的实际质量, 支付和样本量全部过滤
             # print(cid)
-            self.client_his_quality[cid][tid].append((round_idx, reverse_quality[id])) # id表示客户本地模型的聚合顺序，从0开始
+            self.client_his_quality[cid][tid].append((round_idx, reverse_quality[id]))  # id表示客户本地模型的聚合顺序，从0开始
 
         return average_weights_self(w_locals, optim_weights), optim_weights
 

@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, default_collate, Subset
+from torch.utils.data import DataLoader, default_collate
 
 from data.dataset import get_mnist, get_cifar10, get_femnist, get_cinic10, get_synthetic
 from data.dataset.fashionmnist import get_fashionmnist
@@ -33,6 +33,7 @@ def get_data(args):
             return get_svhn(dataset_root, args.model)
         else:
             raise ValueError('Dataset `{}` not found'.format(dataset))
+
 
 def get_dataloaders(args):
     kwargs = {'num_workers': 0, 'pin_memory': True} if torch.cuda.is_available() else {}
@@ -136,13 +137,12 @@ def get_distribution(dataloader, dataset_name, mode='pro'):
         img, label = dataloader.dataset[idx]
         distribution[label] += 1
     distribution = np.array(distribution)
-    if mode == 'num':    # 表示直接返回数量分布
+    if mode == 'num':  # 表示直接返回数量分布
         return distribution
     elif mode == 'pro':  # 表示返回概率分布
         return distribution / num_samples
     else:
         raise ValueError("Mode not recognized. Please use 'num' or 'pro'.")
-
 
 
 # 模块内自己调用自己则会执行两次

@@ -1,11 +1,12 @@
 import os
-import requests
 import tarfile
-from tqdm import tqdm
+
 import h5py
 import numpy as np
+import requests
 import torch
 from torch.utils import data
+from tqdm import tqdm
 
 
 def get_femnist(dataset_root):

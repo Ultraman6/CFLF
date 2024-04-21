@@ -1,13 +1,11 @@
 import copy
-from concurrent.futures import ThreadPoolExecutor
 import time
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+
 from tqdm import tqdm
 
-from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device, _modeldict_cossim, _modeldict_sub, \
-    _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
-from model.base.model_trainer import ModelTrainer
-from algorithm.base.client import BaseClient
+from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim, _modeldict_sub, \
+    _modeldict_add
 from ...base.server import BaseServer
 
 
@@ -58,8 +56,8 @@ class CS_Reward_Out_API(BaseServer):
             self.global_params = w_global
             # 计算每位客户本轮的贡献
             value_global = {}  # 记录每个梯度全局价值
-            value_local = {}   # 记录每个梯度本地价值
-            for cid in range(self.args.num_clients): # 计算全局价值
+            value_local = {}  # 记录每个梯度本地价值
+            for cid in range(self.args.num_clients):  # 计算全局价值
                 contrib_i = _modeldict_cossim(global_upgrade, g_locals[cid])
                 self.contrib_info[cid][round_idx] = contrib_i  # 激励直接贡献，负值也记录
                 value_global[cid] = contrib_i
@@ -89,7 +87,7 @@ class CS_Reward_Out_API(BaseServer):
                 # 计算其余客户相对其综合价值
                 value_syn = {nid: self.fair * value_local[cid][nid] + (1 - self.fair)
                                   * value_global[nid] for nid in value_local[cid]}
-                value_syn = list(sorted(value_syn.items(), key=lambda x: x[1]))[:reward_i] # 价值从低到高取top奖励
+                value_syn = list(sorted(value_syn.items(), key=lambda x: x[1]))[:reward_i]  # 价值从低到高取top奖励
                 # 根据私有价值排序，取top奖励
                 g_reward = [g_locals[nid] for nid, _ in value_syn]
                 g_reward.append(g_locals[cid])  # 加上全局梯度

@@ -3,7 +3,7 @@ deep_learning_settings = {
         "name": '数据集',
         "type": 'choice',
         "default": 'mnist',
-        "option": ['mnist', 'fmnist', 'femnist', 'cifar10', 'cifar100','cinic10', 'shakespare', 'synthetic'],
+        "option": ['mnist', 'fmnist', 'femnist', 'cifar10', 'cifar100', 'cinic10', 'shakespare', 'synthetic'],
         "param": {
             "synthetic": {
                 "mean": {
@@ -150,8 +150,8 @@ deep_learning_settings = {
         "name": "梯度标准化",
         "type": bool,
         "default": False,
-        "param":{
-            True:{
+        "param": {
+            True: {
                 "norm_coefficient": {
                     'type': 'float',
                     'default': 0.5,
@@ -167,7 +167,7 @@ deep_learning_settings = {
         "type": bool,
         "default": False,
         "param": {
-            True:{
+            True: {
                 "clip_coefficient": {
                     'type': 'float',
                     'default': 0.5,

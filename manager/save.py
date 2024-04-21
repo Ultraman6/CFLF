@@ -1,6 +1,5 @@
 import os
 import pickle
-from datetime import datetime
 
 
 def convert_time_format(time_str):
@@ -65,7 +64,8 @@ class Filer:
             with open(file_path, 'rb') as file:
                 time, name = file_name.split('_', 1)
                 name = name.rsplit('.', 1)[0]  # 移除.pkl后缀
-                task_details = {'time': convert_time_format(time), 'name': name, 'info': pickle.load(file), 'file_name': file_name}
+                task_details = {'time': convert_time_format(time), 'name': name, 'info': pickle.load(file),
+                                'file_name': file_name}
                 return task_details
         else:
             raise FileNotFoundError(f"{file_name} not found in {self.save_dir}")

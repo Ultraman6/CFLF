@@ -30,7 +30,7 @@ class Sub_Exp_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
             w_locals = []
             client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)
@@ -127,4 +127,4 @@ class Sub_Exp_API(BaseServer):
         margin_kl = p - n
         # margin_info = (h-h_i) / num
         # margin = margin_cross + margin_info
-        return p, n,  np.exp(self.gamma * margin_kl)  # 试试看
+        return p, n, np.exp(self.gamma * margin_kl)  # 试试看

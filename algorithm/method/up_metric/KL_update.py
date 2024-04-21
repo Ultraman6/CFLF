@@ -31,7 +31,7 @@ class JSD_Up_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
 
             w_locals = []

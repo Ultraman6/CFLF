@@ -1,15 +1,15 @@
+import os
 import sys
+import tarfile
+
 import requests
+from PIL import Image
+from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
-import tarfile
-import os
-from torch.utils.data import Dataset
-from PIL import Image
-
-from data.utils.distribution import split_data
 
 url = "https://datashare.ed.ac.uk/bitstream/handle/10283/3192/CINIC-10.tar.gz"
+
 
 def download_dataset(url, dataset_dir):
     if not os.path.exists(dataset_dir):
@@ -23,12 +23,12 @@ def download_dataset(url, dataset_dir):
 
     # 使用tqdm显示下载进度条
     with requests.get(url, stream=True) as r, open(local_filename, 'wb') as f, tqdm(
-        unit='B',  # 单位为Byte
-        unit_scale=True,  # 自动选择合适的单位
-        unit_divisor=1024,  # 以1024为基数来计算单位
-        total=file_size,  # 总大小
-        file=sys.stdout,  # 输出到标准输出
-        desc=local_filename  # 描述信息
+            unit='B',  # 单位为Byte
+            unit_scale=True,  # 自动选择合适的单位
+            unit_divisor=1024,  # 以1024为基数来计算单位
+            total=file_size,  # 总大小
+            file=sys.stdout,  # 输出到标准输出
+            desc=local_filename  # 描述信息
     ) as bar:
         for chunk in r.iter_content(chunk_size=8192):
             size = f.write(chunk)
@@ -40,20 +40,20 @@ def download_dataset(url, dataset_dir):
             tar.extractall(path=dataset_dir)
 
 
-
 def pil_loader(path):
     # Open path as file to avoid ResourceWarning
     with open(path, "rb") as f:
         img = Image.open(f)
         return img.convert("RGB")
 
+
 class CINIC10(Dataset):
     def __init__(
-        self,
-        root,
-        train=True,
-        transform=None,
-        target_transform=None,
+            self,
+            root,
+            train=True,
+            transform=None,
+            target_transform=None,
     ):
         super().__init__()
         self.root = root
@@ -90,6 +90,7 @@ class CINIC10(Dataset):
 
         return image, target
 
+
 def get_cinic10(dataset_dir, model):
     # 定义CINIC-10的数据预处理
     if model == 'cnn':
@@ -121,7 +122,7 @@ def get_cinic10(dataset_dir, model):
     dataset_root = os.path.join(dataset_dir, 'cinic10')
     if not (os.path.exists(dataset_root)):
         print("CINIC-10数据集不存在，正在下载...")
-        download_dataset(url, dataset_root) # 调用下载函数
+        download_dataset(url, dataset_root)  # 调用下载函数
 
     # 加载CINIC-10数据集
     train = datasets.ImageFolder(os.path.join(dataset_root, 'CINIC-10/train'), transform=transform_train)

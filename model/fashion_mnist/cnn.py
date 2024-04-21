@@ -1,7 +1,7 @@
-import torch
-from torch import nn
-from model.base.base_model import BaseModel
 import torch.nn.functional as F
+from torch import nn
+
+from model.base.base_model import BaseModel
 
 
 class CNN_fashionmnist(BaseModel):

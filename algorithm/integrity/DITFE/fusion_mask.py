@@ -1,14 +1,16 @@
 import copy
 import time
-from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
+
 import numpy as np
+
 from algorithm.base.server import BaseServer
 from model.base.fusion import FusionLayerModel
 from model.base.model_dict import (_modeldict_cossim, _modeldict_sub, _modeldict_dot_layer,
                                    _modeldict_norm, pad_grad_by_order, _modeldict_add, aggregate_att_weights,
-                                   _modeldict_sum, _modeldict_weighted_average)
+                                   _modeldict_sum)
+
 
 # 第二阶段，可视化参数
 # 全局
@@ -52,15 +54,14 @@ class Fusion_Mask_API(BaseServer):
     g_locals = []
     modified_g_locals = []
     agg_layer_weights = []
+
     def __init__(self, task):
         super().__init__(task)
-        # 第一阶段参数
-
         # 第二阶段参数
         self.time_mode = self.args.time_mode
-        self.e = self.args.e          # 融合方法最大迭代数
-        self.e_tol = self.args.e_tol   # 融合方法早停阈值
-        self.e_per = self.args.e_per   # 融合方法早停温度
+        self.e = self.args.e  # 融合方法最大迭代数
+        self.e_tol = self.args.e_tol  # 融合方法早停阈值
+        self.e_per = self.args.e_per  # 融合方法早停温度
         self.e_mode = self.args.e_mode  # 融合方法早停策略
         self.rho = self.args.rho  # 时间系数
         self.fair = self.args.fair  # 奖励比例系数
@@ -73,7 +74,8 @@ class Fusion_Mask_API(BaseServer):
         self.cum_real_sv_time = 0.0
 
     def global_update(self):
-        self.g_locals = [_modeldict_sub(w, self.local_params[cid]) for cid, w in enumerate(self.w_locals)]
+        self.g_locals = [_modeldict_sub(w, self.local_params[cid]) for cid, w in
+                         zip(self.client_indexes, self.w_locals)]
         # 全局模型融合
         w_global = self.fusion_weights()
         self.g_global = _modeldict_sub(w_global, self.global_params)  # 先计算梯度，再计层点乘得到参与聚合的梯度
@@ -88,7 +90,7 @@ class Fusion_Mask_API(BaseServer):
         sv_time = time_e - time_s
         self.cum_sv_time += sv_time
         self.task.control.set_statue('text', f"完成计算用户近似贡献 计算模式: 梯度投影")
-
+        print(self.his_contrib)
         if self.real_sv:
             self.task.control.set_statue('text', "开始计算用户真实贡献")
             time_s = time.time()
@@ -103,25 +105,28 @@ class Fusion_Mask_API(BaseServer):
                 contrib_list.append(self.his_contrib[cid][self.round_idx])
                 real_contrib_list.append(self.his_real_contrib[cid][self.round_idx])
             self.task.control.set_info('global', 'svt', (self.round_idx, sv_time / real_sv_time))  # 相对计算开销
-            self.task.control.set_info('global', 'sva', (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
+            self.task.control.set_info('global', 'sva',
+                                       (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
 
         # 然后计算累计贡献以及每个客户的奖励
         self.task.control.set_statue('text', f"开始计算客户奖励 计算模式: 梯度掩码")
         self.alloc_reward_mask()  # 分配梯度奖励
         self.task.control.set_statue('text', f"结束计算客户奖励 计算模式: 梯度掩码")
 
-
-    def global_final(self, up=True):
+    def global_final(self):
         # 更新总sv近似程度与时间开销
-        final_contribs, final_real_contribs = [], []
-        for contribs, real_contribs in zip(self.his_contrib, self.his_real_contrib):
-            final_contribs.append(sum(contribs.values()))
-            final_real_contribs.append(sum(real_contribs.values()))
-        self.task.control.set_info('global', 'final_sva', (self.round_idx, np.corrcoef(final_contribs, final_real_contribs)[0, 1]))
-        self.task.control.set_info('global', 'final_svt', (self.round_idx, self.cum_sv_time / self.cum_real_sv_time))
-        super().global_final(up)  # 此时需要更新模型
+        if self.real_sv:
+            final_contribs, final_real_contribs = [], []
+            for contribs, real_contribs in zip(self.his_contrib, self.his_real_contrib):
+                final_contribs.append(sum(contribs.values()))
+                final_real_contribs.append(sum(real_contribs.values()))
+            self.task.control.set_info('global', 'final_sva',
+                                       (self.round_idx, np.corrcoef(final_contribs, final_real_contribs)[0, 1]))
+            self.task.control.set_info('global', 'final_svt',
+                                       (self.round_idx, self.cum_sv_time / self.cum_real_sv_time))
+        super().global_final()  # 此时需要更新模型
 
-    def _compute_cos_poj_for_client(self, idx):
+    def _compute_cos_poj(self, idx):
         mg = self.modified_g_locals[idx]
         cossim = float(_modeldict_cossim(self.g_global, mg).cpu())
         norm = float(_modeldict_norm(mg).cpu())  # 记录每个客户每轮的贡献值
@@ -130,16 +135,18 @@ class Fusion_Mask_API(BaseServer):
     def cal_contrib(self):
         if self.args.train_mode == 'serial':
             for idx, cid in enumerate(self.client_indexes):
-                self.his_contrib[cid][self.round_idx] = self._compute_cos_poj_for_client(idx)
-                self.task.control.set_info('local', 'contrib', (self.round_idx, self.his_contrib[cid][self.round_idx]), cid)
+                self.his_contrib[cid][self.round_idx] = self._compute_cos_poj(idx)
+                self.task.control.set_info('local', 'contrib', (self.round_idx, self.his_contrib[cid][self.round_idx]),
+                                           cid)
 
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self._compute_cos_poj_for_client, idx)
+                futures = {cid: executor.submit(self._compute_cos_poj, idx)
                            for idx, cid in enumerate(self.client_indexes)}
                 for cid, future in futures.items():
-                    self.his_real_contrib[cid][self.round_idx] = future.result()
-                    self.task.control.set_info('local', 'real_contrib', (self.round_idx, self.his_real_contrib[cid][self.round_idx]), cid)
+                    self.his_contrib[cid][self.round_idx] = future.result()
+                    self.task.control.set_info('local', 'contrib',
+                                               (self.round_idx, self.his_contrib[cid][self.round_idx]), cid)
 
     # 真实Shapely值计算
     def _subset_cos_poj(self, cid, subset_mg, subset_w):  # 还是真实SV计算
@@ -156,7 +163,7 @@ class Fusion_Mask_API(BaseServer):
         v = float(_modeldict_norm(mg_s_i).cpu()) * float(_modeldict_cossim(self.g_global, mg_s_i).cpu())
         return v - v_i
 
-    def _compute_cos_poj_for_client(self, cid):
+    def _compute_cos_poj_set(self, cid):
         margin_sum = 0.0
         cmb_num = 0
         mg_locals_i = np.delete(self.modified_g_locals, cid, axis=0)
@@ -185,12 +192,12 @@ class Fusion_Mask_API(BaseServer):
         # 使用多线程计算每个客户的余弦距离，并限制最大线程数
         if self.args.train_mode == 'serial':
             for idx, cid in enumerate(self.client_indexes):
-                real_contrib = self._compute_cos_poj_for_client(idx)
+                real_contrib = self._compute_cos_poj_set(idx)
                 self.his_real_contrib[cid][self.round_idx] = real_contrib
                 self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self._compute_cos_poj_for_client, cid)
+                futures = {cid: executor.submit(self._compute_cos_poj_set, cid)
                            for cid in self.client_indexes}
                 for cid, future in futures.items():
                     real_contrib = future.result()
@@ -209,7 +216,8 @@ class Fusion_Mask_API(BaseServer):
         # fm.set_fusion_weights(att)
         self.task.control.set_statue('text', "开始模型融合")
         self.task.control.clear_informer('e_acc')
-        e_round = fm.train_fusion(self.valid_global, self.e, self.e_tol, self.e_per, self.e_mode, self.device, 0.01, self.args.loss_function, self.task.control)
+        e_round = fm.train_fusion(self.valid_global, self.e, self.e_tol, self.e_per, self.e_mode, self.device, 0.01,
+                                  self.args.loss_function, self.task.control)
         self.task.control.set_info('global', 'e_round', (self.round_idx, e_round))
         self.task.control.set_statue('text', f"退出模型融合 退出模式:{self.e_mode}")
         w_global, self.agg_layer_weights = fm.get_fused_model_params()  # 得到融合模型学习后的聚合权重和质量
@@ -233,6 +241,7 @@ class Fusion_Mask_API(BaseServer):
 
     def cal_time_contrib(self):
         time_contrib = {}
+        cum_reward = 0.0
         # 计算每位客户的时间贡献
         if self.time_mode == 'cvx':
             cum_reward = 0.0
@@ -246,16 +255,16 @@ class Fusion_Mask_API(BaseServer):
 
         elif self.time_mode == 'exp':
             time_contrib = {}
-            cum_contrib = 0.0
+            cum_reward = 0.0
             for cid in self.client_indexes:
                 his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
                 numerator = sum(
                     self.args.rho ** (self.round_idx - k) * his_contrib_i[k] for k in range(self.round_idx + 1))
                 denominator = sum(self.args.rho ** (self.round_idx - k) for k in range(self.round_idx + 1))
                 time_contrib_i = max(numerator / denominator, 0)  # 时间贡献用于奖励计算
-                cum_contrib += time_contrib_i
+                cum_reward += time_contrib_i
                 time_contrib[cid] = time_contrib_i
-            time_contrib = {i: c / cum_contrib for i, c in time_contrib.items()}
+            time_contrib = {i: c / cum_reward for i, c in time_contrib.items()}
 
         return time_contrib
 

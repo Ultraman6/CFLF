@@ -7,6 +7,7 @@ from algorithm.base.server import BaseServer
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim
 from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self
 
+
 # 2024-02-08 尝试加入fair2021的质量检测，求每个本地梯度与高质量全局梯度的余弦相似性
 
 class Cross_Up_Select_API(BaseServer):
@@ -28,7 +29,7 @@ class Cross_Up_Select_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
 
             w_locals = []
@@ -105,7 +106,7 @@ class Cross_Up_Select_API(BaseServer):
 
     def quality_selection(self, w_locals, round_idx, alpha_value, w_global):
         # 质量筛选：根据本地模型和全局模型的相似性选择高质量模型参与聚合
-        w_sim = [] # 记录每个本地模型与全局模型的相似性
+        w_sim = []  # 记录每个本地模型与全局模型的相似性
         quality_info = []
         for cid, w in enumerate(w_locals):
             w_s = _modeldict_cossim(w, w_global).cpu()

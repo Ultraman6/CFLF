@@ -1,12 +1,12 @@
-import copy
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-import numpy as np
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 from tqdm import tqdm
 
-from model.base.model_dict import _modeldict_dot, _modeldict_weighted_average, _modeldict_add, _modeldict_to_device, \
-    _modeldict_sub
+from model.base.model_dict import _modeldict_dot, _modeldict_weighted_average, _modeldict_sub
 from ...base.server import BaseServer
 
 # 设置时间间隔（以秒为单位）
@@ -19,6 +19,7 @@ class Grad_Inf_API(BaseServer):
         # 客户训练数据参数
         self.threshold = -0.01
         self.quality_info = {i: {} for i in range(self.args.num_clients)}
+
     def train(self, task_name, position):
         global_info = {}
         client_info = {}
@@ -29,7 +30,7 @@ class Grad_Inf_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
 
             w_locals = []
             g_locals = []

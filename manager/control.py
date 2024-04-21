@@ -87,7 +87,7 @@ class TaskController:
                 type = types[i]
                 if self.check_visual(spot, type, 'type'):
                     if self.mode != 'process':
-                        if cid is None:
+                        if cid is None:  # 每轮的信息通过容器传递
                             self.informer[spot][name][type].value.append((v1, v))
                         else:
                             self.informer[spot][name][type][cid].value.append((v1, v))

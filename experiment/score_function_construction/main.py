@@ -1,9 +1,7 @@
 import copy
 import os
-import traceback
-from concurrent.futures import as_completed, ProcessPoolExecutor
-from concurrent.futures.thread import ThreadPoolExecutor
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 from tqdm import tqdm
 

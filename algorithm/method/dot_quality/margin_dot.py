@@ -56,7 +56,6 @@ class Margin_Dot_API(BaseServer):
             self.global_params = _modeldict_add(self.global_params, g_global)
             self.model_trainer.set_model_params(self.global_params)
 
-
             # 全局测试
             test_acc, test_loss = self.model_trainer.test(self.valid_global)
             # print( "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(

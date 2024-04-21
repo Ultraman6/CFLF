@@ -1,12 +1,7 @@
 import copy
-import pickle
 
 import torch
-from ex4nicegui import deep_ref, to_raw
 from tqdm import tqdm
-
-from manager.control import TaskController
-from util.drawing import create_result
 
 
 class Task:
@@ -49,8 +44,8 @@ class Task:
         # 初始化进度条
         while algo.round_idx <= self.args.round and not self.pre_quit:
             next = self.watch_control(algo)  # 先做任务状态检查
-            if next == 0:    # 结束当前迭代
-                pbar.n = 0   # 重置进度条
+            if next == 0:  # 结束当前迭代
+                pbar.n = 0  # 重置进度条
                 pbar.refresh()
                 continue
             elif next == 1:  # 继续迭代
@@ -86,7 +81,7 @@ class Task:
             self.control.set_status('running')  # 否则下一次暂停变重启
             return 0  # 跳过当前循环，由于round_idx为0，外层循环将重新开始
         elif self.control.check_status("cancel"):
-            print("取消任务...")     # 需要清空记录
+            print("取消任务...")  # 需要清空记录
             self.control.clear_informer()
             self.control._clear()
             return 'cancel'

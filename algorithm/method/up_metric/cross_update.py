@@ -11,6 +11,8 @@ from algorithm.aggregrate import average_weights_on_sample, average_weights, ave
 
 # 设置时间间隔（以秒为单位）
 interval = 5
+
+
 # 2024-02-08 尝试加入fair2021的质量检测，求每个本地梯度与高质量全局梯度的余弦相似性
 
 class Cross_Up_API(BaseServer):
@@ -20,6 +22,7 @@ class Cross_Up_API(BaseServer):
         self.quality_info = {i: {} for i in range(self.args.num_clients)}
         self.gamma = self.args.gamma
         self.local_params = {i: self.global_params for i in range(self.args.num_clients)}
+
     def train(self, task_name, position):
         global_info = {}
         client_info = {}
@@ -30,7 +33,7 @@ class Cross_Up_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
 
             w_locals = []
@@ -48,7 +51,6 @@ class Cross_Up_API(BaseServer):
                 for future in futures:
                     w = future.result()
                     w_locals.append(w)
-
 
             # 质量检测
             self.global_params = self.quality_detection(w_locals, round_idx, test_loss, test_acc)

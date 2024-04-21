@@ -1,8 +1,8 @@
-from visual.parts.constant import record_names, record_types
-from visual.parts.func import  control_global_echarts, control_local_echarts
 from ex4nicegui.reactive import rxui
-from ex4nicegui.utils.signals import to_ref_wrapper, to_raw, to_ref
-from nicegui import ui, run
+from ex4nicegui.utils.signals import to_ref, on, to_raw
+from nicegui import ui
+from visual.parts.constant import record_names, record_types
+from visual.parts.func import control_global_echarts, control_local_echarts, get_user_info, get_grad_info
 
 
 # 任务运行界面
@@ -21,7 +21,6 @@ class run_ui:
         self.task_names = {}
         self.handle_task_info()
         self.refresh_need()
-
 
     @ui.refreshable_method
     def refresh_need(self):
@@ -59,7 +58,8 @@ class run_ui:
                     for info_name in self.experiment.task_info_refs[tid][info_spot]:
                         if info_name not in self.infos_ref[info_spot]:
                             self.infos_ref[info_spot][info_name] = {}
-                        self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][info_name]
+                        self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][
+                            info_name]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
@@ -68,10 +68,11 @@ class run_ui:
         num_to_control = len(self.experiment.task_control)
         with rxui.card().classes('w-full'):
             rxui.label('控制面板').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
-                                                        'bg-red-800', 'text-white', 'font-semibold', 'rounded-lg',
-                                                        'shadow-md', 'hover:bg-blue-700')
+                                            'bg-red-800', 'text-white', 'font-semibold', 'rounded-lg',
+                                            'shadow-md', 'hover:bg-blue-700')
             pool_ref = to_ref(True)
             rxui.button('进入任务池', on_click=lambda: _pool()).bind_visible(lambda: pool_ref.value)
+
             async def _pool():
                 pool_ref.value = False
                 close_num.value = 0
@@ -88,7 +89,8 @@ class run_ui:
             with rxui.grid(columns=len(self.experiment.task_queue) + 1).classes('w-full').bind_visible(
                     lambda: not pool_ref.value):
                 with ui.column().classes('w-full'):
-                    rxui.label('全部任务').tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                    rxui.label('全部任务').tailwind(
+                        'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                     be_ref = to_ref(False)
                     pc_ref = to_ref(True)
                     with rxui.grid(columns=2).classes('w-full'):
@@ -171,7 +173,7 @@ class run_ui:
                         pc_refs.append(to_ref(True))
                     for tid in self.experiment.task_control:
                         with ui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             with rxui.grid(columns=2).classes('w-full').bind_visible(
                                     lambda tid=tid: all_refs[int(tid)].value):
                                 rxui.button('开始', on_click=lambda tid=tid, be_ref=be_ref: _run_i(tid)).bind_visible(
@@ -243,7 +245,9 @@ class run_ui:
                             self.control_statue(info_spot, info_name)
 
                 elif info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
-                    rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
+                    rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
+                                                    'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
+                                                    'hover:bg-blue-700')
                     with rxui.grid(columns=2).classes('w-full h-full'):
                         for info_name in self.infos_ref[info_spot]:
                             control_global_echarts(info_name, self.infos_ref[info_spot][info_name], self.task_names)
@@ -251,48 +255,76 @@ class run_ui:
                 elif info_spot == 'local':
                     # print(self.infos_ref[info_spot])
                     with ui.column().classes('w-full'):
-                        rxui.label('局部信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-blue-700')
+                        rxui.label('局部信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
+                                                        'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
+                                                        'shadow-md', 'hover:bg-blue-700')
                         for tid in self.infos_ref[info_spot]:
-                            rxui.label(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid]).tailwind(
+                                'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             control_local_echarts(self.infos_ref[info_spot][tid])
 
     def control_statue(self, info_spot, info_name):
         with rxui.column().classes('w-full'):
             rxui.label(record_names[info_spot]['param'][info_name]).tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2',
-                                                                            'px-4', 'bg-white-500', 'text-black',
-                                                                            'font-semibold', 'rounded-lg', 'shadow-md',
-                                                                            'hover:bg-blue-700')
+                                                                             'px-4', 'bg-white-500', 'text-black',
+                                                                             'font-semibold', 'rounded-lg', 'shadow-md',
+                                                                             'hover:bg-blue-700')
             type = record_types[info_spot]['param'][info_name]
             if type == 'circle':
                 with rxui.grid(columns=5).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
+                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid])  # 目前只考虑展示进度条
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
                             rxui.circular_progress(show_value=False, value=lambda pro_ref=pro_ref:
-                                                   list(pro_ref.value)[-1][-1] if len(pro_ref.value) > 0 else 0,
+                            list(pro_ref.value)[-1][-1] if len(pro_ref.value) > 0 else 0,
                                                    max=lambda pro_ref=pro_ref:
-                                                   list(pro_ref.value)[0][0] if len(pro_ref.value) > 0 else 0)
+                                                   list(pro_ref.value)[-1][0] if len(pro_ref.value) > 0 else 0)
                             rxui.label(
                                 text=lambda pro_ref=pro_ref: (str(list(pro_ref.value)[-1][-1])
-                                    if len(pro_ref.value) > 0 else '0') + '/' + (str(list(pro_ref.value)[0][0])
-                                    if len(pro_ref.value) > 0 else '0'))
+                                                              if len(pro_ref.value) > 0 else '0') + '/' + (
+                                                                 str(list(pro_ref.value)[0][0])
+                                                                 if len(pro_ref.value) > 0 else '0'))
             elif type == 'linear':
                 with rxui.grid(columns=5).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid])  # 目前只考虑展示进度条
+                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid])  # 目前只考虑展示进度条
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
-                            slider = rxui.slider(value=lambda pro_ref=pro_ref: (list(pro_ref.value)[0] - list(pro_ref.value)[-1]) / list(pro_ref.value)[0]
-                                              if len(pro_ref.value) > 0 else 0, max=1.0, min=0.0)
-                            ui.linear_progress().bind_value_from(slider, 'value')
-                            rxui.label(text=lambda pro_ref=pro_ref: (str(list(pro_ref.value)[0] - list(pro_ref.value)[-1])
-                                    if len(pro_ref.value) > 0 else '0') + '/' + (str(list(pro_ref.value)[0])
-                                    if len(pro_ref.value) > 0 else '0'))
+                            # slider = rxui.slider(value=lambda pro_ref=pro_ref: (list(pro_ref.value)[-1][0] - list(pro_ref.value)[-1][-1]) / list(pro_ref.value)[-1][0]
+                            #                   if len(pro_ref.value) > 0 else 0, max=1.0, min=0.0)
+                            rxui.linear_progress(value=lambda pro_ref=pro_ref: (list(pro_ref.value)[-1][0] -
+                                                                                list(pro_ref.value)[-1][-1]) /
+                                                                               list(pro_ref.value)[-1][0]
+                            if len(pro_ref.value) > 0 else 0)
+                            rxui.label(text=lambda pro_ref=pro_ref: (str(
+                                list(pro_ref.value)[-1][0] - list(pro_ref.value)[-1][-1])
+                                                                     if len(pro_ref.value) > 0 else '0') + '/' + (
+                                                                        str(list(pro_ref.value)[-1][0])
+                                                                        if len(pro_ref.value) > 0 else '0'))
             elif type == 'text':
                 with rxui.grid(columns=2).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         tex_ref = self.infos_ref[info_spot][info_name][tid]
                         rxui.textarea(label=self.task_names[tid],
                                       value=lambda tex_ref=tex_ref: '\n'.join(
-                                          list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10')
+                                          list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10').tooltip(self.task_names[tid])
+
+            elif type == 'switch':
+                with rxui.grid(columns=5).classes('w-full'):
+                    for tid in self.infos_ref[info_spot][info_name]:
+                        sw_ref = self.infos_ref[info_spot][info_name][tid]
+                        rxui.switch(text=self.task_names[tid],
+                                    value=lambda sw_ref=sw_ref: list(sw_ref.value)[-1][0] < list(sw_ref.value)[-1][-1]
+                                    if len(sw_ref.value) > 0 else False).classes('w-full').props('disable').tooltip(self.task_names[tid])
+
+            elif type == 'custom':
+                with ui.column().classes('w-full items-center'):
+                    for i, tid in enumerate(self.infos_ref[info_spot][info_name]):
+                        if i != 0:
+                            ui.separator()
+                        ui.label(self.task_names[tid]).tooltip(self.task_names[tid])
+                        if info_name == 'user_info':
+                            get_user_info(self.infos_ref[info_spot][info_name][tid])  # 直接 传入ref
+                        elif info_name == 'grad_info':
+                            get_grad_info(self.infos_ref[info_spot][info_name][tid])

@@ -2,19 +2,19 @@
 import asyncio
 from dataclasses import dataclass
 from typing import List
-from visual.parts.func import cal_dis_dict, control_global_echarts, control_local_echarts
-from ex4nicegui import to_ref
+
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
+
+import visual.parts.lazy.lazy_drop as ld
 from manager.save import Filer
 from visual.models import Experiment, User
 from visual.modules.preview import name_mapping
 from visual.parts.constant import profile_dict, path_dict, dl_configs, fl_configs, exp_configs, state_dict
-from visual.parts.func import get_dicts, color, ncolors
+from visual.parts.func import cal_dis_dict, control_global_echarts, control_local_echarts
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
-import visual.parts.lazy.lazy_drop as ld
-from visual.parts.func import get_global_option, get_local_option
+
 
 @dataclass
 class INFO:
@@ -436,7 +436,6 @@ def view_res(task_info, task_name):
                     control_local_echarts(infos_dict[info_spot][tid])
 
 
-
 # 查看历史保存的实验完整信息界面
 def self_experiment():
     def view(e: events.GenericEventArguments):
@@ -540,6 +539,7 @@ def view_dis(visual_data_infos, same):
         with lazy_tab_panels(tabs).classes('w-full') as panels:
             for tid, name in enumerate(visual_data_infos):
                 panel = panels.tab_panel(name)
+
                 def closure(tid: int):
                     @panel.build_fn
                     def _(name: str):
@@ -549,4 +549,3 @@ def view_dis(visual_data_infos, same):
                             ui.echart(cal_dis_dict(visual_data_infos[name][item], target=target)).classes('w-full')
 
                 closure(tid)
-

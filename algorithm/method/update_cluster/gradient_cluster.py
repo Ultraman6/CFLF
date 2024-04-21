@@ -1,18 +1,18 @@
 import copy
-import os
-from concurrent.futures import ThreadPoolExecutor
 import time
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.linalg import eigh
 from scipy.spatial.distance import squareform, pdist
-from sklearn.cluster import KMeans, AgglomerativeClustering, SpectralClustering
+from sklearn.cluster import KMeans
 from sklearn.manifold import MDS
-from sklearn.metrics import silhouette_score
 from tqdm import tqdm
+
 from algorithm.base.server import BaseServer
-from model.base.model_dict import _modeldict_weighted_average, _modeldict_sub, _modeldict_cossim, _modeldict_add
-from algorithm.aggregrate import average_weights_on_sample, average_weights, average_weights_self
+from model.base.model_dict import _modeldict_weighted_average, _modeldict_sub, _modeldict_cossim
+
+
 # 2024-02-08 尝试加入fair2021的质量检测，求每个本地梯度与高质量全局梯度的余弦相似性
 
 class Up_Cluster_API(BaseServer):
@@ -34,7 +34,7 @@ class Up_Cluster_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
 
             w_locals = []
@@ -45,7 +45,8 @@ class Up_Cluster_API(BaseServer):
                 futures = []
                 for cid in client_indexes:
                     # 提交任务到线程池
-                    future = executor.submit(self.thread_train,self.client_list[cid], round_idx, self.local_params[cid])
+                    future = executor.submit(self.thread_train, self.client_list[cid], round_idx,
+                                             self.local_params[cid])
                     futures.append(future)
                 # 等待所有任务完成
                 for future in futures:
@@ -55,7 +56,7 @@ class Up_Cluster_API(BaseServer):
             cluster_info = self.cossim_cluster(w_locals)
             cluster_up = {}
             for label, info in cluster_info.items():
-                print(str(label)+'：'+str(list(info.keys())))  # 收集集群的客户id与参数，并质量检测与聚合
+                print(str(label) + '：' + str(list(info.keys())))  # 收集集群的客户id与参数，并质量检测与聚合
                 cluster_up[label] = self.quality_detection_client(info, round_idx, test_loss, test_acc)
             self.global_params = self.quality_detection_cluster(cluster_up, round_idx, test_loss, test_acc)
             self.model_trainer.set_model_params(self.global_params)
@@ -109,7 +110,7 @@ class Up_Cluster_API(BaseServer):
                 "weight": alpha_value[cid],
             }  # 返回聚合后的梯度，可直接用于更新
             self.local_params[cid] = new_g_global  # 更新客户端模型参数
-            
+
         return new_g_global  # 此时进行簇内的模型更新
 
     def quality_detection_cluster(self, w_clusters, round_idx, test_loss, test_acc):  # 梯度质量检测(不管传多少都可以)

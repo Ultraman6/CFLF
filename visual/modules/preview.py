@@ -1,12 +1,14 @@
 import argparse
 from asyncio import sleep
+
 from ex4nicegui import to_ref
-from visual.parts.constant import algo_record
-from visual.parts.func import cal_dis_dict
 from ex4nicegui.reactive import rxui
 from nicegui import ui
+
 from manager.manager import ExperimentManager
+from visual.parts.constant import algo_record
 from visual.parts.func import build_task_loading
+from visual.parts.func import cal_dis_dict
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
 
@@ -16,11 +18,12 @@ name_mapping = {
     'test': '测试集',
 }
 
+
 @ui.refreshable
 class preview_ui:
     visual_data_infos = None
     args_queue = None
-    experiment=None
+    experiment = None
 
     def __init__(self, exp_args, algo_args):
         self.exp_args = exp_args
@@ -69,12 +72,12 @@ class preview_ui:
                 tabs.add(tab)
                 tab_list.append(tab)
                 for item in self.exp_args['algo_params']:
-                        algo = item['algo']
-                        if algo in algo_record:
-                            algo_list.append(algo)
-                            tab = ui.tab(algo)
-                            tabs.add(tab)
-                            tab_list.append(tab)
+                    algo = item['algo']
+                    if algo in algo_record:
+                        algo_list.append(algo)
+                        tab = ui.tab(algo)
+                        tabs.add(tab)
+                        tab_list.append(tab)
 
             with ui.tab_panels(tabs).classes('w-full'):
                 for algo, tab in zip(algo_list, tab_list):
@@ -89,17 +92,21 @@ class preview_ui:
                                 with ui.row().classes('w-full'):
                                     self.visual_panels[algo][spot]['param'] = {}
                                     for param, info in r_dict['param'].items():
-                                        self.visual_panels[algo][spot]['param'][param] = to_ref(True if param in r_dict['default'] else False)
-                                        rxui.checkbox(text=info['name'], value=self.visual_panels[algo][spot]['param'][param])
+                                        self.visual_panels[algo][spot]['param'][param] = to_ref(
+                                            True if param in r_dict['default'] else False)
+                                        rxui.checkbox(text=info['name'],
+                                                      value=self.visual_panels[algo][spot]['param'][param])
                                 if 'type' in r_dict:
                                     ui.label('类型').classes('w-full')
                                     with ui.row().classes('w-full'):
                                         self.visual_panels[algo][spot]['type'] = {}
                                         for type, info in r_dict['type'].items():
-                                            self.visual_panels[algo][spot]['type'][type] = to_ref(True if type in r_dict['default'] else False)
-                                            rxui.checkbox(text=info['name'], value=self.visual_panels[algo][spot]['type'][type])
-                    _closure(algo, tab)
+                                            self.visual_panels[algo][spot]['type'][type] = to_ref(
+                                                True if type in r_dict['default'] else False)
+                                            rxui.checkbox(text=info['name'],
+                                                          value=self.visual_panels[algo][spot]['type'][type])
 
+                    _closure(algo, tab)
 
     @ui.refreshable_method
     def draw_distribution(self):
@@ -119,6 +126,7 @@ class preview_ui:
             with lazy_tab_panels(tabs).classes('w-full') as panels:
                 for tid, name in enumerate(self.visual_data_infos):
                     panel = panels.tab_panel(name)
+
                     def closure(tid: int):
                         @panel.build_fn
                         def _(name: str):
@@ -131,14 +139,17 @@ class preview_ui:
                             for item in self.visual_data_infos[name]:
                                 target = name_mapping[item]
                                 rxui.label(target).classes('w-full')
-                                ui.echart(cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes('w-full')
+                                ui.echart(cal_dis_dict(self.visual_data_infos[name][item], target=target)).classes(
+                                    'w-full')
+
                     closure(tid)
 
     async def assemble_params(self):
         for item in self.exp_args['algo_params']:
             item['params']['device'] = [item['params']['device'], ]
             item['params']['gpu'] = [item['params']['gpu'], ]
-        self.experiment = ExperimentManager(argparse.Namespace(**self.algo_args), argparse.Namespace(**self.exp_args), self.visual_panels)
+        self.experiment = ExperimentManager(argparse.Namespace(**self.algo_args), argparse.Namespace(**self.exp_args),
+                                            self.visual_panels)
 
     async def assemble_experiment(self, e, box):
         btn: ui.button = e.sender
@@ -168,7 +179,6 @@ class preview_ui:
             self.visual_data_infos, self.args_queue = self.experiment.get_local_loader_infos()
         self.draw_distribution.refresh()
         ui.notify('查看数据划分')
-
 
     def save_algo_args(self):
         ui.notify('save_algo_args')

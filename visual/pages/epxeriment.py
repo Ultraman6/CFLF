@@ -1,9 +1,10 @@
 from nicegui import ui
+
+from visual.modules.configuration import config_ui
 from visual.modules.consequence import res_ui
 from visual.modules.preview import preview_ui
 from visual.modules.running import run_ui
 from visual.parts.lazy.lazy_stepper import lazy_stepper
-from visual.modules.configuration import config_ui
 
 
 def convert_to_list(mapping):
@@ -36,6 +37,7 @@ class experiment_page:
     experiment = None
     visual_data_infos = {}
     args_queue = []
+
     def __init__(self):  # 这里定义引用，传进去同步更新
         with lazy_stepper(keep_alive=False).props('vertical').classes('w-full') as self.stepper:
             with ui.step('参数配置'):
@@ -45,6 +47,7 @@ class experiment_page:
                     ui.button('Next', on_click=self.args_fusion_step)
 
             step_pre = self.stepper.step('配置预览')
+
             @step_pre.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
@@ -55,6 +58,7 @@ class experiment_page:
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
 
             step_run = self.stepper.step('算法执行')
+
             @step_run.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
@@ -64,6 +68,7 @@ class experiment_page:
                     ui.button('Back', on_click=self.stepper.previous).props('flat')
 
             step_run = self.stepper.step('结果分析')
+
             @step_run.build_fn
             def _(name: str):
                 ui.notify(f"创建页面:{name}")
@@ -110,5 +115,3 @@ class experiment_page:
             self.res_ui.show_panels.refresh()
             self.res_ui.draw_res.refresh()
         self.stepper.next()
-
-

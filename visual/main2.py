@@ -1,22 +1,30 @@
+from pathlib import Path
+
 from nicegui import ui
 
-echart = ui.echart(
-    {
-        "xAxis": {"type": "value"},
-        "yAxis": {"type": "category", "data": ["A", "B"], "inverse": True},
-        "grid": {
-            "width": "100%",
-            "height": "100%",
-            "left": "0",
-            "top": "0",
-            "right": "0",
-            "bottom": "0",
-        },
-        "series": [
-            {"type": "bar", "name": "Alpha", "data": [0.1, 0.2]},
-            {"type": "bar", "name": "Beta", "data": [0.3, 0.4]},
-        ],
-    }
-).classes("h-[20rem] w-[20rem] outline")
-
+# ui.add_body_html(
+#     """<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+#     <defs>
+#         <!-- 定义水平向右的线性渐变 -->
+#         <linearGradient id="horizontalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+#             <stop offset="30%" stop-color="#ADD8E6" stop-opacity="1" />
+#             <stop offset="30%" stop-color="gray" stop-opacity="1" />
+#         </linearGradient>
+#     </defs>
+#     <path d="M811.4 418.7C765.6 297.9 648.9 212 512.2 212S258.8 297.8 213 418.6C127.3 441.1 64 519.1 64 612c0 110.5 89.5 200 199.9 200h496.2C870.5 812 960 722.5 960 612c0-92.7-63.1-170.7-148.6-193.3z m36.3 281c-23.4 23.4-54.5 36.3-87.6 36.3H263.9c-33.1 0-64.2-12.9-87.6-36.3-23.4-23.4-36.3-54.6-36.3-87.7 0-28 9.1-54.3 26.2-76.3 16.7-21.3 40.2-36.8 66.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4 14.9-19.2 32.6-35.9 52.4-49.9 41.1-28.9 89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 10c54.3 14.5 92.1 63.8 92.1 120 0 33.1-12.9 64.3-36.3 87.7z" p-id="4249"></path>
+# </svg>"""
+# )
+# ''
+# with open("H:\\Github\CFLF\\visual\\running\\cloud.svg", 'r') as file:
+#     svg_content = file.read()
+# print(svg_content)
+# ui.html('<path d="M811.4 418.7C765.6 297.9 648.9 212 512.2 212S258.8 297.8 213 418.6C127.3 441.1 64 519.1 64 612c0 110.5 89.5 200 '
+#         '199.9 200h496.2C870.5 812 960 722.5 960 612c0-92.7-63.1-170.7-148.6-193.3z m36.3 281c-23.4 23.4-54.5 36.3-87.6 '
+#         '36.3H263.9c-33.1 0-64.2-12.9-87.6-36.3-23.4-23.4-36.3-54.6-36.3-87.7 0-28 9.1-54.3 26.2-76.3 16.7-21.3 '
+#         '40.2-36.8 66.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4 14.9-19.2 32.6-35.9 52.4-49.9 41.1-28.9 '
+#         '89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 10c54.3 '
+#         '14.5 92.1 63.8 92.1 120 0 33.1-12.9 64.3-36.3 87.7z" p-id="4249"></path>').classes("w-[10rem] h-[10rem]")
+# ui.html('<svg><path d="M50,50 h100 v100 h-100 Z" fill="url(#horizontalGradient)" />').classes("w-[10rem] h-[10rem]<svg>")
+ui.icon('cloud', color='gold').classes('text-5xl').style('opacity: 0.5')
+ui.icon('cloud', color='blue').classes('text-5xl').style('opacity: 1')
 ui.run()

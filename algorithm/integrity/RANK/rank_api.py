@@ -20,16 +20,16 @@ class RANK_API(BaseServer):
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
-                                                valid=self.valid_global, origin=False, mode='cooper') for cid in self.client_indexes}
+                                                valid=self.valid_global, origin=False, mode='cooper') for cid in
+                           self.client_indexes}
                 for cid, future in futures.items():
                     acc, _ = future.result()
                     cid_acc[cid] = acc
         sorted_cid = [cid for cid, acc in sorted(cid_acc.items(), key=lambda item: item[1])]
-        for idx, cid in enumerate(sorted_cid):
-            w_locals = [copy.deepcopy(self.w_locals[sorted_cid[i]]) for i in range(idx)]
+        for idx, cid in enumerate(sorted_cid):  # 位次应该等同数量
+            w_locals = [copy.deepcopy(self.w_locals[sorted_cid[i]]) for i in range(idx + 1)]
             self.local_params[cid] = _modeldict_weighted_average(w_locals)
+            # print(self.local_params[cid])
             self.task.control.set_info('local', 'position', (self.round_idx, idx + 1), cid)
-
         self.task.control.set_statue('text', f"结束计算客户位次")
-
-
+        # super().local_update()  # 别忘了把奖励分配下去

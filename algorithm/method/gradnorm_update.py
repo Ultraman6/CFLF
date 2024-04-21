@@ -1,13 +1,13 @@
 import copy
-from concurrent.futures import ThreadPoolExecutor
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
-import scipy
 from tqdm import tqdm
-from model.base.model_dict import _modeldict_weighted_average
-from algorithm.base.server import BaseServer
+
 import model.base.model_dict
+from algorithm.base.server import BaseServer
+from model.base.model_dict import _modeldict_weighted_average
 
 # 设置时间间隔（以秒为单位）
 interval = 5
@@ -30,7 +30,7 @@ class Grad_Norm_Update_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
             w_locals = []
             client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)

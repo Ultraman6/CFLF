@@ -1,6 +1,8 @@
 import sys
+
 from experiment.options import algo_args_parser
 from manager.manager import ExperimentManager
+
 sys.path.append("")
 
 init_mode = ['default', 'kaiming_normal', 'kaiming_uniform', 'xavier_normal',

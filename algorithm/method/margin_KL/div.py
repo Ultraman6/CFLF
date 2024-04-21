@@ -77,7 +77,7 @@ class Div_API(BaseServer):
         # 质量检测:先计算全局损失，再计算每个本地的损失
         self.model_trainer.set_model_params(model.base.model_dict._modeldict_weighted_average(w_locals))
         acc, loss, preds = self.model_trainer.test_pred(self.valid_global)
-        KL_f, KL_r, weights = [], [], []   # 用于存放边际KL
+        KL_f, KL_r, weights = [], [], []  # 用于存放边际KL
         with ThreadPoolExecutor(max_workers=len(self.client_list)) as executor:
             futures = []
             for cid, _ in enumerate(w_locals):

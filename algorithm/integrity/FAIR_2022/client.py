@@ -17,7 +17,6 @@ class Client:
     #     for model_trainer in self.model_trainers:
     #         model_trainer.cid = self.client_idx
 
-
     # 本地训练 调用trainer，传入args、device、训练数据集
     def local_train(self, w_global, tid):
         self.model_trainers[tid].set_model_params(w_global)

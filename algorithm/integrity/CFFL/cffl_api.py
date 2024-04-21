@@ -1,15 +1,12 @@
-import copy
-from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor
-from itertools import combinations
 import numpy as np
-from overrides import overrides
+
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
 
 from algorithm.base.server import BaseServer
-from model.base.fusion import FusionLayerModel
-from model.base.model_dict import (_modeldict_cossim, _modeldict_sub, _modeldict_dot_layer,
-                                   _modeldict_norm, pad_grad_by_order, _modeldict_add, aggregate_att_weights,
-                                   _modeldict_sum, _modeldict_weighted_average)
+from model.base.model_dict import (_modeldict_sub, pad_grad_by_order, _modeldict_add, _modeldict_weighted_average)
 
 
 def cal_JFL(x, y):
@@ -38,11 +35,12 @@ class CFFL_API(BaseServer):
 
     def __init__(self, task):
         super().__init__(task)
-        self.a = self.args.a   #  cffl的奖励分配系数
+        self.a = self.args.a  # cffl的奖励分配系数
         self.his_contrib = [{} for _ in range(self.args.num_clients)]
 
     def global_update(self):
-        self.g_locals = [_modeldict_sub(w, self.local_params[cid]) for cid, w in enumerate(self.w_locals)]
+        self.g_locals = [_modeldict_sub(w, self.local_params[cid]) for cid, w in
+                         zip(self.client_indexes, self.w_locals)]
         # 全局模型融合
         class_list, num_list = [], []
         for cid in self.client_indexes:
@@ -50,11 +48,10 @@ class CFFL_API(BaseServer):
             num_list.append(self.sample_num[cid])
         self.max_c, self.max_n = max(class_list), max(num_list)
 
-        weights = [n * c / self.max_c for c, n in zip(class_list, num_list)]
+        weights = np.array([n * c / self.max_c for c, n in zip(class_list, num_list)])
         weights /= sum(weights)
         w_global = _modeldict_weighted_average(self.w_locals, weights)
         self.g_global = _modeldict_sub(w_global, self.global_params)  # 先计算梯度，再计层点乘得到参与聚合的梯度
-
         self.global_params = w_global
 
     def local_update(self):
@@ -84,15 +81,16 @@ class CFFL_API(BaseServer):
             else:
                 r_i = 0.5 * r
             r_nice.append(r_i)
-        r_nice /= sum(r_nice)
-        r_nice = max(r_nice)
+        r_nice = np.array(r_nice)
+        r_nice /= np.sum(r_nice)
+        r_nice /= np.max(r_nice)
         self.task.control.set_statue('text', f"结束计算客户声誉")
 
         self.task.control.set_statue('text', f"开始计算客户奖励")
         for cid, r_per in zip(self.client_indexes, r_nice):
             data_score = self.sample_num[cid] * self.class_num[cid] / (self.max_c * self.max_n)
             r = r_per * data_score
-            self.local_params[cid] = _modeldict_add(self.local_params[cid], pad_grad_by_order(self.g_global, mask_percentile=r, mode='layer'))
+            self.local_params[cid] = _modeldict_add(self.local_params[cid],
+                                                    pad_grad_by_order(self.g_global, mask_percentile=r, mode='layer'))
             self.task.control.set_info('local', 'reward', (self.round_idx, r), cid)
         self.task.control.set_statue('text', f"结束计算客户奖励")
-

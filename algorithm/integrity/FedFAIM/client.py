@@ -1,5 +1,3 @@
-import copy
-
 from util.gradient import bindGradient
 
 
@@ -16,6 +14,7 @@ class Client:
         self.n_pass = 0
         self.n_fail = 0
         # self.sv_acm = 0
+
     # 更新本地数据集（训练、测试）
     def update_dataset(self, client_idx, train_data, test_data):
         self.client_idx = client_idx

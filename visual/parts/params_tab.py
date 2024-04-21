@@ -1,9 +1,8 @@
 # 此类用于创建冗余参数配置模板 传入tab名称和绑定的value容器
 import copy
 from typing import Dict, List
-from ex4nicegui import to_raw, deep_ref, Ref, to_ref
+
 from ex4nicegui.reactive import rxui
-from ex4nicegui.utils.signals import to_ref_wrapper
 from nicegui import ui
 
 from visual.parts.func import my_vmodel
@@ -24,8 +23,8 @@ class params_tab:
                 @rxui.vfor(nums)
                 def _(s):
                     self.clickable_num(rxui.vmodel(s.get()), type, format, options, info_dict)
-                ui.button("追加", on_click=lambda: self.nums.value.append(copy.deepcopy(default)))
 
+                ui.button("追加", on_click=lambda: self.nums.value.append(copy.deepcopy(default)))
 
     # 名称、双向绑定值、类型、格式、选项
     def clickable_num(self, num, type: str, format: str = None, options: Dict[str, str] or List = None,
@@ -63,19 +62,22 @@ class params_tab:
                                     for k2, v2 in info_dict['mapping'].items():
                                         if 'discard' not in v2:
                                             rxui.number(label='客户' + item.value['id'] + v2['name'],
-                                                        value=my_vmodel(item.value, k2), format=v2['format']).classes('w-full')
+                                                        value=my_vmodel(item.value, k2), format=v2['format']).classes(
+                                                'w-full')
                                 if 'watch' not in info_dict:
                                     rxui.button('删除', on_click=lambda: num.value.remove(item.value))
                     if 'watch' not in info_dict:
-                        ui.button("追加", on_click=lambda: num.value.append({'id': str(len(num.value)), **{k2: v2['default'] for k2, v2 in info_dict['mapping'].items()}}))
+                        ui.button("追加", on_click=lambda: num.value.append({'id': str(len(num.value)),
+                                                                             **{k2: v2['default'] for k2, v2 in
+                                                                                info_dict['mapping'].items()}}))
 
                 ui.button("删除", on_click=lambda: delete(dialog)).classes('center')
 
             if type == 'dict':
                 with(
                     rxui.grid(columns=len(info_dict))
-                    .classes('w-full outline-double outline-blue-100 outline hover:outline-red-500 p-1')
-                    .on('click', dialog.open)
+                            .classes('w-full outline-double outline-blue-100 outline hover:outline-red-500 p-1')
+                            .on('click', dialog.open)
                 ):
                     for k, v in info_dict.items():
                         rxui.label(text=lambda k=k: v['name'] + ': ' + str(num.value[k]) + ' ')
@@ -83,8 +85,8 @@ class params_tab:
             elif type == 'mapping':
                 with(
                     rxui.grid(columns=3)
-                    .classes('w-full outline-double outline-blue-100 outline hover:outline-red-500 p-1')
-                    .on('click', dialog.open)
+                            .classes('w-full outline-double outline-blue-100 outline hover:outline-red-500 p-1')
+                            .on('click', dialog.open)
                 ):
                     @rxui.vfor(num, key='id')
                     def _(store: rxui.VforStore[Dict]):

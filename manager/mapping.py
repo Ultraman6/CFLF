@@ -36,7 +36,6 @@ from algorithm.method.stage_two.margin_kl_cos_reward import Stage_Two_API
 from algorithm.method.update_cluster.gradient_cluster import Up_Cluster_API
 from algorithm.method.margin_loss import Margin_Loss_API
 
-
 algorithm_mapping = {
     'fedavg': BaseServer,
     'margin_dot': Margin_Dot_API,
@@ -79,5 +78,3 @@ algorithm_mapping = {
     'ditfe': DITFE_API,
     'fedatt': FedAtt_API
 }
-
-

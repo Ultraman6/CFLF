@@ -1,13 +1,10 @@
 import copy
-from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor
-from itertools import combinations
+
 import numpy as np
-from overrides import overrides
 
 from algorithm.base.server import BaseServer
 from model.base.model_dict import _modeldict_weighted_average
-
 
 
 class Margin_Loss_API(BaseServer):
@@ -21,7 +18,8 @@ class Margin_Loss_API(BaseServer):
         # 质量检测: 先计算全局损失，再计算每个本地的损失
         self.model_trainer.set_model_params(_modeldict_weighted_average(self.w_locals))
         _, loss = self.model_trainer.test(self.valid_global)
-        weights, w_locals = [], []  # 用于存放边际损失
+        weights, w_locals, cids = [], [], []  # 用于存放边际损失
+        self.task.control.clear_informer('agg_weights')
         if self.args.train_mode == 'serial':
             for i, w in enumerate(self.w_locals):
                 w_locals_i = np.delete(self.w_locals, i)
@@ -41,15 +39,15 @@ class Margin_Loss_API(BaseServer):
                     if loss_i >= self.threshold:
                         w_locals.append(self.w_locals[i])
                         weights.append(margin)
-
+                        cids.append(self.client_indexes[i])
         weights /= np.sum(weights)
+        for cid, w in zip(cids, weights):
+            self.task.control.set_info('global', 'agg_weights', (cid, w))
 
         self.global_params = _modeldict_weighted_average(w_locals, weights)
-
 
     def compute_margin_values(self, w_locals_i, valid_global, model_trainer, loss):
         model_trainer.set_model_params(_modeldict_weighted_average(w_locals_i))
         _, loss_i = model_trainer.test(valid_global)
         margin_loss = loss_i - loss
         return np.exp(self.gamma * margin_loss)
-

@@ -23,7 +23,8 @@ class local_file_picker(ui.dialog):
         """
         super().__init__()
         self.path = Path(directory).expanduser()
-        self.upper_limit = Path(directory if upper_limit == ... else upper_limit).expanduser() if upper_limit is not None else None
+        self.upper_limit = Path(
+            directory if upper_limit == ... else upper_limit).expanduser() if upper_limit is not None else None
         self.show_hidden_files = show_hidden_files
         self.allowed_file_types = allowed_file_types
         self.directories_only = directories_only
@@ -50,7 +51,8 @@ class local_file_picker(ui.dialog):
         self.update_grid()
 
     def update_grid(self) -> None:
-        paths = list(self.path.glob('*' if not self.directories_only else '*/'))  # If directories_only, add slash to glob pattern
+        paths = list(self.path.glob(
+            '*' if not self.directories_only else '*/'))  # If directories_only, add slash to glob pattern
         if not self.show_hidden_files:
             paths = [p for p in paths if not p.name.startswith('.')]
         if self.allowed_file_types is not None and not self.directories_only:  # Apply file type filter if not in directories_only mode

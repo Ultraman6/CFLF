@@ -1,20 +1,17 @@
 import base64
 import colorsys
-import json
 import os
 import random
 import shutil
 import time
-from tkinter import filedialog
-import tkinter as tk
 
 import aiohttp
 import requests
 from ex4nicegui.reactive import local_file_picker, rxui
-from ex4nicegui.utils.signals import to_ref_wrapper, to_ref
-from nicegui import app, ui, context
+from ex4nicegui.utils.signals import to_ref_wrapper, to_ref, on
+from nicegui import ui, context
 
-from visual.parts.constant import record_names, record_types, type_name_mapping
+from visual.parts.constant import record_names, record_types, type_name_mapping, user_info_mapping
 from visual.parts.local_file_picker import local_file_picker
 
 
@@ -384,14 +381,95 @@ def cal_dis_dict(infos, target='训练集'):
     }
 
 
+def get_grad_info(info_ref):
+    with ui.row().classes('w-full justify-center') as row:
+        ui.label('请先执行任务')
+    def han_update():
+        row.clear()
+        with row:
+            if len(info_ref.value) != 0:
+                for cid, r_per in info_ref.value[-1].items():
+                    with ui.column():
+                        ui.icon('cloud', color='blue').classes('text-5xl').tooltip(f'奖励梯度的全局占比{100 * r_per:.2f}%').style(f'opacity: {r_per}')
+                        ui.label(f'客户{cid}').classes('w-full')
+            else:
+                ui.label('请等待任务执行...')
+    on(info_ref)(han_update)
+
+
+def get_user_info(info_ref):
+    with ui.row().classes('w-full justify-center') as row:
+        ui.label('请先执行任务')
+    columns = [
+        {"name": "round", "label": "轮次", "field": "id", 'align': 'center'},
+        {"name": "bid", "label": "声明成本", "field": "bid", 'align': 'center'},
+        {"name": "cost", "label": "真实成本", "field": "cost", 'align': 'center'},
+        {"name": "score", "label": "得分", "field": "score", 'align': 'center'},
+        {"name": "emp", "label": "经验指标", "field": "emp", 'align': 'center'},
+        {"name": "ucb", "label": "UCB指标", "field": "ucb", 'align': 'center'},
+        {"name": "idx", "label": "选择指标", "field": "idx", 'align': 'center'},
+        {"name": "pay", "label": "支付", "field": "pay", 'align': 'center'},
+        {"name": "util", "label": "效用", "field": "util", 'align': 'center'},
+        {"name": "contrib", "label": "贡献", "field": "contrib", 'align': 'center'},
+        {"name": "reward", "label": "奖励", "field": "reward", 'align': 'center'},
+        {"name": "times", "label": "选中次数", "field": "times", 'align': 'center'},
+    ]
+    his_info, icon_list, dialogs, tables = {}, {}, {}, {}  # 此容器用于存放历史的信息记录
+
+    def han_update():
+        if len(info_ref.value) != 0:
+            if info_ref.value[-1][0] == 'statue':  # 若是状态的更新
+                if len(icon_list) == 0:
+                    row.clear()
+                    with row.classes('w-full'):
+                        for cid, statue in info_ref.value[-1][1].items():
+                            if cid not in his_info:
+                                his_info[cid] = []  # 每个客户信息用列表存放绑定table
+                            with ui.dialog() as dialogs[cid], ui.card().classes('w-full'):
+                                tables[cid] = ui.table(columns=columns, rows=his_info[cid]).classes('w-full')
+                            with ui.column():
+                                lay = '落选' if statue == 'gray' else '获胜'
+                                icon_list[cid] = ui.icon('person', color=statue).classes('text-5xl').on('click',
+                                                                                                        lambda cid=cid:
+                                                                                                        dialogs[cid].open()).tooltip(lay)
+                                ui.label(f'客户{cid}').classes('w-full')
+                else:
+                    for cid, statue in info_ref.value[-1][1].items():
+                        icon_list[cid].props(f'color={statue}')
+            elif info_ref.value[-1][0] == 'info':  # 若是信息的更新
+                this_info = info_ref.value[-1][1]
+                for cid, info in this_info.items():  # 更新每个用户的基本信息
+                    if cid not in his_info:
+                        his_info[cid] = []
+                    his_info[cid].append(info)
+                    tables[cid].update()
+    on(info_ref)(han_update)
+
 # 全局信息使用算法-指标-轮次/时间的方式展示
 def get_global_option(infos_dict, mode_ref, info_name, task_names):
     record_type = record_types['global']['param'][info_name]
     record_name = record_names['global']['param'][info_name]
-    alloc_type = ''
-    if record_type.split('_')[0] == 'scatter':
-        record_type = 'scatter'
-        alloc_type = record_type.split('_')[1] if len(record_type.split('_')) > 1 else ''
+    li = record_type.split('_')
+    record_type = li[0]
+    alloc_type = li[1] if len(li) > 1 else ''
+    new_series, new_names, new_x = [], [], None
+    if alloc_type == 'bul' and len(infos_dict[mode_ref.value][0].value) != 0:
+        new_names = list(list(infos_dict[mode_ref.value][0].value)[-1][1].keys())
+        if record_type == 'line':  # 需要按x轴值排序
+            paired_data = [
+                (item[0], {name: item[1][name] for name in new_names})
+                for item in infos_dict[mode_ref.value][0].value
+            ]
+            paired_data.sort(key=lambda x: x[0])
+        else:
+            paired_data = infos_dict[mode_ref.value][0].value
+        for name in new_names:
+            data = [(item[0], item[1][name]) for item in paired_data]
+            new_series.append({
+                'name': name,
+                'data': data,
+                'type': record_type
+            })
 
     options = {
         'grid': {
@@ -413,7 +491,8 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "算法{a}<br/>" + record_names['global']['type'][mode_ref.value] + ',' + record_type + "<br/>{c}",
+            'formatter': "算法{a}<br/>" + record_names['global']['type'][
+                mode_ref.value] + ',' + record_type + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
         "xAxis": {
@@ -434,19 +513,15 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'splitNumber': 5,  # 分成5个区间
         },
         'legend': {
-            'data': [task_names[tid] for tid in task_names],
+            'data': [task_names[tid] for tid in task_names] if alloc_type != 'bul' or
+                                                               len(infos_dict[mode_ref.value][
+                                                                       0].value) == 0 else new_names,
             'type': 'scroll',  # 启用图例的滚动条
             'orient': 'horizontal',  # 横向排列
             'pageButtonItemGap': 5,
             'pageButtonGap': 20,
             'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            # 'itemWidth': 25,  # 控制图例标记的宽度
-            # 'itemHeight': 14,  # 控制图例标记的高度
-            # 'width': '70%',
-            # 'left': '15%',
-            # 'right': '15%',
             'textStyle': {
-                # 'width': 80,  # 设置图例文本的宽度
                 'overflow': 'truncate',  # 当文本超出宽度时，截断文本
                 'ellipsis': '...',  # 截断时末尾添加的字符串
             },
@@ -462,7 +537,7 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
                 'connectNulls': True,  # 连接数据中的空值
             }
             for tid in infos_dict[mode_ref.value]
-        ],
+        ] if alloc_type != 'bul' or len(infos_dict[mode_ref.value][0].value) == 0 else new_series,
         'dataZoom': [
             {
                 'type': 'inside',  # 放大和缩小
@@ -517,7 +592,8 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "客户{a}<br/>" + record_names['local']['type'][mode_ref.value] + ',' + record_names['local']['param'][info_name] + "<br/>{c}",
+            'formatter': "客户{a}<br/>" + record_names['local']['type'][mode_ref.value] + ',' +
+                         record_names['local']['param'][info_name] + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
         "xAxis": {
@@ -595,6 +671,7 @@ def control_global_echarts(info_name, infos_dicts, task_names):
         rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names),
                      not_merge=False).classes("h-[40rem] w-[40rem]")
 
+
 def control_local_echarts(infos_dicts):
     with rxui.grid(columns=2).classes('w-full h-full'):
         for info_name in infos_dicts:
@@ -603,8 +680,10 @@ def control_local_echarts(infos_dicts):
                 mode_ref = to_ref(mode_list[0])
                 mode_mapping = {mode: record_names['local']['type'][mode] for mode in mode_list}
                 rxui.select(value=mode_ref, options=mode_mapping)
-                rxui.echarts(lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref, info_name),
-                             not_merge=False).classes("h-[40rem] w-[40rem]")
+                rxui.echarts(
+                    lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref,
+                                                                                    info_name),
+                    not_merge=False).classes("h-[40rem] w-[40rem]")
 
 
 async def move_all_files(old_path, new_path):
@@ -715,3 +794,16 @@ def clear_ref(info_dict, name=None):
                 clear_ref(v, name)
         elif name is None or name == k:
             v.value.clear()
+
+
+def read_and_modify_svg(file_path, new_gradient):
+    # 读取 SVG 文件
+    with open(file_path, 'r', encoding='utf-8') as file:
+        svg_content = file.read()
+    # 替换现有的渐变定义
+    # 假设原SVG中有一个渐变定义可以被识别为 '<linearGradient...'
+    # 这里需要确保这个标记与你的SVG文件中的实际内容匹配
+    import re
+    new_content = re.sub(r'<linearGradient.*?</linearGradient>',
+                         new_gradient, svg_content, flags=re.DOTALL)
+    return new_content

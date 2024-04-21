@@ -1,11 +1,13 @@
 # 中间件用户jwt认证
+from fastapi import Request
 from nicegui import Client, app
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
-from fastapi import Request
 from tortoise import Tortoise
 
 unrestricted_page_routes = {'/hall', '/login', '/register', '/doubt'}
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not app.storage.user.get('authenticated', False):
@@ -14,9 +16,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return RedirectResponse('/hall')
         return await call_next(request)
 
+
 async def init_db() -> None:
     await Tortoise.init(db_url='sqlite://running/database/db.sqlite3', modules={'models': ['visual.models']})
     await Tortoise.generate_schemas()
+
+
 async def close_db() -> None:
     await Tortoise.close_connections()
 
@@ -26,6 +31,7 @@ class ConfigPromptBuilder:
     def __init__(self, prompt_pattern: str = None):
         """初始化一个固定模式，用于构建prompt字符串。"""
         self.prompt_pattern = "Federated Learning Experiment Configurations:\n{}"
+
     def build_prompt(self, configs: dict, question: str) -> str:
         """根据配置信息和用户问题构建prompt字符串。
         :param configs: 包含不同种类记录的字典。

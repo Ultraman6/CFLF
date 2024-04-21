@@ -3,8 +3,6 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 import time
 import numpy as np
-from ex4nicegui import to_raw
-from tqdm import tqdm
 from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device
 from model.base.model_trainer import ModelTrainer
 from .client import BaseClient
@@ -23,12 +21,6 @@ def cal_JFL(x, y):
         n += 1
     fz = fz ** 2
     return fz / (n * fm)
-
-
-def sigmoid(x):
-    s = 1 / (1 + np.exp(-x))
-    ds = s * (1 - s)
-    return ds
 
 
 # 服务端过程分为：创建记录 -> 选择客户端 -> 本地更新 -> 全局更新 -> 同步记录
@@ -58,6 +50,7 @@ class BaseServer:
         self.start_time = 0
         self.w_locals = []
         self.client_indexes = []
+        self.agg_weights = []
 
     def setup_clients(self):  # 开局数据按顺序分配
         for client_idx in range(self.args.num_clients):
@@ -102,7 +95,7 @@ class BaseServer:
 
     def client_sampling(self):  # 记录客户历史选中次数，不再是静态方法
         cid_list = list(range(self.args.num_clients))
-        num_to_selected = self.args.num_clients
+        num_to_selected = self.args.num_selected
         self.client_indexes.clear()
         if len(cid_list) <= num_to_selected:
             self.client_indexes = cid_list
@@ -123,7 +116,8 @@ class BaseServer:
         # 预全局测试
         test_acc, test_loss = self.model_trainer.test(self.valid_global)
         # self.task.control.set_statue('progress', self.round_idx)  # 首先要进入第0轮
-        self.task.control.set_statue('text', "轮次 : 0 全局测试损失 : {:.4f} 全局测试精度 : {:.4f}".format(test_loss, test_acc))
+        self.task.control.set_statue('text',
+                                     "轮次 : 0 全局测试损失 : {:.4f} 全局测试精度 : {:.4f}".format(test_loss, test_acc))
         self.task.control.set_info('global', 'Loss', (0, 0.0, test_loss))
         self.task.control.set_info('global', 'Accuracy', (0, 0.0, test_acc))
         self.start_time = time.time()
@@ -157,15 +151,15 @@ class BaseServer:
     # 基于echarts的特性，这里需要以数组单独存放每个算法的不同指标（在不同轮次） 参数名key应该置前
     def global_update(self):
         if self.args.agg_type == 'avg_only':
-            weights = np.array([1.0 for _ in self.client_indexes])
+            self.agg_weights = np.array([1.0 for _ in self.client_indexes])
         elif self.args.agg_type == 'avg_sample':
-            weights = np.array([self.sample_num[cid] for cid in self.client_indexes])
+            self.agg_weights = np.array([self.sample_num[cid] for cid in self.client_indexes])
         elif self.args.agg_type == 'avg_class':
-            weights = np.array([self.class_num[cid] for cid in self.client_indexes])
+            self.agg_weights = np.array([self.class_num[cid] for cid in self.client_indexes])
         else:
             raise ValueError("Aggregation Type Error")
-        weights = weights / np.sum(weights)
-        self.global_params =  _modeldict_weighted_average(self.w_locals, weights)
+        self.agg_weights = self.agg_weights / np.sum(self.agg_weights)
+        self.global_params = _modeldict_weighted_average(self.w_locals, self.agg_weights)
 
     def local_update(self):
         for cid in self.client_indexes:
@@ -193,7 +187,7 @@ class BaseServer:
     def _standalone_test(self, final=False):
         s_list, c_list = [], []
         cid_list = self.client_indexes if not final else list(range(self.args.num_clients))
-
+        # self._update_model_per_client()
         if self.args.train_mode == 'serial':
             for cid in cid_list:
                 acc_s, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
@@ -204,13 +198,15 @@ class BaseServer:
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
-                                                valid=self.valid_global, origin=False, mode='stand') for cid in cid_list}
+                                                valid=self.valid_global, origin=False, mode='stand') for cid in
+                           cid_list}
                 for cid, future in futures.items():
                     acc_s, _ = future.result()
                     s_list.append(acc_s)
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
-                                                valid=self.valid_global, origin=False, mode='cooper') for cid in cid_list}
+                                                valid=self.valid_global, origin=False, mode='cooper') for cid in
+                           cid_list}
                 for cid, future in futures.items():
                     acc_c, _ = future.result()
                     c_list.append(acc_c)
@@ -243,13 +239,16 @@ class BaseServer:
                 self.task.control.set_info('local', 'standalone_acc', (self.round_idx, s_acc), cid)
                 self.task.control.set_info('local', 'cooperation_acc', (self.round_idx, c_acc), cid)
             self.task.control.set_info('global', 'jfl', (self.round_idx, cal_JFL(s_list, c_list)))
+            # if len(set(s_list)) == 1 or len(set(c_list)) == 1:
+            #     self.task.control.set_info('global', 'pcc', (self.round_idx, 0.0))
+            # else:
             self.task.control.set_info('global', 'pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))
 
     # 全局轮结束后的工作
-    def global_final(self, up=False):
+    def global_final(self):
         if self.args.standalone:
-            if up:  # 方便给子类api的接口
-                self._update_model_per_client()
+            # if up:  # 方便给子类api的接口
+            #     self._update_model_per_client()
             s_list, c_list = self._standalone_test(final=True)
             for s_acc, c_acc, cid in zip(s_list, c_list, self.client_indexes):
                 self.task.control.set_info('global', 'final_stand_acc', (cid, s_acc))

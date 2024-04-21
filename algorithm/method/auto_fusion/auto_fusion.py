@@ -10,6 +10,7 @@ from model.base.model_dict import (_modeldict_cossim, _modeldict_sub, _modeldict
                                    _modeldict_norm, pad_grad_by_order, _modeldict_add, aggregate_att_weights,
                                    _modeldict_sum, _modeldict_weighted_average)
 
+
 # 第二阶段，可视化参数
 # 全局
 # 1. 奖励公平性系数JFL
@@ -51,9 +52,9 @@ class Auto_Fusion_API(BaseServer):
 
     def __init__(self, task):
         super().__init__(task)
-        self.e = self.args.e          # 融合方法最大迭代数
-        self.e_tol = self.args.e_tol   # 融合方法早停阈值
-        self.e_per = self.args.e_per   # 融合方法早停温度
+        self.e = self.args.e  # 融合方法最大迭代数
+        self.e_tol = self.args.e_tol  # 融合方法早停阈值
+        self.e_per = self.args.e_per  # 融合方法早停温度
         self.e_mode = self.args.e_mode  # 融合方法早停策略
 
         self.his_real_contrib = [{} for _ in range(self.args.num_clients)]
@@ -72,9 +73,8 @@ class Auto_Fusion_API(BaseServer):
         # fm.set_fusion_weights(att)
         self.task.control.set_statue('text', "开始模型融合")
         self.task.control.clear_informer('e_acc')
-        e_round = fm.train_fusion(self.valid_global, self.e, self.e_tol, self.e_per, self.e_mode, self.device, 0.01, self.args.loss_function, self.task.control)
+        e_round = fm.train_fusion(self.valid_global, self.e, self.e_tol, self.e_per, self.e_mode, self.device, 0.01,
+                                  self.args.loss_function, self.task.control)
         self.task.control.set_info('global', 'e_round', (self.round_idx, e_round))
         self.task.control.set_statue('text', f"退出模型融合 退出模式:{self.e_mode}")
         self.global_params, _ = fm.get_fused_model_params()  # 得到融合模型学习后的聚合权重和质量
-
-

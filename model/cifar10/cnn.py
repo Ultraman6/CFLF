@@ -1,6 +1,5 @@
 import torch.nn as nn
 
-from model.base.attention import ReshapeLayer
 from model.base.base_model import BaseModel
 
 

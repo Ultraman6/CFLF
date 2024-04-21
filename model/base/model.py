@@ -1,24 +1,35 @@
 import torch
+
 from model.base.model_dict import _modeldict_element_wise, _modeldict_sum, _modeldict_weighted_average, \
     _modeldict_add, _modeldict_sub, _modeldict_multiply, _modeldict_divide, _modeldict_scale, _modeldict_norm, \
     _modeldict_dot, _modeldict_cossim, _modeldict_clone
 
 
-def normalize(m,p):
+def normalize(m, p):
     """模型标准化"""
-    return p*m/(m**2)
+    return p * m / (m ** 2)
+
+
 def dot(m1, m2):
     """模型点乘"""
     return m1.dot(m2)
+
+
 def cos_sim(m1, m2):
     """模型余弦相似性"""
     return m1.cos_sim(m2)
+
+
 def exp(m):
     """模型参数取指数 mi=exp(mi)"""
     return element_wise_func(m, torch.exp)
+
+
 def log(m):
     """模型参数取对数mi=result(mi)"""
     return element_wise_func(m, torch.log)
+
+
 def element_wise_func(m, func):
     """基于某种方法操作模型参数mi=func(mi)"""
     if m is None: return None
@@ -33,9 +44,13 @@ def element_wise_func(m, func):
     else:
         res = _modeldict_clone(_modeldict_element_wise(m.state_dict(), func))
     return res
+
+
 def _model_to_tensor(m):
     """模型参数转tensor类型"""
     return torch.cat([mi.data.view(-1) for mi in m.parameters()])
+
+
 def _model_from_tensor(mt, model_class):
     """tensor转模型参数"""
     res = model_class().to(mt.device)
@@ -48,9 +63,11 @@ def _model_from_tensor(mt, model_class):
             p.data = mt[beg:end].contiguous().view(p.data.size())
             cnt += 1
     return res
+
+
 def _model_sum(ms):
     """模型参数求和"""
-    if len(ms)==0: return None
+    if len(ms) == 0: return None
     op_with_graph = sum([mi.ingraph for mi in ms]) > 0
     res = ms[0].__class__().to(ms[0].get_device())
     if op_with_graph:
@@ -64,12 +81,14 @@ def _model_sum(ms):
                 mlr[n]._parameters[l] = rd[l]
         res.op_with_graph()
     else:
-        res = _modeldict_clone( _modeldict_sum([mi.state_dict() for mi in ms]))
+        res = _modeldict_clone(_modeldict_sum([mi.state_dict() for mi in ms]))
     return res
-def _model_average(ms = [], p = []):
+
+
+def _model_average(ms=[], p=[]):
     """模型参数求平均"""
-    if len(ms)==0: return None
-    if len(p)==0: p = [1.0 / len(ms) for _ in range(len(ms))]
+    if len(ms) == 0: return None
+    if len(p) == 0: p = [1.0 / len(ms) for _ in range(len(ms))]
     op_with_graph = sum([w.ingraph for w in ms]) > 0
     res = ms[0].__class__().to(ms[0].get_device())
     if op_with_graph:
@@ -85,6 +104,8 @@ def _model_average(ms = [], p = []):
     else:
         res = _modeldict_clone(_modeldict_weighted_average([mi.state_dict() for mi in ms], p))
     return res
+
+
 def _model_add(m1, m2):
     """两模型相加"""
     op_with_graph = m1.ingraph or m2.ingraph
@@ -103,6 +124,7 @@ def _model_add(m1, m2):
         res = _modeldict_clone(_modeldict_add(m1.state_dict(), m2.state_dict()))
     return res
 
+
 def _model_sub(m1, m2):
     """两模型相减"""
     op_with_graph = m1.ingraph or m2.ingraph
@@ -120,6 +142,8 @@ def _model_sub(m1, m2):
     else:
         res = _modeldict_clone(_modeldict_sub(m1.state_dict(), m2.state_dict()))
     return res
+
+
 def _model_multiply(m1, m2):
     """两模型数乘"""
     op_with_graph = m1.ingraph or m2.ingraph
@@ -137,6 +161,8 @@ def _model_multiply(m1, m2):
     else:
         res = _modeldict_clone(_modeldict_multiply(m1.state_dict(), m2.state_dict()))
     return res
+
+
 def _model_divide(m1, m2):
     """两模型相除"""
     op_with_graph = m1.ingraph or m2.ingraph
@@ -155,6 +181,7 @@ def _model_divide(m1, m2):
         res = _modeldict_clone(_modeldict_divide(m1.state_dict(), m2.state_dict()))
     return res
 
+
 def _model_scale(m, s):
     """用实数缩放模型参数"""
     op_with_graph = m.ingraph
@@ -172,6 +199,7 @@ def _model_scale(m, s):
         res = _modeldict_clone(_modeldict_scale(m.state_dict(), s))
     return res
 
+
 def _model_norm(m, power=2):
     """计算模型参数的范数"""
     op_with_graph = m.ingraph
@@ -187,6 +215,7 @@ def _model_norm(m, power=2):
     else:
         return _modeldict_norm(m.state_dict(), power)
 
+
 def _model_dot(m1, m2):
     """两模型点乘"""
     op_with_graph = m1.ingraph or m2.ingraph
@@ -199,6 +228,8 @@ def _model_dot(m1, m2):
         return res
     else:
         return _modeldict_dot(m1.state_dict(), m2.state_dict())
+
+
 def _model_cossim(m1, m2):
     r"""
     The cosine similarity value of the two models res=m1·m2/(||m1||*||m2||)
@@ -225,11 +256,13 @@ def _model_cossim(m1, m2):
         return (res / torch.pow(l1, 0.5) * torch.pow(l2, 0.5))
     else:
         return _modeldict_cossim(m1.state_dict(), m2.state_dict())
-def get_module_from_model(model, res = None):
+
+
+def get_module_from_model(model, res=None):
     """获得模型中的所有模块"""
-    if res==None: res = []
+    if res == None: res = []
     ch_names = [item[0] for item in model.named_children()]
-    if ch_names==[]:
+    if ch_names == []:
         if model._parameters:
             res.append(model)
     else:

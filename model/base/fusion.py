@@ -1,10 +1,10 @@
 import copy
-import math
+
 import torch
-from torch import nn, optim
 import torch.nn.functional as F
+from torch import nn, optim
+
 from model.base.attention import Attention
-from model.base.model_dict import aggregate_att_weights
 from util.running import create_loss_function
 
 
@@ -90,7 +90,8 @@ class FusionLayerModel(nn.Module):
                 x = layer_info['layer'](x)
         return x
 
-    def train_fusion(self, data_loader, num_epochs, num_tol, per_tol, tol_mode, device, learning_rate=0.01, loss_function='ce', control=None):
+    def train_fusion(self, data_loader, num_epochs, num_tol, per_tol, tol_mode, device, learning_rate=0.01,
+                     loss_function='ce', control=None):
         self.to(device)
         self.train()
         self.dis_seq_grad()  # 必须冻结梯度,才能加入优化器
@@ -124,14 +125,15 @@ class FusionLayerModel(nn.Module):
                 best_model_wts = copy.deepcopy(self.state_dict())
             if control is not None:
                 control.set_info('global', 'e_acc', (epoch, correct / total))
-            if (acc-last_acc) / acc <= per_tol:
+            if (acc - last_acc) / acc <= per_tol:
                 if tol < num_tol:
                     tol += 1
                     if control is not None:
                         control.set_statue('text', f'检测到融合性能退火 已融合次数:{e} 已容忍次数:{tol}/{num_tol}')
                 else:
                     if control is not None:
-                        control.set_statue('text', f'检测到融合性能退火 已训练轮次数:{e} 已容忍次数:{tol}/{num_tol} 模型融合退出')
+                        control.set_statue('text',
+                                           f'检测到融合性能退火 已训练轮次数:{e} 已容忍次数:{tol}/{num_tol} 模型融合退出')
                     break
             else:  # 停止早停
                 tol = 0

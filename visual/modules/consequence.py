@@ -1,15 +1,16 @@
 # 任务运行结果界面
-import time
 from datetime import datetime
-from visual.parts.func import get_global_option, get_local_option, control_global_echarts, control_local_echarts
+
 from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
-from manager.save import Filer
+
 from visual.models import Experiment
 from visual.parts.constant import state_dict
+from visual.parts.func import control_global_echarts, control_local_echarts
 from visual.parts.record import RecordManager
+
 
 @ui.refreshable
 class res_ui:
@@ -72,8 +73,9 @@ class res_ui:
         async def save_to_db():
             config = {'tem': self.configer.algo_args, 'algo': self.configer.exp_args}
             dis = self.previewer.visual_data_infos
-            state, mes = await Experiment.create_new_exp(name=self.experiment.name, user=app.storage.user['user']['id'], config=config, dis=dis,
-                                            task_names=self.task_names, res=self.infos_dict, des=des.value)
+            state, mes = await Experiment.create_new_exp(name=self.experiment.name, user=app.storage.user['user']['id'],
+                                                         config=config, dis=dis,
+                                                         task_names=self.task_names, res=self.infos_dict, des=des.value)
             ui.notify(mes, type=state_dict[state])
             dialog.close()
 
@@ -100,7 +102,7 @@ class res_ui:
         self.task_names[tid] = task_info['name'] + task_info['time']
         self.add_info(tid, task_info['info'])
         self.rows.value.append({'id': tid, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
-        self.draw_res.refresh()     # 刷新图表
+        self.draw_res.refresh()  # 刷新图表
 
     def delete_info(self, tid):
         # 处理全局信息
@@ -151,7 +153,6 @@ class res_ui:
                         self.infos_dict[info_spot][tid][info_name][info_type] = \
                             task_info[info_spot][info_name][info_type]
 
-
     def handle_task_info(self):
         for tid in self.experiment.results:
             print(self.experiment.results[tid])
@@ -180,7 +181,9 @@ class res_ui:
                             self.infos_dict[info_spot][tid][info_name][info_type] = \
                                 self.experiment.results[tid][info_spot][info_name][info_type]
             self.task_names[tid] = self.experiment.task_queue[tid].task_name
-            self.rows.value.append({'id': tid, 'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'name': self.task_names[tid], 'type': '新'})
+            self.rows.value.append(
+                {'id': tid, 'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'name': self.task_names[tid],
+                 'type': '新'})
 
     @refreshable_method
     def draw_res(self):
@@ -203,5 +206,3 @@ class res_ui:
                             rxui.label(self.task_names[tid]).tailwind(
                                 'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             control_local_echarts(self.infos_dict[info_spot][tid])
-
-

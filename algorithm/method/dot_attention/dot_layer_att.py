@@ -5,7 +5,6 @@ from model.base.model_dict import aggregate_att
 interval = 5
 
 
-
 class Layer_Att_API(BaseServer):
     def __init__(self, task):
         super().__init__(task)
@@ -13,6 +12,3 @@ class Layer_Att_API(BaseServer):
 
     def global_update(self):
         self.global_params = aggregate_att(self.w_locals, self.global_params, stepsize=self.step)
-
-
-

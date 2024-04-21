@@ -189,6 +189,115 @@ algo_configs = {
         'seed': {'name': '随机种子', 'format': '%.0f', 'type': 'number', 'options': None},
     },
     'ditfe': {
+        # 一阶段参数
+        'scores': {
+            'name': '客户得分范围', 'format': None, 'type': 'dict', 'options': None,
+            'dict': {
+                'min': {'name': '最小投标得分', 'format': '%.3f'},
+                'max': {'name': '最大投标得分', 'format': '%.3f'}
+            },
+        },
+        'budget_mode': {
+            'name': '拍卖预算模式', 'format': None, 'type': 'choice',
+            'options': {'total': '总预算固定', 'equal': '每轮预算均等'},
+            'metrics': {
+                'total': {
+                    'budgets': {
+                        'name': '总预算范围', 'format': None, 'type': 'dict',
+                        'dict': {
+                            'min': {'name': '最小预算值', 'format': '%.3f'},
+                            'max': {'name': '最大预算值', 'format': '%.3f'}
+                        },
+                    },
+                    'num_selected': {'name': '每轮客户采样数', 'format': '%.0f', 'type': 'number', 'options': None},
+                },
+                'equal': {
+                    'budgets': {
+                        'name': '每轮预算范围', 'format': None, 'type': 'dict',
+                        'dict': {
+                            'min': {'name': '最小预算值', 'format': '%.3f'},
+                            'max': {'name': '最大预算值', 'format': '%.3f'}
+                        },
+                    },
+                },
+            }
+        },
+        'cost_mode': {
+            'name': '真实成本模式', 'format': None, 'type': 'choice',
+            'options': {'random': '随机真实成本', 'uniform': '均匀真实成本', 'same': '相同真实成本', 'custom': '自定义真实成本'},
+            'metrics': {
+                'random':{
+                    'cost': {
+                        'name': '客户成本范围', 'format': None, 'type': 'dict', 'options': None,
+                        'dict': {
+                            'min': {'name': '最小成本价格', 'format': '%.3f'},
+                            'max': {'name': '最大成本价格', 'format': '%.3f'}
+                        },
+                    },
+                },
+                'uniform': {
+                    'cost': {
+                        'name': '客户成本范围', 'format': None, 'type': 'dict', 'options': None,
+                        'dict': {
+                            'min': {'name': '最小成本价格', 'format': '%.3f'},
+                            'max': {'name': '最大成本价格', 'format': '%.3f'}
+                        },
+                    },
+                },
+                'same': {
+                    'cost': {
+                        'name': '客户成本范围', 'format': None, 'type': 'dict', 'options': None,
+                        'dict': {
+                            'min': {'name': '最小成本价格', 'format': '%.3f'},
+                            'max': {'name': '最大成本价格', 'format': '%.3f'}
+                        },
+                    },
+                },
+                'custom': {
+                    'cost': {
+                        'name': '客户成本范围', 'format': None, 'type': 'dict', 'options': None,
+                        'dict': {
+                            'min': {'name': '最小成本价格', 'format': '%.3f'},
+                            'max': {'name': '最大成本价格', 'format': '%.3f'}
+                        },
+                    },
+                    'cost_mapping':{
+                        'name': '成本分布',
+                        'mapping': {
+                            'cost': {'name': '真实成本', 'default': 0.2, 'format': '%.4f'}
+                        },
+                        'watch': 'num_clients'
+                    }
+                }
+            }
+        },
+        'bid_mode': {
+            'name': '投标价格模式', 'format': None, 'type': 'choice',
+            'options': {'follow': '跟随真实成本', 'uniform': '均匀投标价格', 'custom': '自定义投标价格'},
+            'metrics': {
+                'follow': {
+                    'fake': {'name': '客户虚假投标概率', 'format': None, 'type': 'number', 'options': None},
+                },
+                'uniform': {
+                    'bids': {
+                        'name': '客户投标范围', 'format': None, 'type': 'dict', 'options': None,
+                        'dict': {
+                            'min': {'name': '最小投标价格', 'format': '%.3f'},
+                            'max': {'name': '最大投标价格', 'format': '%.3f'}
+                        },
+                    },
+                },
+                'custom': {
+                    'bid_mapping': {
+                        'name': '投标分布',
+                        'mapping': {
+                            'bid': {'name': '投标价格', 'default': 0.5, 'format': '%.4f'}
+                        },
+                        'watch': 'num_clients'
+                    }
+                }
+            }
+        },
         'auction_mode': {
             'name': '拍卖激励方式', 'format': None, 'type': 'choice',
             'options': {'cmab': '组合多臂老虎机', 'greedy': '贪婪选择', 'bid_first': '投标优先'},
@@ -201,38 +310,34 @@ algo_configs = {
                 },
             }
         },
-        'budget_mode': {
-            'name': '拍卖预算模式', 'format': None, 'type': 'choice',
-            'options': {'total': '总预算固定', 'equal': '每轮预算均等'},
+        # 二阶段参数
+        'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
+        'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice',
+                   'options': {'local': '就地保存', 'optimal': '最优保存'}},
+        'fair': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'time_mode': {
+            'name': '时间模式', 'format': None, 'type': 'choice',
+            'options': {'exp': '指数时间遗忘', 'cvx': '凸组合时间遗忘'},
             'metrics': {
-                'total': {
-                    'budgets': {
-                        'name': '总预算范围', 'format': '%.0f', 'type': 'dict',
-                        'dict': {
-                            'min': {'name': '最小预算值', 'format': '%.3f'},
-                            'max': {'name': '最大预算值', 'format': '%.3f'}
-                        },
-                    },
-                    'num_selected': {'name': '每轮客户采样数', 'format': '%.0f', 'type': 'number', 'options': None},
+                'exp': {
+                    'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'options': None},
                 },
-                'equal': {
-                    'budgets': {
-                        'name': '每轮预算范围', 'format': '%.0f', 'type': 'dict',
-                        'dict': {
-                            'min': {'name': '最小预算值', 'format': '%.3f'},
-                            'max': {'name': '最大预算值', 'format': '%.3f'}
-                        },
-                    },
+                'cvx': {
+                    'rho': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'options': None},
                 },
             }
         },
+        'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
     'fusion_mask': {
         # 'eta': {'name': '模型质量筛选系数', 'format': '%.4f', 'type': 'number', 'options': None},
         'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
-        'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice', 'options': {'local': '就地保存', 'optimal': '最优保存'}},
+        'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice',
+                   'options': {'local': '就地保存', 'optimal': '最优保存'}},
         'fair': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'options': None},
         'time_mode': {
             'name': '时间模式', 'format': None, 'type': 'choice',
@@ -249,6 +354,7 @@ algo_configs = {
         'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
     'margin_loss': {
+        'threshold': {'name': '边际损失淘汰阈值', 'format': '%.4f', 'type': 'number', 'options': None},
         'gamma': {'name': '边际损失系数', 'format': '%.4f', 'type': 'number', 'options': None},
     },
     'tmc': {
@@ -260,7 +366,9 @@ algo_configs = {
         'a': {'name': '奖励分配系数', 'format': '%.4f', 'type': 'number', 'options': None},
     },
     'rffl': {
+        'r_th': {'name': '初始声誉阈值', 'format': '%.4f', 'type': 'number', 'options': None},
         'sv_alpha': {'name': '声誉衰减系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'after': {'name': '声誉淘汰开始轮次', 'format': '%.0f', 'type': 'number', 'options': None},
         'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
 }
@@ -347,7 +455,8 @@ algo_name_options = {
         {'value': 'ditfe', 'label': 'DITFE(多臂组合拍卖)'},
     ],
 }
-
+user_info_mapping = {'bid': '声明成本', 'cost': '真实成本', 'score': '得分', 'emp': '经验指标', 'ucb': 'UCB指标',
+                     'idx': '选择指标', 'pay': '支付', 'util': '效用', 'contrib': '贡献', 'reward': '奖励'}
 algo_record = {
     "common": {
         "statue": {
@@ -424,20 +533,31 @@ algo_record = {
             "name": "状态信息",
             "param": {
                 "budget": {"name": "预算消耗进度", "type": "linear"},
+                "user_info": {"name": "用户完整信息", "type": "custom"},  # 自定义组件族
+                "grad_info": {"name": "梯度奖励信息", "type": "custom"},  # 自定义组件族
             },
             "default": ["budget"]
         },
         "global": {
             "name": "全局信息",
             "param": {
-                "bid": {"name": "本轮报价", "type": "bar"},  # bar_seg表示分段柱状图
-                "idx": {"name": "本轮指标", "type": "bar"},
-                "pay": {"name": "本轮支付", "type": "bar"},
-                "bid_pay": {"name": "报价vs支付", "type": "scatter"},
-                # "regret": {"name": "累计遗憾值", "type": "line"},
+                # 一阶段可视化信息
+                "bid_info": {"name": "本轮投标信息", "type": "bar_bul"},  # bar_seg表示分段柱状图
+                "idx_info": {"name": "本轮指标信息", "type": "bar_bul"},
+                "pay_info": {"name": "本轮支付信息", "type": "bar_bul"},
+                "bid_pay": {"name": "报价vs支付(个体理性)", "type": "scatter_seg"},
+                "util_info": {"name": "报价vs效用(真实性)", "type": "line_bul"},
                 "total_reward": {"name": "累计奖励值", "type": "bar"},
+                # 二阶段可视化信息
+                "e_acc": {"name": "融合测试精度", "type": "line"},
+                "e_round": {"name": "融合提升次数", "type": "line"},
+                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
+                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
+                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
+                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
             },
-            "default": ["bid", "idx", "pay", "bid_pay", "regret", "total_reward"],
+            "default": ["bid_info", "idx_info", "pay_info", "bid_pay", "util_info", "total_reward", "e_acc", "e_round",
+                        "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -445,10 +565,15 @@ algo_record = {
         "local": {
             "name": "局部信息",
             "param": {
-                "emp": {"name": "本轮经验指标", "type": "line"},
-                "ucb": {"name": "本轮ucb指标", "type": "line"},
+                # 一阶段可视化信息
+                "emp": {"name": "历史经验指标", "type": "line"},
+                "ucb": {"name": "历史ucb指标", "type": "line"},
+                # 二阶段可视化信息
+                "contrib": {"name": "本轮贡献值", "type": "line"},
+                "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
+                "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            "default": ["emp", "ucb"],
+            "default": ["emp", "ucb", "contrib", "reward", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -478,18 +603,106 @@ algo_record = {
                 "round": {'name': "轮次"},
             }
         }
+    },
+    "rffl": {
+        "statue": {
+            "name": "状态信息",
+            "param": {
+                "after": {"name": "是否进入声誉淘汰阶段", "type": "switch"},
+            },
+            "default": ["after"]
+        },
+        "global": {
+            "name": "全局信息",
+            "param": {  # 这些只有开启真实SV计算
+                'agg_weights': {"name": "本轮模型聚合权重", "type": "bar"},
+                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
+                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
+                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
+                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+            },
+            "default": ['agg_weights', "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "contrib": {"name": "本轮贡献值", "type": "line"},
+                "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
+                "reputation": {"name": "本轮声誉值", "type": "line"},
+                "reward": {"name": "本轮奖励值", "type": "line"},
+            },
+            "default": ["contrib", "reputation", "reward", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+    },
+    "tmc": {
+        "statue": {
+            "name": "状态信息",
+            "param": {
+                "tmc_pro": {"name": "TMC估算进度", "type": "circle"},
+            },
+            "default": ["tmc_pro"]
+        },
+        "global": {
+            "name": "全局信息",
+            "param": {  # 这些只有开启真实SV计算
+                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
+                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
+                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
+                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+            },
+            "default": ["round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "contrib": {"name": "本轮贡献值", "type": "line"},
+                "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
+            },
+            "default": ["contrib", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+    },
+    'margin_loss': {
+        "global": {
+            "name": "全局信息",
+            "param": {
+                'agg_weights': {"name": "本轮模型聚合权重", "type": "bar"},
+            },
+            "default": ["round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
+        "local": {
+            "name": "局部信息",
+            "param": {
+                "margin_loss": {"name": "本轮边际损失", "type": "line"},
+            },
+            "default": ["margin_loss", "round"],
+            "type": {
+                "round": {'name': "轮次"},
+            }
+        },
     }
 }
 type_name_mapping = {
     'final_stand_acc': '客户id', 'final_cooper_acc': '客户id', 'final_jfl': '算法', 'final_pcc': '算法',
-    'sva_final': '算法', 'svt_final': '算法', 'bid': '客户id', 'idx': '客户id', 'pay': '客户id', 'bid_pay': '声明成本',
+    'sva_final': '算法', 'svt_final': '算法', 'bid_info': '客户id', 'idx_info': '客户id', 'pay_info': '客户id',
+    'bid_pay': '声明成本', 'agg_weights': '客户id', 'util_info': '声明成本'
 }
-# type_mapping = {
-#     'line': 'value',
-#     'scatter': 'value',
-#     'bar': 'category',
-#     'bar_seg': 'category',
-# }
+
+
 # 融合逻辑
 def merge_params_types(algo_record, i):
     merged_result = {}
@@ -511,11 +724,9 @@ def merge_params_types(algo_record, i):
 
     return merged_result
 
+
 record_names = merge_params_types(algo_record, 'name')
 record_types = merge_params_types(algo_record, 'type')
-
-
-
 
 profile_dict = {
     'edu': {

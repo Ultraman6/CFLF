@@ -61,7 +61,7 @@ class Stage_Two_API(BaseServer):
                 if contrib_i <= 0:  # 先缓解外部冲突
                     print("缓解外部冲突")
                     g_locals[cid] = _modeldict_gradient_adjustment(g_locals[cid], global_upgrade)
-                self.contrib_info[cid][round_idx] = contrib_i * alpha_value[cid]   # 余弦相似性 * 质量聚合权重 = 贡献
+                self.contrib_info[cid][round_idx] = contrib_i * alpha_value[cid]  # 余弦相似性 * 质量聚合权重 = 贡献
             # 计算每位客户的时间贡献
             time_contrib = {}
             max_time_contrib = 0.0

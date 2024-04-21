@@ -1,9 +1,11 @@
 import copy
 import logging
+
 import numpy as np
+
+from algorithm.aggregrate import average_weights_on_sample
 from model.base.model_trainer import ModelTrainer
 from .client import Client
-from algorithm.aggregrate import average_weights_on_sample
 
 # 设置时间间隔（以秒为单位）
 interval = 5
@@ -67,7 +69,7 @@ class FedQD_API(object):
 
             print("################Communication round : {}".format(round_idx))
             w_global = self.model_trainer.get_model_params()
-            train_losses=[]
+            train_losses = []
             w_locals = []
             self.alpha = np.zeros_like(self.alpha)  # 清零质量权重
             client_indexes = self._client_sampling(self.args.num_clients, self.args.num_selected_clients)
@@ -101,7 +103,10 @@ class FedQD_API(object):
 
             # global gradnorm_coffee
             test_acc, test_loss = self._global_test_on_validation_set()
-            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx),str(test_acc),str(test_loss)))
+            print(
+                "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx),
+                                                                                                        str(test_acc),
+                                                                                                        str(test_loss)))
             global_loss.append(test_loss)
             global_acc.append(test_acc)
             # # 休眠一段时间，以便下一个循环开始前有一些时间

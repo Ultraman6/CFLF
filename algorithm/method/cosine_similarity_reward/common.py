@@ -1,13 +1,11 @@
 import copy
-from concurrent.futures import ThreadPoolExecutor
 import time
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+
 from tqdm import tqdm
 
-from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device, _modeldict_cossim, _modeldict_sub, \
+from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim, _modeldict_sub, \
     _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
-from model.base.model_trainer import ModelTrainer
-from algorithm.base.client import BaseClient
 from ...base.server import BaseServer
 
 
@@ -31,7 +29,7 @@ class CS_Reward_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
 
             g_locals = []

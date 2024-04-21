@@ -1,19 +1,20 @@
 import asyncio
 import copy
 import itertools
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import os
-import torch
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
 from ex4nicegui import deep_ref, to_raw
-from nicegui import run, ui
+from nicegui import run
+
 from data.get_data import get_dataloaders
 from manager.control import TaskController
 from manager.mapping import algorithm_mapping
+from manager.task import Task
 from model.Initialization import model_creator
 from util.drawing import plot_results, create_result
 from util.logging import save_results_to_excel
 from util.running import control_seed
-from manager.task import Task
 from visual.parts.constant import algo_record
 from visual.parts.func import clear_ref
 
@@ -31,6 +32,7 @@ def pack_result(task_name, result):
         if "Loss" in info:
             global_loss.append(info["Loss"])
     return create_result(task_name, global_acc, list(range(len(global_acc))), global_loss)
+
 
 def conv_result(result):
     new_result = {'global_info': {}, 'client_info': {}}
@@ -149,11 +151,12 @@ class ExperimentManager:
             args.round = int(args.round)
         if hasattr(args, 'epoch'):
             args.epoch = int(args.epoch)
+        if hasattr(args, 'num_selected'):
+            args.num_selected = int(args.num_selected)
         if hasattr(args, 'dataset_root'):
             args.dataset_root = self.exp_args['dataset_root']
         if hasattr(args, 'result_root'):
             args.result_root = self.exp_args['result_root']
-
 
     async def assemble_parameters(self):
         """
@@ -167,7 +170,8 @@ class ExperimentManager:
             algo_name, variations = algo['algo'], algo['params']
             algo_class = self.judge_algo(algo_name)
             # 确定哪些参数是有多个配置的
-            params_with_multiple_options = {param: len(values) > 1 or getattr(self.args_template, param) != values[0] for param, values in variations.items()}
+            params_with_multiple_options = {param: len(values) > 1 or getattr(self.args_template, param) != values[0]
+                                            for param, values in variations.items()}
             for param_dict in itertools.product(*variations.values()):
                 param_combination = dict(zip(variations.keys(), param_dict))
                 args = copy.deepcopy(self.args_template)
@@ -185,8 +189,11 @@ class ExperimentManager:
                     visual = {'common': self.visual_control['common'], algo_name: self.visual_control[algo_name]}
                 else:
                     visual = {'common': self.visual_control['common']}
-                self.task_control[task_id] = TaskController(task_id, self.run_mode, algo_name, self.task_info_refs[task_id], visual)  # control会根据mode决定是否接收ref
-                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id, self.task_control[task_id])
+                self.task_control[task_id] = TaskController(task_id, self.run_mode, algo_name,
+                                                            self.task_info_refs[task_id],
+                                                            visual)  # control会根据mode决定是否接收ref
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id,
+                                                self.task_control[task_id])
                 task_id += 1
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
@@ -291,7 +298,6 @@ class ExperimentManager:
             self.visual_results(self.task_queue.keys())
         if self.exp_args['local_excel']:
             self.save_results(self.task_queue.keys())
-
 
     def convert_result(self, tid):
         result = {}

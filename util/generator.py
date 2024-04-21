@@ -1,13 +1,11 @@
-import concurrent
 import copy
 import os
 import pickle
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
 
+import numpy as np
 from matplotlib import pyplot as plt
 from scipy.stats import qmc, wasserstein_distance
-import numpy as np
 from tqdm import tqdm
 
 
@@ -258,6 +256,7 @@ class Dis_Generator:
 
         sample_size -= diff
         return sample_size, real_distribution, new_emd, diff, emd_error
+
     def parse_real_dis(self, results):
         with Pool(processes=5) as pool:
             results_new = list(tqdm(pool.imap(self.parse_real_dis_process, results), total=len(results)))
@@ -319,6 +318,7 @@ class Data_Generator:
         with open(file_path, 'rb') as file:
             results = pickle.load(file)
         return results
+
 
 if __name__ == '__main__':
     generator = Data_Generator(1000, (10000, 50000))

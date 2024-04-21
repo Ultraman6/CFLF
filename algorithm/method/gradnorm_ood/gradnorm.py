@@ -30,7 +30,7 @@ class Grad_Norm_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
             w_locals = []
             client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)
@@ -82,7 +82,7 @@ class Grad_Norm_API(BaseServer):
     def quality_detection(self, w_locals, round_idx):  # 基于随机数结合概率判断是否成功返回模型
         # 质量检测:先计算全局损失，再计算每个本地的损失
         self.model_trainer.set_model_params(_modeldict_weighted_average(w_locals))
-        acc, loss, kl_gn= self.model_trainer.test_norm(self.valid_global)
+        acc, loss, kl_gn = self.model_trainer.test_norm(self.valid_global)
         weights, margin_kl_gn = [], []  # 用于存放边际KL梯度范数
         with ThreadPoolExecutor(max_workers=len(self.client_list)) as executor:
             futures = []

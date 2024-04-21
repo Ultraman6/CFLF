@@ -3,7 +3,7 @@ import numpy as np
 
 # 设置样例数据
 num_clients = 5  # 客户数量
-num_labels = 4   # 标签数量
+num_labels = 4  # 标签数量
 
 # 生成每个客户的每个标签的样本量和噪声比例
 np.random.seed(0)
@@ -26,7 +26,7 @@ client_positions = np.arange(num_clients) * (num_labels + 2)
 
 # 画每个客户的每个标签的样本量柱子
 for i in range(num_labels):
-    ax.bar(client_positions + i, samples_per_label[:, i], color=label_colors[i], label=f'Label {i+1}')
+    ax.bar(client_positions + i, samples_per_label[:, i], color=label_colors[i], label=f'Label {i + 1}')
     # 添加噪声比例的网格填充
     ax.bar(client_positions + i, samples_per_label[:, i] * noise_ratios_per_label[:, i],
            color=label_colors[i], hatch='//', edgecolor='black')
@@ -39,7 +39,7 @@ ax.bar(client_positions + num_labels, noise_samples_per_client,
 
 # 设置图例和轴标签
 ax.set_xticks(client_positions + num_labels / 2)
-ax.set_xticklabels([f'Client {i+1}' for i in range(num_clients)])
+ax.set_xticklabels([f'Client {i + 1}' for i in range(num_clients)])
 ax.set_ylabel('Number of Samples')
 ax.set_xlabel('Client ID')
 ax.legend(title='Sample Distribution')

@@ -1,7 +1,6 @@
 from torch import nn
-from model.base.attention import ReshapeLayer
-from model.base.base_model import BaseModel
 
+from model.base.base_model import BaseModel
 
 
 class AlexNet_cifar10(BaseModel):

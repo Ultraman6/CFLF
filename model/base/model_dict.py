@@ -359,7 +359,8 @@ def pad_grad_by_order(grad, mask_order=None, mask_percentile=None, mode='all'):
     grad_update = copy.deepcopy(grad)  # 深拷贝以避免修改原始数据
     if mode == 'all':
         try:
-            all_update_mod = torch.cat([grad_update[key].view(-1).abs() for key in grad_update if grad_update[key].nelement() > 0])
+            all_update_mod = torch.cat(
+                [grad_update[key].view(-1).abs() for key in grad_update if grad_update[key].nelement() > 0])
             if not all_update_mod.nelement():
                 return grad_update  # 如果所有层都没有元素，直接返回
 

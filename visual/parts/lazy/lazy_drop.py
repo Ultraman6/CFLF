@@ -14,7 +14,7 @@ dragged: Optional[card] = None
 
 class lazy_drop(ui.column):
     def __init__(
-        self, name: str, on_drop: Optional[Callable[[Item, str], None]] = None
+            self, name: str, on_drop: Optional[Callable[[Item, str], None]] = None
     ) -> None:
         super().__init__()
         with self.classes("bg-blue-grey-2 min-w-60 p-4 rounded shadow-2"):

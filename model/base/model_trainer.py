@@ -1,19 +1,19 @@
 import copy
 import random
-import torch.nn.functional as F
+
 import numpy as np
 import torch
-from torch import nn
-from torch.autograd import grad
+import torch.nn.functional as F
 
-from model.base.model_dict import _modeldict_zeroslike, _modeldict_clone, _modeldict_add, _modeldict_tuple, \
-    _modeldict_sub, _modeldict_norm, _modeldict_to_cpu, _modeldict_to_np, _modeldict_scale, _modeldict_to_device
+from model.base.model_dict import _modeldict_clone, _modeldict_tuple, \
+    _modeldict_to_device
 from util.running import create_optimizer, create_loss_function, schedule_lr, js_divergence, direct_kl_sum
 
 
 class ModelTrainer:
     def __init__(self, model, device, args=None, cid=-1):
         self.model = copy.deepcopy(model)
+        self.model.to(device)
         self.cid = cid
         self.args = args
         self.device = device
@@ -108,7 +108,7 @@ class ModelTrainer:
 
         # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
         round_avg_loss = sum(epoch_losses) / len(epoch_losses)
-        self.all_epoch_losses[global_round]= {
+        self.all_epoch_losses[global_round] = {
             "avg_loss": round_avg_loss,
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']

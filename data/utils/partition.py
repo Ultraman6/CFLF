@@ -1,16 +1,22 @@
 import collections
 import json
 import random
+from collections import defaultdict
 import numpy as np
 import torch.backends.cudnn as cudnn
+from scipy.stats import wasserstein_distance
 from torch.utils.data import Dataset, Subset
-from collections import defaultdict
 
 cudnn.banchmark = True
 
 '''
    数据集划分方法
 '''
+
+def calculate_emd(distribution):
+    num_classes = len(distribution)
+    emd = num_classes * wasserstein_distance(distribution, [1.0 / num_classes for _ in range(num_classes)])
+    return round(emd, 6)
 
 # 提取标签
 feature_func = lambda x: [xi[0] for xi in x]
@@ -19,17 +25,18 @@ index_func = lambda x: [xi[-1] for xi in x]
 
 class DatasetSplit(Dataset):
     # 工具类，将原始数据集解耦为可迭代的(x，y)序列，按照映射访问特定的子集
-    def __init__(self, dataset, idxs=None, noise_idxs=None, num_classes=None, length=None, noise_type='none', id=0):
+    def __init__(self, dataset, idxs=None, noise_idxs=None, total_num_classes=None, length=None, noise_type='none', id=0):
         super().__init__()
+        self.distribution, self.sample_info, self.noise_info, self.emd, self.num_classes = None, None, None, None, 0
         self.id = id
         self.dataset = dataset
         # 如果 idxs 为 None，则映射整个数据集
         self.idxs = range(len(dataset)) if idxs is None else idxs
         self.noise_idxs = noise_idxs if noise_idxs is not None else {}
-        self.noise_type = noise_type        # 默认无噪声: feature/label
+        self.noise_type = noise_type  # 默认无噪声: feature/label
         self.len = len(self.idxs) if length is None else length
         self.noise_len = len(self.noise_idxs)
-        self.num_classes = num_classes if num_classes is not None else len(set(index_func(dataset)))
+        self.total_num_classes = total_num_classes if total_num_classes is not None else len(set(index_func(dataset)))
         self.cal_infos()
 
     def __len__(self):
@@ -51,16 +58,19 @@ class DatasetSplit(Dataset):
                     raise ValueError('Unknown noise type: {}'.format(self.noise_type))
         return image, target
 
-
     # def get_noise_infos(self):
     #     return self.noise_idxs
 
     def cal_infos(self):
-        self.sample_info = {i: 0 for i in range(self.num_classes)}
+        self.sample_info = {i: 0 for i in range(self.total_num_classes)}
         for idx in self.idxs:
             label = self.dataset[idx][1]
+            if self.sample_info[label] == 0:
+                self.num_classes += 1
             self.sample_info[label] += 1
-        self.noise_info = {i: 0 for i in range(self.num_classes)}
+        self.distribution = [count / self.len for count in self.sample_info.values()]
+        self.emd = calculate_emd(self.distribution)
+        self.noise_info = {i: 0 for i in range(self.total_num_classes)}
         for nidx in self.noise_idxs:
             label = self.dataset[nidx][1]
             self.noise_info[label] += 1
@@ -387,7 +397,8 @@ def gaussian_feature_partition(dataset, num_clients, gaussian, client_sample_ind
     local_perturbation_stds = [scale * np.ones(shape) for _ in range(num_clients)]
     noise_indices_map = {}
     for cid in range(num_clients):
-        c_perturbation = {idx: np.random.normal(local_perturbation_means[cid], local_perturbation_stds[cid]).tolist() for
+        c_perturbation = {idx: np.random.normal(local_perturbation_means[cid], local_perturbation_stds[cid]).tolist()
+                          for
                           idx in client_sample_indices[cid]}
         noise_indices_map[cid] = c_perturbation
     return noise_indices_map

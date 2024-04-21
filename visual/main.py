@@ -1,16 +1,19 @@
 import os
 from functools import partial
 from typing import Optional
+
 from ex4nicegui import deep_ref
 from ex4nicegui.reactive import rxui
 from fastapi.responses import RedirectResponse
-from nicegui import Client, app, ui, events, context
-from visual.pages.frameworks import FramWindow
+from nicegui import app, ui, events, context
+
 from visual.models import User
+from visual.pages.frameworks import FramWindow
 from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
-from visual.parts.constant import idx_dict, unrestricted_page_routes, state_dict
+from visual.parts.constant import state_dict
 from visual.parts.func import to_base64, han_fold_choice, my_vmodel, locked_page_height
 from visual.parts.lazy.lazy_card import build_card
+
 
 async def detect_use():
     user = await User.get_or_none(username=app.storage.user["user"]['username'])
@@ -20,6 +23,7 @@ async def detect_use():
     else:
         return user
 
+
 @ui.page('/')
 async def main_page() -> None:
     await detect_use()
@@ -27,11 +31,11 @@ async def main_page() -> None:
     main.create_main_window()
     locked_page_height()
 
+
 # 个人设置界面
 @ui.page('/self')
 async def self_page() -> None:
-
-    async def try_set(k: str=None) -> None:
+    async def try_set(k: str = None) -> None:
         state, mes = await user.update(k, user_ref[k])
         if state:
             app.storage.user.update({'user': dict(user), 'authenticated': True})
@@ -63,19 +67,23 @@ async def self_page() -> None:
                 for v in user_ref['local_path'].values():
                     with ui.card().tight():
                         rxui.label(v['default'])
-                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes('w-full')
+                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes(
+                            'w-full')
                 ui.button('提交', on_click=lambda: try_set('local_path'))
 
         with ui.column():
             ui.label('头像')
             upload = ui.upload(on_upload=lambda e: on_upload(e), on_rejected=lambda e: ui.notify(f'{e.type} Rejected!'),
-                               auto_upload=True).style("display:none").props('accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
+                               auto_upload=True).style("display:none").props(
+                'accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
             with ui.row():
                 with ui.avatar().on('click', lambda: upload.run_method("pickFiles")):
                     rxui.image(source=user_ref['avatar'])
+
                 def on_upload(e: events.UploadEventArguments):
                     user_ref['avatar'].value = to_base64(e.content.read())
                     ui.notify(f'Uploaded {e.name}')
+
                 ui.button('提交', on_click=lambda: try_set('avatar'))
 
         with ui.row():
@@ -84,7 +92,6 @@ async def self_page() -> None:
 
 @ui.page('/hall')
 async def hall() -> Optional[RedirectResponse]:
-
     ui.query("body").classes("bg-[#f7f8fc]")
     context.get_client().content.tailwind.align_items("center")
     ui.label("欢迎使用CFLF").classes("text-h4")
@@ -95,6 +102,7 @@ async def hall() -> Optional[RedirectResponse]:
         build_card("help_outline", "欢迎加入", "快来解决你的疑问吧", "答疑", color="rose-200")
     return None
 
+
 @ui.page('/doubt')
 async def doubt() -> Optional[RedirectResponse]:
     if app.storage.user.get('authenticated', False):
@@ -104,6 +112,7 @@ async def doubt() -> Optional[RedirectResponse]:
         with ui.row():
             ui.button('返回大厅', on_click=lambda: ui.navigate.to('/hall'))
     return None
+
 
 @ui.page('/login')
 async def login() -> Optional[RedirectResponse]:
@@ -123,7 +132,8 @@ async def login() -> Optional[RedirectResponse]:
     context.get_client().content.tailwind.align_items("center")
     with ui.card().classes('absolute-center'):
         rxui.input('用户名', value=my_vmodel(login_info.value, 'uname')).on('keydown.enter', try_login)
-        rxui.input('密码', value=my_vmodel(login_info.value, 'pwd'), password=True, password_toggle_button=True).on('keydown.enter', try_login)
+        rxui.input('密码', value=my_vmodel(login_info.value, 'pwd'), password=True, password_toggle_button=True).on(
+            'keydown.enter', try_login)
         ui.button('登录', on_click=try_login)
         with ui.row():
             ui.button('去注册', on_click=lambda: ui.navigate.to('/register'))
@@ -168,12 +178,14 @@ async def register() -> Optional[RedirectResponse]:
                 for v in sign_info['local_path'].values():
                     with ui.card().tight():
                         rxui.label(v['default'])
-                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes('w-full')
+                        rxui.button(text=v['name'], on_click=partial(han_fold_choice, ref=v['default'])).classes(
+                            'w-full')
 
         with ui.column():
             ui.label('头像')
             upload = ui.upload(on_upload=lambda e: on_upload(e), on_rejected=lambda e: ui.notify(f'{e.type} Rejected!'),
-                               auto_upload=True).style("display:none").props('accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
+                               auto_upload=True).style("display:none").props(
+                'accept=.jpg, .jpeg, .png, .gif, .svg, .webp, .bmp, .ico')
             with ui.avatar().on('click', lambda: upload.run_method("pickFiles")):
                 rxui.image(source=sign_info['avatar']).classes('w-full h-full')
 
@@ -187,6 +199,7 @@ async def register() -> Optional[RedirectResponse]:
             ui.button('返回大厅', on_click=lambda: ui.navigate.to('/hall'))
 
     return None
+
 
 # 加载数据库与中间件
 app.on_startup(init_db)

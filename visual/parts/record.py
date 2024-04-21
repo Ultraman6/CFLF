@@ -1,9 +1,11 @@
 from datetime import datetime
 from functools import partial
+
 from ex4nicegui import on, deep_ref
 from ex4nicegui.reactive import rxui, local_file_picker
 from nicegui import ui, app
 from nicegui.functions.refreshable import refreshable_method
+
 from manager.save import Filer
 from visual.models import User
 from visual.parts.constant import path_dict

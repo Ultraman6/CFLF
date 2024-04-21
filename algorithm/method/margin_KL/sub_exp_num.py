@@ -30,7 +30,7 @@ class Sub_Exp_Num_API(BaseServer):
             "Accuracy": test_acc,
             "Relative Time": time.time() - start_time,
         }
-        for round_idx in tqdm(range(1, self.args.round+1), desc=task_name, leave=False):
+        for round_idx in tqdm(range(1, self.args.round + 1), desc=task_name, leave=False):
             # print("################Communication round : {}".format(round_idx))
             w_locals = []
             client_indexes = self.client_sampling(list(range(self.args.num_clients)), self.args.num_selected_clients)
@@ -105,7 +105,7 @@ class Sub_Exp_Num_API(BaseServer):
             self.quality_info[i][round_idx] = {
                 # "KL_forward_per": KL_f[i],
                 # "KL_reverse_per": KL_r[i],
-                "Margin_KL_sub_per": KL_f[i]-KL_r[i],
+                "Margin_KL_sub_per": KL_f[i] - KL_r[i],
                 "Margin_KL_sub_exp_exp": weights[i],
                 "weight": w / total_w
             }

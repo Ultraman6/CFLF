@@ -1,19 +1,20 @@
 import copy
+import json
 from functools import partial
 
 import torch
 from cpuinfo import cpuinfo
 from ex4nicegui import to_raw, deep_ref
 from ex4nicegui.reactive import rxui
+from ex4nicegui.utils.signals import on
 from nicegui import ui, events
+
 from visual.parts.constant import algo_type_options, algo_spot_options, algo_name_options, \
     algo_configs, \
     dl_configs, fl_configs, init_configs
-from visual.parts.func import my_vmodel, convert_tuple_to_dict
+from visual.parts.func import my_vmodel, convert_tuple_to_dict, convert_dict_to_list
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.params_tab import params_tab
-from ex4nicegui.utils.signals import to_ref_wrapper, on
-
 
 
 def scan_local_device():
@@ -161,6 +162,10 @@ class algo_table:
                     if k not in self.tem_args and k not in algo_configs['common']:
                         del row['params'][k]
                 for key in algo_param:
+                    if 'dict' in algo_param[key]:
+                        if type(self.tem_args[key]) is not dict:
+                            self.tem_args[key] = convert_tuple_to_dict(self.tem_args[key], algo_param[key]['dict'])
+                            self.configer.convert_info[key] = algo_param[key]['dict']
                     row['params'][key] = [copy.deepcopy(self.tem_args[key]), ]
                     if 'metrics' in algo_param[key]:
                         for k, v in algo_param[key]['metrics'].items():
@@ -169,9 +174,11 @@ class algo_table:
                                     if type(self.tem_args[k1]) is not dict:
                                         self.tem_args[k1] = convert_tuple_to_dict(self.tem_args[k1], v1['dict'])
                                         self.configer.convert_info[k1] = v1['dict']
-                                    row['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
-                                else:
-                                    row['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
+                                elif 'mapping' in v1:
+                                    if type(self.tem_args[k1]) is not list:
+                                        self.tem_args[k1] = convert_dict_to_list(json.loads(self.tem_args[k1]), v1['mapping'])
+                                        self.configer.convert_info[k1] = v1['mapping']
+                                row['params'][k1] = [copy.deepcopy(self.tem_args[k1]), ]
 
                 self.create_red_items(row["id"])
                 ui.notify(f"选择了: " + str(row["algo"]) + "算法")
@@ -231,7 +238,8 @@ class algo_table:
                 row_ref.value[key2][-1].pop()
                 num_real -= 1
 
-        with ui.dialog().on('hide', lambda: self.table.element.update()).classes('w-full').props('maximized') as dialog, ui.card().classes('w-full'):
+        with ui.dialog().on('hide', lambda: self.table.element.update()).classes('w-full').props(
+                'maximized') as dialog, ui.card().classes('w-full'):
             rxui.button('关闭窗口', on_click=lambda: dialog.close())
             with ui.tabs().classes('w-full') as tabs:
                 dl_module = ui.tab('深度学习配置')
@@ -240,63 +248,84 @@ class algo_table:
 
             with lazy_tab_panels(tabs).classes('w-full') as panels:
                 panel = panels.tab_panel(dl_module)
+
                 @panel.build_fn
                 def _(pan_name: str):
                     with ui.grid(columns=5).classes('w-full'):
-                            for key, value in dl_configs.items():
-                                with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
-                                    if 'options' in value:
-                                        params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='choice',
-                                                   options=value['options'], default=self.tem_args['dataset'])
-                                    elif 'format' in value:
-                                        params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),
-                                                   type='number', format=value['format'],  default=self.tem_args[key])
-                                    if 'metrics' in value:
-                                        for k, v in value['metrics'].items():
-                                            with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
-                                                for k1, v1 in v.items():
-                                                    params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='number',
-                                                               format=v1['format'], default=self.tem_args['mean'])
-                                if 'inner' in value:
-                                    for key1, value1 in value['inner'].items():
-                                        with rxui.card().tight().classes('w-full').tooltip(value1['help'] if 'help' in value1 else None):
-                                            if 'options' in value1:
-                                                params_tab(name=value1['name'], nums=my_vmodel(row_ref.value, key1), type='choice',
-                                                           options=lambda key=key, value1=value1: value1['options'][list(row_ref.value[key])[-1]],
-                                                           default=self.tem_args[key1])
+                        for key, value in dl_configs.items():
+                            with ui.card().tight().classes('w-full').tooltip(
+                                    value['help'] if 'help' in value else None):
+                                if 'options' in value:
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='choice',
+                                               options=value['options'], default=self.tem_args['dataset'])
+                                elif 'format' in value:
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),
+                                               type='number', format=value['format'], default=self.tem_args[key])
+                                if 'metrics' in value:
+                                    for k, v in value['metrics'].items():
+                                        with rxui.column().classes('w-full').bind_visible(
+                                                lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                            for k1, v1 in v.items():
+                                                params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
+                                                           type='number',
+                                                           format=v1['format'], default=self.tem_args['mean'])
+                            if 'inner' in value:
+                                for key1, value1 in value['inner'].items():
+                                    with rxui.card().tight().classes('w-full').tooltip(
+                                            value1['help'] if 'help' in value1 else None):
+                                        if 'options' in value1:
+                                            params_tab(name=value1['name'], nums=my_vmodel(row_ref.value, key1),
+                                                       type='choice',
+                                                       options=lambda key=key, value1=value1: value1['options'][
+                                                           list(row_ref.value[key])[-1]],
+                                                       default=self.tem_args[key1])
 
                 panel = panels.tab_panel(fl_module)
+
                 @panel.build_fn
                 def _(pan_name: str):
                     ui.notify(f"创建页面:{pan_name}")
                     with ui.grid(columns=3).classes('w-full'):
                         for key, value in fl_configs.items():
-                            with ui.card().tight().classes('w-full').tooltip(value['help'] if 'help' in value else None):
+                            with ui.card().tight().classes('w-full').tooltip(
+                                    value['help'] if 'help' in value else None):
                                 if 'options' in value:
-                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key),type='choice',options=value['options'], default=self.tem_args[key])
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='choice',
+                                               options=value['options'], default=self.tem_args[key])
                                 elif 'format' in value:
-                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='number',format=value['format'], default=self.tem_args[key])
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='number',
+                                               format=value['format'], default=self.tem_args[key])
                                 else:
-                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='check', default=self.tem_args[key])
+                                    params_tab(name=value['name'], nums=my_vmodel(row_ref.value, key), type='check',
+                                               default=self.tem_args[key])
                                 if 'metrics' in value:
                                     for k, v in value['metrics'].items():
-                                        with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                        with rxui.column().classes('w-full').bind_visible(
+                                                lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
                                             for k1, v1 in v.items():
                                                 def show_metric(k1, v1):
                                                     if 'dict' in v1:
-                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='dict',  default=self.tem_args[k1], info_dict=v1['dict'])
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
+                                                                   type='dict', default=self.tem_args[k1],
+                                                                   info_dict=v1['dict'])
                                                     elif 'mapping' in v1:
                                                         if 'watch' in v1:
                                                             on(lambda v1=v1: list(row_ref.value[v1['watch']])[-1])(
-                                                                partial(watch_from, key1=v1['watch'], key2=k1, params=v1['mapping'])
+                                                                partial(watch_from, key1=v1['watch'], key2=k1,
+                                                                        params=v1['mapping'])
                                                             )
-                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='mapping', default=self.tem_args[k1], info_dict=v1)
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
+                                                                   type='mapping', default=self.tem_args[k1],
+                                                                   info_dict=v1)
                                                     else:
-                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1), type='number', default=self.tem_args[k1], format=v1['format'])
+                                                        params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
+                                                                   type='number', default=self.tem_args[k1],
+                                                                   format=v1['format'])
 
                                                 show_metric(k1, v1)
 
                 panel = panels.tab_panel(ta_module)
+
                 @panel.build_fn
                 def _(pan_name: str):
                     with rxui.grid(columns=5):
@@ -330,11 +359,19 @@ class algo_table:
                                     format = algo_configs[algo][key]['format']
                                     options = algo_configs[algo][key]['options']
                                     with ui.card().tight().classes('w-full'):
-                                        params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
-                                                   format=format, options=options, default=self.tem_args[key])
+                                        if 'dict' in algo_configs[algo][key]:
+                                            params_tab(name=name,
+                                                       nums=my_vmodel(row_ref.value, key),
+                                                       type=type, format=format,
+                                                       info_dict=algo_configs[algo][key]['dict'],
+                                                       default=self.tem_args[key])
+                                        else:
+                                            params_tab(name=name, nums=my_vmodel(row_ref.value, key), type=type,
+                                                       format=format, options=options, default=self.tem_args[key])
                                         if 'metrics' in algo_configs[algo][key]:
                                             for k, v in algo_configs[algo][key]['metrics'].items():
-                                                with rxui.row().classes('w-full').bind_visible(lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
+                                                with rxui.row().classes('w-full').bind_visible(
+                                                        lambda key=key, k=k: list(row_ref.value[key])[-1] == k):
                                                     for k1, v1 in v.items():
                                                         if 'dict' in v1:
                                                             params_tab(name=v1['name'],
@@ -342,11 +379,21 @@ class algo_table:
                                                                        type=v1['type'], format=v1['format'],
                                                                        info_dict=v1['dict'],
                                                                        default=self.tem_args[k1])
+                                                        elif 'mapping' in v1:
+                                                            if 'watch' in v1:
+                                                                on(lambda v1=v1: list(row_ref.value[v1['watch']])[-1])(
+                                                                    partial(watch_from, key1=v1['watch'], key2=k1,
+                                                                            params=v1['mapping']))
+                                                            params_tab(name=v1['name'],
+                                                                       nums=my_vmodel(row_ref.value, k1),
+                                                                       type='mapping', default=self.tem_args[k1],
+                                                                       info_dict=v1)
                                                         else:
-                                                            params_tab(name=v1['name'], nums=my_vmodel(row_ref.value, k1),
-                                                                       type=v1['type'], format=v1['format'], options=v1['options'],
+                                                            params_tab(name=v1['name'],
+                                                                       nums=my_vmodel(row_ref.value, k1),
+                                                                       type=v1['type'], format=v1['format'],
+                                                                       options=v1['options'],
                                                                        default=self.tem_args[k1])
-
 
                     ui.notify(f"创建页面:{name}")
 

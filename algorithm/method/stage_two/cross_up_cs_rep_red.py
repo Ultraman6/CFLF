@@ -10,6 +10,7 @@ from model.base.model_trainer import ModelTrainer
 from algorithm.base.client import BaseClient
 from ...base.server import BaseServer
 
+
 # 2024-02-07 由于v1版本的综合价值过拟合现象严重，现在采用v2版本的综合价值
 # 所有的奖励梯度的综合价值对每个客户而言应该都是一样的，这样才能保证公平
 # 那么这个综合价值可以是全局价值和所有私有价值的凸组合，私有价值内部可以是基于全局质量/价值的聚合
@@ -102,7 +103,7 @@ class CS_Reward_Reputation_API(BaseServer):
             # 计算并分配每位客户的奖励
             value_syn = list(sorted(value_syn.items(), key=lambda x: x[1]))
             for cid, time_contrib_i in time_contrib.items():  # 计算每位客户的奖励
-                reward_i = int((time_contrib_i / max_time_contrib) * (total_num)) # 先试试将所有的梯度作为奖励
+                reward_i = int((time_contrib_i / max_time_contrib) * (total_num))  # 先试试将所有的梯度作为奖励
                 self.reward_info[cid][round_idx] = reward_i
                 # 计算其余客户相对其综合价值
                 value_syn = value_syn[:reward_i]  # 价值从低到高取top奖励

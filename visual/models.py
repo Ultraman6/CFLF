@@ -1,14 +1,12 @@
 import copy
-import json
 import os
 from datetime import datetime
 from sqlite3 import IntegrityError
-from ex4nicegui import to_ref
-from tortoise import fields, models
-from passlib.hash import bcrypt
 from typing import Dict
 
-from tortoise.exceptions import DoesNotExist
+from ex4nicegui import to_ref
+from passlib.hash import bcrypt
+from tortoise import fields, models
 from tortoise.transactions import in_transaction
 
 from visual.parts.constant import profile_dict, path_dict, ai_config_dict
@@ -27,11 +25,12 @@ class Experiment(models.Model):
     description = fields.TextField(null=True)
 
     @classmethod
-    async def create_new_exp(cls, name: str, user: int, config: dict, dis: dict, task_names: dict, res: dict, des: str) -> (bool, str):
+    async def create_new_exp(cls, name: str, user: int, config: dict, dis: dict, task_names: dict, res: dict,
+                             des: str) -> (bool, str):
         try:
             time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             await cls.create(name=name, user=user, time=time, config=config,
-                             distribution = dis, task_names=task_names, results=res, description=des)
+                             distribution=dis, task_names=task_names, results=res, description=des)
             return True, f"{name}信息保存成功"
         except IntegrityError:
             # 如果违反了数据库的唯一性约束等
@@ -49,13 +48,14 @@ class Experiment(models.Model):
         except Exception as e:
             return False, f"删除失败(其他错误): {str(e)}"
 
+
 class User(models.Model):
     id = fields.IntField(pk=True)
     username = fields.CharField(max_length=255, unique=True)  # 用户名作为登录凭据
     password = fields.CharField(max_length=255)
     profile = fields.JSONField(null=True)  # 包含学历和研究方向的JSON字段
     local_path = fields.JSONField(null=True)  # 包含三种本地路径的JSON字段
-    avatar = fields.TextField(null=True)   # 用户头像base64字符串
+    avatar = fields.TextField(null=True)  # 用户头像base64字符串
     ai_config = fields.JSONField(null=True)
     share = fields.JSONField(null=True)  # 用户分享（id集合）
     shared = fields.JSONField(null=True)  # 用户接收到的分享（id集合）
@@ -213,7 +213,6 @@ class User(models.Model):
 
     def verify_password(self, plain_password):
         return bcrypt.verify(plain_password, self.password)
-
 
     @classmethod
     async def create_new_user(cls, uname: str, pwd: str, profile=None, local_path=None, avatar=None) -> (bool, str):

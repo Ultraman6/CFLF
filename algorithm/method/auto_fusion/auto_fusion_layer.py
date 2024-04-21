@@ -107,7 +107,6 @@ class Auto_Fusion_Layer_API(BaseServer):
         }
         return info_metrics
 
-
     def quality_detection(self, w_locals):  # 基于随机数结合概率判断是否成功返回模型
         # 质量检测:先计算全局损失，再计算每个本地的损失
         self.model_trainer.set_model_params(_modeldict_weighted_average(w_locals))
@@ -137,4 +136,3 @@ class Auto_Fusion_Layer_API(BaseServer):
         # margin = acc * loss_i - acc_i * loss
         margin_loss = loss_i - loss
         return margin_loss, np.exp(self.gamma * margin_loss)
-

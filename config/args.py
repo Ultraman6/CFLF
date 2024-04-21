@@ -82,7 +82,8 @@ class TaskArgs(ArgumentParser):  # 负责读取参数配置模板、接受前端
 
     # 1. 无子参数：键:{’unit‘:组件} 2. 有子参数 键:{'con':容器,'unit':组件, 'child':{...}} 需要明确显示的参数(默认常显，需要传入bool参数或者表达式)
     # 待完成对象属性与组件的数据参数绑定
-    def unit_searching(self, value, bind_obj=None, bind_value=None):  # 此方法用于根据参数类型返回对应的组件（专门处理组件初始化与参数嵌套导致的块整理）嵌套参数取决于参数的值
+    def unit_searching(self, value, bind_obj=None,
+                       bind_value=None):  # 此方法用于根据参数类型返回对应的组件（专门处理组件初始化与参数嵌套导致的块整理）嵌套参数取决于参数的值
         # 先获得顶层参数对应的组件
         unit_dict = {}
         if value['type']:  # 不管有没有子参数，都需要创建一个组件
@@ -129,4 +130,3 @@ class TaskArgs(ArgumentParser):  # 负责读取参数配置模板、接受前端
     #
     # def __delitem__(self, key):
     #     del self.config[key]
-

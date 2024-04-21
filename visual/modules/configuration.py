@@ -1,18 +1,21 @@
 # 系统配置界面
 import copy
 import json
+from functools import partial
 from typing import Dict
+
 from ex4nicegui import deep_ref, on, to_raw
 from ex4nicegui.reactive import rxui
 from nicegui import ui
-from functools import partial
+
+from experiment.options import algo_args_parser, exp_args_parser
+from visual.parts.constant import dl_configs, fl_configs, exp_configs, algo_configs
 from visual.parts.func import my_vmodel, convert_tuple_to_dict, convert_dict_to_list, convert_list_to_dict, \
     convert_dict_to_tuple, han_fold_choice
-from visual.parts.lazy.lazy_table import algo_table
-from visual.parts.constant import dl_configs, fl_configs, exp_configs
-from experiment.options import algo_args_parser, exp_args_parser
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
+from visual.parts.lazy.lazy_table import algo_table
 from visual.parts.record import RecordManager
+
 
 # 创建界面并维护args(单个算法)
 class config_ui:
@@ -42,12 +45,33 @@ class config_ui:
     def read_tem(self, record):
         for k, v in record['info'].items():
             self.algo_ref.value[k] = v
+        for key, value in dl_configs.items():
+            if 'metrics' in value:
+                for k, v in value['metrics'].items():
+                    for k1, v1 in v.items():
+                        if 'dict' in v1:
+                            self.convert_info[k1] = v1['dict']
+                        elif 'mapping' in v1:
+                            self.convert_info[k1] = v1['mapping']
 
     def read_algo(self, record):
         for k, v in record['info'].items():
             if k == 'algo_params':
                 self.exp_ref.value[k].clear()
                 for item in v:
+                    if 'algo' in item:
+                        algo = item['algo']
+                        for key, value in algo_configs[algo].items():
+                            if 'dict' in value:
+                                self.convert_info[key] = value['dict']
+                            if 'metrics' in algo_configs[algo][key]:
+                                for k1, v1 in algo_configs[algo][key]['metrics'].items():
+                                    for k2, v2 in v1.items():
+                                        if 'dict' in v2:
+                                            self.convert_info[k2] = v2['dict']
+                                        elif 'mapping' in v2:
+                                            self.convert_info[k2] = v2['mapping']
+
                     self.exp_ref.value[k].append(item)
             else:
                 self.exp_ref.value[k] = v
@@ -81,10 +105,11 @@ class config_ui:
                     if type == 'text':
                         rxui.input(value=my_vmodel(self.exp_ref.value, key), label=value['name']).classes('w-full')
                     elif type == 'choice':
-                        rxui.select(options=value['options'], value=my_vmodel(self.exp_ref.value, key), label=value['name']).classes('w-full')
+                        rxui.select(options=value['options'], value=my_vmodel(self.exp_ref.value, key),
+                                    label=value['name']).classes('w-full')
                     elif type == 'root':
                         with ui.card().tight():
-                            rxui.button(text=value['name'], icon='file',on_click=
+                            rxui.button(text=value['name'], icon='file', on_click=
                             partial(han_fold_choice, my_vmodel(self.exp_ref.value, key))).classes('w-full')
                             rxui.label(my_vmodel(self.exp_ref.value, key)).classes('w-full')
                     elif type == 'bool':
@@ -94,9 +119,11 @@ class config_ui:
                         self.exp_ref = deep_ref(self.exp_args)
                     if 'metrics' in value:
                         for k, v in value['metrics'].items():
-                            with rxui.column().classes('w-full').bind_visible(lambda key=key, k=k: self.exp_ref.value[key] == k):
+                            with rxui.column().classes('w-full').bind_visible(
+                                    lambda key=key, k=k: self.exp_ref.value[key] == k):
                                 for k1, v1 in v.items():
-                                    rxui.number(label=v1['name'], value=my_vmodel(self.exp_ref.value, k1), format=v1['format']).classes('w-full')
+                                    rxui.number(label=v1['name'], value=my_vmodel(self.exp_ref.value, k1),
+                                                format=v1['format']).classes('w-full')
         with ui.row():
             ui.button('配置算法模板', on_click=lambda: panels.set_value('配置算法模板'))
             ui.button('配置算法参数', on_click=lambda: panels.set_value('配置算法参数'))
@@ -104,19 +131,21 @@ class config_ui:
         ui.separator().classes('w-full')
         with lazy_tab_panels().classes('w-full') as panels:
             panel = panels.tab_panel('配置算法模板')
+
             @panel.build_fn
             def _(name: str):
                 self.create_tem_config()
                 ui.notify(f"创建页面:{name}")
 
             panel = panels.tab_panel('配置算法参数')
+
             @panel.build_fn
             def _(name: str):
                 self.algo_saver.show_panel()
                 with rxui.column():
-                    self.table = algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args, configer=self)
+                    self.table = algo_table(rows=my_vmodel(self.exp_ref.value, 'algo_params'), tem_args=self.algo_args,
+                                            configer=self)
                 ui.notify(f"创建页面:{name}")
-
 
     def create_tem_config(self):
         self.tem_saver.show_panel()
@@ -170,7 +199,8 @@ class config_ui:
                                             for k1, v1 in v.items():
                                                 def show_metric(k1, v1):
                                                     if 'dict' in v1:
-                                                        self.algo_args[k1] = convert_tuple_to_dict(self.algo_args[k1], v1['dict'])
+                                                        self.algo_args[k1] = convert_tuple_to_dict(self.algo_args[k1],
+                                                                                                   v1['dict'])
                                                         self.algo_ref = deep_ref(self.algo_args)
                                                         self.convert_info[k1] = v1['dict']
                                                         rxui.label(v1['name'])
@@ -218,6 +248,7 @@ class config_ui:
 
                                                 show_metric(k1, v1)
 
+
     def get_fusion_args(self):
         exp_args = copy.deepcopy(self.exp_args)
         exp_args['algo_params'] = []
@@ -242,5 +273,7 @@ class config_ui:
             elif type(item) is dict:
                 algo_args[k] = convert_dict_to_tuple(item)
 
+        print(self.convert_info)
+        print(algo_args)
+        print(exp_args['algo_params'])
         return algo_args, exp_args
-

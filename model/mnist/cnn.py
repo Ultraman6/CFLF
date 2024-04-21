@@ -1,9 +1,8 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import optim
-from model.base.base_model import BaseModel
+
 from model.base.attention import ReshapeLayer
+from model.base.base_model import BaseModel
 
 
 class LeNet_mnist(BaseModel):

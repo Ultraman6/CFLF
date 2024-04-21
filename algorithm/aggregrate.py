@@ -1,11 +1,7 @@
+import copy
 
 import torch
-import torch.nn.functional as F
-import torch
-from torch import nn
-from torch.nn.functional import softmax
-from torch.optim import SGD
-import copy
+
 '''
    全局聚合算法
 '''
@@ -88,10 +84,3 @@ def average_weights_on_sample_and_quality(w, s_num):
             w_avg[k] = w_avg[k] + torch.mul(w[i][k], s_num[i] / temp_sample_num)
         w_avg[k] = torch.mul(w_avg[k], temp_sample_num / total_sample_num)
     return w_avg
-
-
-
-
-
-
-

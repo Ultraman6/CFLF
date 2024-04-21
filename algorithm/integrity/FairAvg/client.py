@@ -7,6 +7,7 @@ class Client:
         self.model_trainer = model_trainer
         # 存放其他参数，如本地epoch、本地batch_size等
         self.args = args
+
     # 更新本地数据集（训练、测试）
     def update_dataset(self, client_idx, train_data, test_data):
         self.client_idx = client_idx

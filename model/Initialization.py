@@ -7,9 +7,9 @@ from model.cifar10.resnet18 import ResNet18_cifar10
 from model.fashion_mnist.cnn import CNN_fashionmnist
 from model.fashion_mnist.logistic import LR_fashionmnist
 from model.femnist.cnn import CNN_femnist
+from model.femnist.resnet18gn import ResNet18_femnist
 from model.mnist.cnn import CNN_mnist, LeNet_mnist
 from model.mnist.logistic import LR_mnist
-from model.femnist.resnet18gn import ResNet18_femnist
 from model.shakespeare.lstm import LSTM_shakespeare
 from model.synthetic.logistic import LR_synthetic
 

@@ -1,13 +1,11 @@
 import copy
-from concurrent.futures import ThreadPoolExecutor
 import time
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+
 from tqdm import tqdm
 
-from model.base.model_dict import _modeldict_weighted_average, _modeldict_to_device, _modeldict_cossim, _modeldict_sub, \
-    _modeldict_dot, _modeldict_add, _modeldict_gradient_adjustment
-from model.base.model_trainer import ModelTrainer
-from algorithm.base.client import BaseClient
+from model.base.model_dict import _modeldict_weighted_average, _modeldict_cossim, _modeldict_sub, \
+    _modeldict_add
 from ...base.server import BaseServer
 
 
@@ -63,7 +61,7 @@ class CS_Reward_Reputation_API(BaseServer):
             # 计算每位客户本轮的贡献，全局价值与私有价值
             value_global = {}  # 记录每个梯度全局价值
             value_local = {}  # 记录每个梯度本地价值
-            value_syn = {}    # 记录每个梯度综合价值
+            value_syn = {}  # 记录每个梯度综合价值
             for cid in range(self.args.num_clients):  # 计算全局价值
                 value_i = _modeldict_cossim(global_upgrade, g_locals[cid])  # 目前由于没有聚合权重，所以价值等同于贡献
                 self.contrib_info[cid][round_idx] = value_i  # 激励直接贡献，负值也记录
@@ -99,7 +97,7 @@ class CS_Reward_Reputation_API(BaseServer):
             # 计算并分配每位客户的奖励
             value_syn = list(sorted(value_syn.items(), key=lambda x: x[1]))
             for cid, time_contrib_i in time_contrib.items():  # 计算每位客户的奖励
-                reward_i = int((time_contrib_i / max_time_contrib) * (total_num)) # 先试试将所有的梯度作为奖励
+                reward_i = int((time_contrib_i / max_time_contrib) * (total_num))  # 先试试将所有的梯度作为奖励
                 self.reward_info[cid][round_idx] = reward_i
                 # 计算其余客户相对其综合价值
                 value_syn = value_syn[:reward_i]  # 价值从低到高取top奖励

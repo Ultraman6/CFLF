@@ -3,19 +3,22 @@ import os
 import shutil
 from datetime import datetime
 from typing import List, Dict
+
 from langchain.chains.conversation.base import ConversationChain
-from langchain_openai import ChatOpenAI
-from langchain_community.callbacks import get_openai_callback
 from langchain.chains.conversation.memory import ConversationBufferMemory
-from langchain.schema import HumanMessage, AIMessage
 from langchain.memory.chat_memory import ChatMessageHistory
+from langchain.schema import HumanMessage, AIMessage
+from langchain_community.callbacks import get_openai_callback
+from langchain_openai import ChatOpenAI
 from llama_index.legacy import ServiceContext, OpenAIEmbedding
 from nicegui import ui, app
+
 from visual.parts.embeddings import Embedding
 
 
 class ChatApp(Embedding):
     chat_name = None
+
     def __init__(self, config):
         super().__init__(config)  # Call the initializer of the parent class
         self.temperature = config['temperature']
@@ -25,10 +28,10 @@ class ChatApp(Embedding):
         self.embedding_switch = False
         self.uname = app.storage.user['user']['username']
         self.messages = []  # var that will contain an conversation
-        self.thinking = False  #var for showing the spinner
+        self.thinking = False  # var for showing the spinner
         self.tokens_used = 0  # var for counting the tokens
-        self.total_cost = 0  #var for cost in usd
-        self.current_chat_name = ""  #name for the currently selected chat. will be filled when someone clicks on a chat in the aggrid
+        self.total_cost = 0  # var for cost in usd
+        self.current_chat_name = ""  # name for the currently selected chat. will be filled when someone clicks on a chat in the aggrid
         self.llm = ConversationChain(
             llm=ChatOpenAI(model_name=config['last_model'],
                            openai_api_base=config['api_base'], max_tokens=self.max_tokens, max_retries=self.max_retries,
@@ -36,14 +39,15 @@ class ChatApp(Embedding):
             memory=self.memory) if self.api_key != '' else None
         self.json_directory = config['chat_history']
 
-    async def on_value_change(self, ename=None, etemp=None, embedding_switch=False, etok=None, eret=None, model_type='generation'):
+    async def on_value_change(self, ename=None, etemp=None, embedding_switch=False, etok=None, eret=None,
+                              model_type='generation'):
         """
         Changes the value of the model and temperature for the ConversationChain.
         Parameters:
         ename (str): The name of the model.
         etemp (str): The temperature for the model.
         """
-        #Open texts withe the models
+        # Open texts withe the models
         self.temperature = etemp if etemp is not None else self.temperature
         self.max_tokens = etok if etok is not None else self.max_tokens
         self.max_retries = eret if eret is not None else self.max_retries
@@ -58,7 +62,8 @@ class ChatApp(Embedding):
         elif model_type == 'embedding':
             self.embed_model = ename if ename is not None else self.embed_model
             self.service_context = ServiceContext.from_defaults(embed_model=OpenAIEmbedding(model=self.embed_model),
-                                                                llm=ChatOpenAI(temperature=0, openai_api_key=self.api_key,
+                                                                llm=ChatOpenAI(temperature=0,
+                                                                               openai_api_key=self.api_key,
                                                                                openai_api_base=self.api_base,
                                                                                model_name=self.last_model,
                                                                                request_timeout=120)) if self.api_key != '' else None
@@ -71,7 +76,7 @@ class ChatApp(Embedding):
         """
 
         async def copy_code(text):
-            escaped_text = text.replace("\\", "\\\\").replace("`", "\\`")  #für saubere darstellung aus ui.markdown
+            escaped_text = text.replace("\\", "\\\\").replace("`", "\\`")  # für saubere darstellung aus ui.markdown
             await ui.run_javascript(f'navigator.clipboard.writeText(`{escaped_text}`)')
             ui.notify("Text Copied!", type="positive")
 
@@ -91,7 +96,7 @@ class ChatApp(Embedding):
                         with ui.icon('content_copy', size='xs', color="blue").classes(
                                 'opacity-40 hover:opacity-80 cursor-pointer pb-5').on("click",
                                                                                       lambda text=text: copy_code(
-                                                                                              text)):
+                                                                                          text)):
                             ui.tooltip("Copy")
                         ui.icon('content_copy', size='xs').classes(
                             'opacity-20 hover:opacity-80 cursor-pointer pb-5').on("click",
@@ -131,18 +136,18 @@ class ChatApp(Embedding):
         # Extract the sorted filenames
         sorted_filenames = [filename for timestamp, filename in timestamps_and_filenames]
 
-        #Build the list of chats based on the sorted filenames
+        # Build the list of chats based on the sorted filenames
         with ui.column().classes("h-1/2 overflow-y-auto bg-white cursor-pointer").bind_visibility_from(self,
                                                                                                        "embedding_switch",
                                                                                                        value=False):
-            with ui.element('q-list').props('bordered separator').classes("overflow-y-auto"):  #list element
+            with ui.element('q-list').props('bordered separator').classes("overflow-y-auto"):  # list element
                 for filename in sorted_filenames:
-                    with ui.element('q-item').classes("pt-2 hover:bg-slate-100"):  #item in the list
-                        with ui.element('q-item-section').classes("overflow-hidden max-w-xs"):  #name of the chat
+                    with ui.element('q-item').classes("pt-2 hover:bg-slate-100"):  # item in the list
+                        with ui.element('q-item-section').classes("overflow-hidden max-w-xs"):  # name of the chat
                             ui.label(filename).on("click",
                                                   lambda filename=filename: self.load_chat_history(filename)).classes(
                                 "overflow-auto w-40")
-                        with ui.element('q-item-section').props('side'):  #delete button and opening the dialog
+                        with ui.element('q-item-section').props('side'):  # delete button and opening the dialog
                             with ui.dialog() as dialog, ui.card():
                                 ui.label('Are you sure you want to delete the chat?')
                                 with ui.row():
@@ -151,7 +156,7 @@ class ChatApp(Embedding):
                                         "bg-red")
                                     ui.button('No', on_click=dialog.close)
                             ui.icon('delete', color="red").on("click", dialog.open)
-                        with ui.element('q-item-section').props('side'):  #edit name button
+                        with ui.element('q-item-section').props('side'):  # edit name button
                             with ui.dialog() as edit_dialog, ui.card().classes("w-1/2"):
                                 ui.label('Enter the new name')
                                 name_input = ui.input(on_change=lambda e: setattr(self, 'chat_name', e.value)).classes(
@@ -173,11 +178,12 @@ class ChatApp(Embedding):
         """
         self.thinking = True
         self.chat_messages.refresh()
-        #message = text.value
+        # message = text.value
         self.messages.append((self.uname, text))
         if self.embedding_switch is True:  ###if we are using embedding the chat history is not saved
             with get_openai_callback() as cb:
-                response = await self.querylangchain(prompt=text)  ##using the langchain angent from the embeddings.py instead of a simple gpt call
+                response = await self.querylangchain(
+                    prompt=text)  ##using the langchain angent from the embeddings.py instead of a simple gpt call
                 self.tokens_used = cb.total_tokens
                 self.total_cost = round(cb.total_cost, 6)  # get the total tokens used
                 self.messages.append(('GPT', response))
@@ -242,9 +248,10 @@ class ChatApp(Embedding):
             prompt_text = f"{chat_history_text}\n\nSummarize the above conversation with a descriptive name not longer than 5 words. Output only the name chosen."
 
             llm = ConversationChain(
-                llm=ChatOpenAI(model_name=self.last_model, openai_api_key=self.api_key, openai_api_base=self.api_base, temperature=self.temperature))
+                llm=ChatOpenAI(model_name=self.last_model, openai_api_key=self.api_key, openai_api_base=self.api_base,
+                               temperature=self.temperature))
             response = await llm.arun(prompt_text)
-            #response = datetime.now()
+            # response = datetime.now()
             print(response)
             file_path = os.path.join(self.json_directory, f'{response}.json')
             with open(file_path, 'w') as f:

@@ -1,4 +1,5 @@
 import json
+
 import openpyxl
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
@@ -86,8 +87,10 @@ def populate_sheet_three_layers(info, ws):
         for sub_header, span in sub_headers.items():
             if span > 1:
                 # Merge cells for list-type sub-headers
-                ws.merge_cells(start_row=2, start_column=sub_header_col, end_row=2, end_column=sub_header_col+span-1)
-                ws.cell(row=2, column=sub_header_col, value=sub_header.split('_')[0]).alignment = Alignment(horizontal="center")
+                ws.merge_cells(start_row=2, start_column=sub_header_col, end_row=2,
+                               end_column=sub_header_col + span - 1)
+                ws.cell(row=2, column=sub_header_col, value=sub_header.split('_')[0]).alignment = Alignment(
+                    horizontal="center")
             else:
                 ws.cell(row=2, column=sub_header_col, value=sub_header)
             sub_header_col += span
@@ -117,9 +120,12 @@ def populate_sheet_three_layers(info, ws):
         max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col)
         col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max_length + 2
+
+
 def max_round(info):
     # Find the maximum round number across all clients
     return max(max(client_data.keys()) for client_data in info.values())
+
 
 def adjust_column_widths(ws):
     for column in ws.columns:
@@ -127,7 +133,6 @@ def adjust_column_widths(ws):
         adjusted_width = (max_length + 2)
         column_letter = get_column_letter(column[0].column)
         ws.column_dimensions[column_letter].width = adjusted_width
-
 
 
 def json_str_to_int_key_dict(json_str):

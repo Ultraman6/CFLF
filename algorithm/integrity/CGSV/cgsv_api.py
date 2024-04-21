@@ -1,13 +1,16 @@
 import copy
 import logging
+
 import numpy as np
 from fedml import mlops
+
+from algorithm.aggregrate import average_weights_on_sample
 from model.base.model_trainer import ModelTrainer
 from .client import Client
-from algorithm.aggregrate import average_weights_on_sample
 
 # 设置时间间隔（以秒为单位）
 interval = 5
+
 
 class FedAvgAPI(object):
     def __init__(self, args, device, dataset, model):
@@ -48,8 +51,8 @@ class FedAvgAPI(object):
     def train(self):
         w_global = self.model_trainer.get_model_params()
 
-        global_acc=[]
-        global_loss=[]
+        global_acc = []
+        global_loss = []
         for round_idx in range(self.args.round):
 
             print("################Communication round : {}".format(round_idx))
@@ -90,7 +93,10 @@ class FedAvgAPI(object):
 
             # global gradnorm_coffee
             test_acc, test_loss = self._global_test_on_validation_set()
-            print("valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx), str(test_acc), str(test_loss)))
+            print(
+                "valid global model on global valid dataset   round: {}   arracy: {}   loss: {}".format(str(round_idx),
+                                                                                                        str(test_acc),
+                                                                                                        str(test_loss)))
             global_loss.append(test_loss)
             global_acc.append(test_acc)
             # # 休眠一段时间，以便下一个循环开始前有一些时间
