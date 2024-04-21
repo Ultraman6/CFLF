@@ -619,11 +619,6 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
             'pageButtonItemGap': 5,
             'pageButtonGap': 20,
             'pageButtonPosition': 'end',  # 将翻页按钮放在最后
-            # 'itemWidth': 25,  # 控制图例标记的宽度
-            # 'itemHeight': 14,  # 控制图例标记的高度
-            # 'width': '70%',
-            # 'left': '15%',
-            # 'right': '15%',
             'textStyle': {
                 # 'width': 80,  # 设置图例文本的宽度
                 'overflow': 'truncate',  # 当文本超出宽度时，截断文本

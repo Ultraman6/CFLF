@@ -1,11 +1,9 @@
 # 任务运行结果界面
 from datetime import datetime
-
 from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
-
 from visual.models import Experiment
 from visual.parts.constant import state_dict
 from visual.parts.func import control_global_echarts, control_local_echarts
@@ -155,7 +153,6 @@ class res_ui:
 
     def handle_task_info(self):
         for tid in self.experiment.results:
-            print(self.experiment.results[tid])
             for info_spot in self.experiment.results[tid]:  # 首先明确每个任务存有何种信息(这里只记录到参数名，后面处理x类型/客户id)
                 if info_spot not in self.infos_dict:
                     self.infos_dict[info_spot] = {}

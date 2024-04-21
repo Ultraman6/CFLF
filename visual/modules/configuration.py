@@ -3,11 +3,9 @@ import copy
 import json
 from functools import partial
 from typing import Dict
-
 from ex4nicegui import deep_ref, on, to_raw
 from ex4nicegui.reactive import rxui
 from nicegui import ui
-
 from experiment.options import algo_args_parser, exp_args_parser
 from visual.parts.constant import dl_configs, fl_configs, exp_configs, algo_configs
 from visual.parts.func import my_vmodel, convert_tuple_to_dict, convert_dict_to_list, convert_list_to_dict, \
@@ -61,16 +59,17 @@ class config_ui:
                 for item in v:
                     if 'algo' in item:
                         algo = item['algo']
-                        for key, value in algo_configs[algo].items():
-                            if 'dict' in value:
-                                self.convert_info[key] = value['dict']
-                            if 'metrics' in algo_configs[algo][key]:
-                                for k1, v1 in algo_configs[algo][key]['metrics'].items():
-                                    for k2, v2 in v1.items():
-                                        if 'dict' in v2:
-                                            self.convert_info[k2] = v2['dict']
-                                        elif 'mapping' in v2:
-                                            self.convert_info[k2] = v2['mapping']
+                        if algo in algo_configs:
+                            for key, value in algo_configs[algo].items():
+                                if 'dict' in value:
+                                    self.convert_info[key] = value['dict']
+                                if 'metrics' in algo_configs[algo][key]:
+                                    for k1, v1 in algo_configs[algo][key]['metrics'].items():
+                                        for k2, v2 in v1.items():
+                                            if 'dict' in v2:
+                                                self.convert_info[k2] = v2['dict']
+                                            elif 'mapping' in v2:
+                                                self.convert_info[k2] = v2['mapping']
 
                     self.exp_ref.value[k].append(item)
             else:
@@ -273,7 +272,4 @@ class config_ui:
             elif type(item) is dict:
                 algo_args[k] = convert_dict_to_tuple(item)
 
-        print(self.convert_info)
-        print(algo_args)
-        print(exp_args['algo_params'])
         return algo_args, exp_args

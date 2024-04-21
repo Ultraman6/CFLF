@@ -103,7 +103,7 @@ class DITFE_API(BaseServer):
             cost = np.random.uniform(min_cost, max_cost)
             cost = [cost for _ in range(self.args.num_clients)]
         elif self.args.cost_mode == 'custom':
-            cost = json.loads(self.args.cost_mapping).values()
+            cost = list(json.loads(self.args.cost_mapping).values())
         # 得分计算&声明成本生成
         for client in self.client_list:
             cid, did = client.id, client.train_dataloader.dataset.id
@@ -114,7 +114,7 @@ class DITFE_API(BaseServer):
             bids = np.linspace(min_bid, max_bid, num=self.args.num_clients)
             np.random.shuffle(bids)
         elif self.args.bid_mode == 'custom':
-            bids = json.loads(self.args.bid_mapping).values()
+            bids = list(json.loads(self.args.bid_mapping).values())
         score_max, score_min = max(scores), min(scores)
 
         self.task.control.clear_informer('bid_info')  # 遍历每个客户的投标信息
@@ -469,11 +469,11 @@ class DITFE_API(BaseServer):
         if self.time_mode == 'cvx':
             for cid in self.client_indexes:
                 if len(self.his_contrib[cid]) == 1:
-                    r_i = max(list(self.his_contrib[cid].values())[0], 0)
+                    r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
                 else:
                     cum_contrib = sum(self.his_contrib[cid].values()[:-1]) if len(
                         self.his_contrib[cid].values()) > 1 else 0
-                    r_i = max(self.rho * cum_contrib + (1 - self.rho) * self.his_contrib[cid][self.round_idx], 0)
+                    r_i = max((self.rho * cum_contrib + (1 - self.rho) * self.his_contrib[cid][self.round_idx]) * self.his_scores[cid], 0)
                 sum_reward += r_i
                 time_contrib[cid] = r_i
             for cid in self.client_indexes:
@@ -485,13 +485,13 @@ class DITFE_API(BaseServer):
         elif self.time_mode == 'exp':
             for cid in self.client_indexes:
                 if len(self.his_contrib[cid]) == 1:
-                    r_i = max(list(self.his_contrib[cid].values())[0], 0)
+                    r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
                 else:
                     his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
                     numerator = sum(
                         self.args.rho ** (self.round_idx - k) * his_contrib_i[k] for k in range(self.round_idx + 1))
                     denominator = sum(self.args.rho ** (self.round_idx - k) for k in range(self.round_idx + 1))
-                    r_i = max(numerator / denominator, 0)  # 时间贡献用于奖励计算
+                    r_i = max(numerator / denominator * self.his_scores[cid], 0)  # 时间贡献用于奖励计算
                 sum_reward += r_i
                 time_contrib[cid] = r_i
             for cid in self.client_indexes:

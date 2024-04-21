@@ -185,8 +185,9 @@ class algo_table:
         self.table.element.update()  # 这里会更新slot内部的样式
 
     def delete(self, e: events.GenericEventArguments) -> None:
-        idx = [index for index, row in enumerate(self.rows.value) if row["id"] == e.args["id"]][0]
+        idx, rid = [(index, row["id"]) for index, row in enumerate(self.rows.value) if row["id"] == e.args["id"]][0]
         self.rows.value.pop(idx)
+        self.dialog_list.pop(rid)
         ui.notify(f'Deleted row with ID {e.args["id"]}')
         self.table.element.update()
 
