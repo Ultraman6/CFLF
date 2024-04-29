@@ -145,6 +145,17 @@ def _modeldict_scale(md, c):
         res[layer] = md[layer] * c
     return res
 
+def _modeldict_pow(md, p):
+    """模型参数进行幂运算"""
+    res = {}
+    for layer in md.keys():
+        if md[layer] is None:
+            res[layer] = None
+            continue
+        res[layer] = md[layer] ** p
+    return res
+
+
 
 def _modeldict_sub(md1, md2):
     """模型参数相减"""

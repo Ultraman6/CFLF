@@ -2,6 +2,7 @@ from algorithm.base.server import BaseServer
 from algorithm.integrity.CFFL.cffl_api import CFFL_API
 from algorithm.integrity.DITFE.ditfe_api import DITFE_API
 from algorithm.integrity.FedAtt.fedatt_api import FedAtt_API
+from algorithm.integrity.FedProx.fedprox_api import FedProx_API
 from algorithm.integrity.RANK.rank_api import RANK_API
 from algorithm.integrity.RFFL.rffl_api import RFFL_API
 from algorithm.integrity.TMC_Shapely.tmc_api import TMC_API
@@ -65,6 +66,9 @@ algorithm_mapping = {
     'Cosine_Similiarity_Reward': CS_Reward_API,
     'Cosine_Similarity_Out_Reward': CS_Reward_Out_API,
     'CS_Reward_Reputation': CS_Reward_Reputation_API,
+
+    # 个性化算法
+    'fedprox': FedProx_API,
 
     # 实验专用
     'qfll': BaseServer,

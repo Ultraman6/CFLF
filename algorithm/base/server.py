@@ -26,6 +26,7 @@ def cal_JFL(x, y):
 # 服务端过程分为：创建记录 -> 选择客户端 -> 本地更新 -> 全局更新 -> 同步记录
 class BaseServer:
     def __init__(self, task):
+        self.client_class = BaseClient  #
         self.args = task.args
         if self.args.local_test:
             [train_loaders, valid_global, test_loaders] = task.dataloaders
@@ -55,7 +56,7 @@ class BaseServer:
     def setup_clients(self):  # 开局数据按顺序分配
         for client_idx in range(self.args.num_clients):
             self.model_trainer.cid = client_idx
-            c = BaseClient(
+            c = self.client_class(
                 client_idx,
                 self.train_loaders[client_idx],
                 self.device,

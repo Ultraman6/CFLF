@@ -2,7 +2,8 @@ from ex4nicegui.reactive import rxui
 from ex4nicegui.utils.signals import to_ref, on, to_raw
 from nicegui import ui
 from visual.parts.constant import record_names, record_types
-from visual.parts.func import control_global_echarts, control_local_echarts, get_user_info, get_grad_info
+from visual.parts.func import control_global_echarts, control_local_echarts, get_user_info, get_grad_info, \
+    get_local_download_path
 
 
 # 任务运行界面
@@ -19,8 +20,9 @@ class run_ui:
         self.experiment = experiment
         self.infos_ref = {}
         self.task_names = {}
-        self.handle_task_info()
-        self.refresh_need()
+        if self.experiment is not None:
+            self.handle_task_info()
+            self.refresh_need()
 
     @ui.refreshable_method
     def refresh_need(self):
@@ -173,7 +175,7 @@ class run_ui:
                         pc_refs.append(to_ref(True))
                     for tid in self.experiment.task_control:
                         with ui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid]).tailwind('text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             with rxui.grid(columns=2).classes('w-full').bind_visible(
                                     lambda tid=tid: all_refs[int(tid)].value):
                                 rxui.button('开始', on_click=lambda tid=tid, be_ref=be_ref: _run_i(tid)).bind_visible(
@@ -259,7 +261,7 @@ class run_ui:
                                                         'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
                                                         'shadow-md', 'hover:bg-blue-700')
                         for tid in self.infos_ref[info_spot]:
-                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid]).tailwind(
+                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid]).tailwind(
                                 'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             control_local_echarts(self.infos_ref[info_spot][tid])
 
@@ -274,7 +276,7 @@ class run_ui:
                 with rxui.grid(columns=5).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid])  # 目前只考虑展示进度条
+                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])  # 目前只考虑展示进度条
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
                             rxui.circular_progress(show_value=False, value=lambda pro_ref=pro_ref:
                             list(pro_ref.value)[-1][-1] if len(pro_ref.value) > 0 else 0,
@@ -289,7 +291,7 @@ class run_ui:
                 with rxui.grid(columns=5).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid]).tooltip(self.task_names[tid])  # 目前只考虑展示进度条
+                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])  # 目前只考虑展示进度条
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
                             # slider = rxui.slider(value=lambda pro_ref=pro_ref: (list(pro_ref.value)[-1][0] - list(pro_ref.value)[-1][-1]) / list(pro_ref.value)[-1][0]
                             #                   if len(pro_ref.value) > 0 else 0, max=1.0, min=0.0)
@@ -306,9 +308,14 @@ class run_ui:
                 with rxui.grid(columns=2).classes('w-full'):
                     for tid in self.infos_ref[info_spot][info_name]:
                         tex_ref = self.infos_ref[info_spot][info_name][tid]
-                        rxui.textarea(label=self.task_names[tid],
-                                      value=lambda tex_ref=tex_ref: '\n'.join(
-                                          list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10').tooltip(self.task_names[tid])
+
+                        with ui.column().classes('w-full'):
+                            ui.button('下载数据', on_click=lambda: ui.download(b'\n'.join(s.encode() for s in tex_ref.value),
+                                                                               get_local_download_path(info_name, self.task_names[tid],
+                                                                                                       'txt'))).props('icon=cloud_download')
+                            rxui.textarea(label=self.task_names[tid],
+                                          value=lambda tex_ref=tex_ref: '\n'.join(
+                                              list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10').tooltip(self.task_names[tid])
 
             elif type == 'switch':
                 with rxui.grid(columns=5).classes('w-full'):
@@ -323,8 +330,8 @@ class run_ui:
                     for i, tid in enumerate(self.infos_ref[info_spot][info_name]):
                         if i != 0:
                             ui.separator()
-                        ui.label(self.task_names[tid]).tooltip(self.task_names[tid])
+                        ui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])
                         if info_name == 'user_info':
-                            get_user_info(self.infos_ref[info_spot][info_name][tid])  # 直接 传入ref
+                            get_user_info(self.infos_ref[info_spot][info_name][tid], info_name, self.task_names[tid])  # 直接 传入ref
                         elif info_name == 'grad_info':
                             get_grad_info(self.infos_ref[info_spot][info_name][tid])

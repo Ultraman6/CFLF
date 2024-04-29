@@ -187,7 +187,8 @@ class algo_table:
     def delete(self, e: events.GenericEventArguments) -> None:
         idx, rid = [(index, row["id"]) for index, row in enumerate(self.rows.value) if row["id"] == e.args["id"]][0]
         self.rows.value.pop(idx)
-        self.dialog_list.pop(rid)
+        if rid in self.dialog_list:
+            self.dialog_list.pop(rid)
         ui.notify(f'Deleted row with ID {e.args["id"]}')
         self.table.element.update()
 

@@ -371,6 +371,9 @@ algo_configs = {
         'after': {'name': '声誉淘汰开始轮次', 'format': '%.0f', 'type': 'number', 'options': None},
         'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
+    'fedprox': {
+        'mu': {'name': '偏差近似项', 'format': '%.4f', 'type': 'number', 'options': None},
+    },
 }
 
 exp_configs = {
@@ -409,6 +412,7 @@ algo_spot_options = {
         {'value': 'incentive', 'label': '激励'},
     ]
 }
+
 algo_name_options = {
     'agg': [
         {'value': 'margin_loss', 'label': '边际损失聚合(RRAFL)'},
@@ -441,7 +445,8 @@ algo_name_options = {
         # 更多reward下的API细节...
     ],
     'base': [
-        {'value': 'fedavg', 'label': '联邦平均'}
+        {'value': 'fedavg', 'label': '联邦平均'},
+        {'value': 'fedprox', 'label': '联邦Prox'},
     ],
     'fair': [
         {'value': 'qfll', 'label': '质量公平联邦学习'},
@@ -696,6 +701,7 @@ algo_record = {
         },
     }
 }
+
 type_name_mapping = {
     'final_stand_acc': '客户id', 'final_cooper_acc': '客户id', 'final_jfl': '算法', 'final_pcc': '算法',
     'sva_final': '算法', 'svt_final': '算法', 'bid_info': '客户id', 'idx_info': '客户id', 'pay_info': '客户id',

@@ -1,4 +1,4 @@
-ex4nicegui==0.6.4
+ex4nicegui==0.6.5
 fastapi==0.110.1
 fedml==0.8.28
 h5py==3.10.0

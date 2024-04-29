@@ -170,6 +170,7 @@ class ExperimentManager:
             algo_name, variations = algo['algo'], algo['params']
             algo_class = self.judge_algo(algo_name)
             # 确定哪些参数是有多个配置的
+
             params_with_multiple_options = {param: len(values) > 1 or getattr(self.args_template, param) != values[0]
                                             for param, values in variations.items()}
             for param_dict in itertools.product(*variations.values()):
@@ -201,7 +202,7 @@ class ExperimentManager:
         dataloader_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}},
                             'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
         train_loaders, valid_loader = self.dataloaders_global[0], self.dataloaders_global[1]
-        num_classes = train_loaders[0].dataset.num_classes
+        num_classes = train_loaders[0].dataset.total_num_classes
         num_clients = len(train_loaders)
         for label in range(num_classes):
             train_label_dis = []
@@ -242,7 +243,7 @@ class ExperimentManager:
                           'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
             train_loaders, valid_loader = task.dataloaders[0], task.dataloaders[1]
             test_loaders = task.dataloaders[2] if self.args_template.local_test else None
-            num_classes = train_loaders[0].dataset.num_classes
+            num_classes = train_loaders[0].dataset.total_num_classes
             num_clients = len(train_loaders)
             for label in range(num_classes):
                 train_label_dis = []

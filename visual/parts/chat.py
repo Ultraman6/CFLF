@@ -167,15 +167,8 @@ class ChatApp(Embedding):
                                         "bg-black")
                                     ui.button('Close', on_click=edit_dialog.close)
                             ui.icon("edit").on("click", edit_dialog.open)
-
+    # 对话功能的基本实现
     async def send(self, text) -> None:
-        """
-        Sends a message to the chat. Appends the self.messages list with the new message, sends it to the llm using the self.llm.arun function
-        also afte every sending the current chat is beeing updated in the json
-
-        Parameters:
-        text (str): The message to be sent. Text beeing given from the ui.input
-        """
         self.thinking = True
         self.chat_messages.refresh()
         # message = text.value

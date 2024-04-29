@@ -180,6 +180,7 @@ class config_ui:
 
                 with ui.tab_panel(fl_module):
                     with ui.row():
+                        # 结构化组件的生成代码（以联邦学习基本参数为例）
                         for key, value in fl_configs.items():
                             with ui.card().tight().tooltip(value['help'] if 'help' in value else None):
                                 if 'options' in value:

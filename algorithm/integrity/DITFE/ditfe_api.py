@@ -118,17 +118,12 @@ class DITFE_API(BaseServer):
         score_max, score_min = max(scores), min(scores)
 
         self.task.control.clear_informer('bid_info')  # 遍历每个客户的投标信息
-        # try:
         for cid, (cost, bid, score) in enumerate(zip(cost, bids, scores)):
             self.his_cost[cid] = cost  # 历史真实成本、历史声明成本
             self.his_bids[cid] = bid
             self.his_scores[cid] = score
             # 记录客户的投标信息
             self.task.control.set_info('global', 'bid_info', (cid, {'投标价格': self.his_bids[cid], '真实成本': self.his_cost[cid], '得分': score}))
-        # except Exception as e:
-        #     print("An error occurred: ", str(e))
-        #     print("Detailed traceback:")
-        #     traceback.print_exc()  # 打印详细的堆栈跟踪信息
         self.task.control.set_statue('text', f"Round{self.round_idx} 客户投标 结束")
 
     def get_user_info(self):
@@ -236,6 +231,7 @@ class DITFE_API(BaseServer):
                 self.cum_budget += pay
                 pays.append((cid, pay))
                 self.client_indexes.append(cid)
+                self.client_selected_times[cid] += 1
             self.task.control.set_statue('budget', (self.budgets, self.cum_budget))  # 输送报价 vs 支付信息
         pays.sort(key=lambda x: x[1])
 
@@ -267,8 +263,9 @@ class DITFE_API(BaseServer):
         # 全部支付最大成本 & 记录激励参数
         pay = self.cost[1]
         for client in self.client_list:
-            cid = client.id
+            cid, did = client.id, client.train_dataloader.dataset.id
             self.winner_pays[cid] = pay
+            self.his_scores[cid] = data_quality_function(self.samples_emd[did], self.sample_num[did])
             self.task.control.set_statue('text', f"支付客户{cid} 支付价格{pay}")
         # 初始轮训练
         self.task.control.set_statue('text', f"开始初始训练")
@@ -305,19 +302,23 @@ class DITFE_API(BaseServer):
         time_s = time.time()
         self.task.control.set_statue('text', f"开始计算用户近似贡献 计算模式: 梯度投影")
         self.cal_contrib()
-        time_e = time.time()
-        self.task.control.set_info('global', 'svt', (self.round_idx, time_e - time_s))
+        sv_time = time.time() - time_s
+        self.cum_sv_time += sv_time
         self.task.control.set_statue('text', f"完成计算用户近似贡献 计算模式: 梯度投影")
 
         if self.real_sv:
             self.task.control.set_statue('text', "开始计算用户真实贡献")
+            time_s = time.time()
             self.cal_real_contrib()
+            real_sv_time = time.time() - time_s
+            self.cum_real_sv_time += real_sv_time
             self.task.control.set_statue('text', "完成计算用户真实贡献")
             contrib_list = []
             real_contrib_list = []
             for cid in self.client_indexes:
                 contrib_list.append(self.his_contrib[cid][self.round_idx])
                 real_contrib_list.append(self.his_real_contrib[cid][self.round_idx])
+            self.task.control.set_info('global', 'svt', (self.round_idx, sv_time / real_sv_time))  # 相对计算开销
             self.task.control.set_info('global', 'sva',
                                        (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
 
@@ -378,8 +379,8 @@ class DITFE_API(BaseServer):
                 self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self._compute_cos_poj_for_client, cid)
-                           for cid in self.client_indexes}
+                futures = {cid: executor.submit(self._compute_cos_poj_for_client, idx)
+                           for idx, cid in enumerate(self.client_indexes)}
                 for cid, future in futures.items():
                     real_contrib = future.result()
                     self.his_real_contrib[cid][self.round_idx] = real_contrib

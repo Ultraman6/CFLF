@@ -69,6 +69,78 @@ class ModelTrainer:
         }
         self.upgrade_lr(global_round - 1)  # 更新学习率
 
+    def train_moon(self, train_data, global_round):
+        self.model.to(self.device)
+        epoch_losses = []
+        for epoch in range(self.args.epoch):
+            batch_loss = []
+            self.model.train()
+            for batch_idx, (x, labels) in enumerate(train_data):
+                x, labels = x.to(self.device), labels.to(self.device).long()
+                log_probs = self.model(x)
+                self.zero_grad()
+                loss = self.criterion(log_probs, labels)
+                loss.backward()
+                self.optimizer.step()
+                batch_loss.append(loss.item())
+            epoch_losses.append(sum(batch_loss) / len(batch_loss) if batch_loss else 0.0)
+            # print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
+        # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
+        round_avg_loss = sum(epoch_losses) / len(epoch_losses)
+        self.all_epoch_losses[global_round] = {
+            "avg_loss": round_avg_loss,
+            "epoch_losses": epoch_losses,
+            "learning_rate": self.optimizer.param_groups[0]['lr']
+        }
+        self.upgrade_lr(global_round - 1)  # 更新学习率
+
+    def train_with_gnp(self, train_data, global_round):
+        r, alpha = 0.1, 0.8
+        self.model.to(self.device)
+        epoch_losses = []
+        for epoch in range(self.args.epoch):
+            batch_loss = []
+            self.model.train()
+            for batch_idx, (x, labels) in enumerate(train_data):
+                x, labels = x.to(self.device), labels.to(self.device).long()
+                log_probs = self.model(x)
+                # 计算初始梯度g1
+                loss = self.criterion(log_probs, labels)
+                loss.backward(retain_graph=True)
+                g1 = [param.grad for param in self.model.parameters()]
+
+                # 对梯度进行惩罚调整，具体的r值需要您自己设定
+                with torch.no_grad():
+                    for param in self.model.parameters():
+                        if param.grad is not None:
+                            param += r * (param.grad / param.grad.norm(2))
+
+                # 计算调整后的梯度g2
+                self.optimizer.zero_grad()  # 再次清除梯度
+                loss = self.criterion(self.model(x), labels)
+                loss.backward()
+                g2 = [param.grad for param in self.model.parameters()]
+
+                # 结合g1和g2得到最终梯度g
+                with torch.no_grad():
+                    for g1_param, g2_param, param in zip(g1, g2, self.model.parameters()):
+                        g = (1 - alpha) * g1_param + alpha * g2_param
+                        param.grad = g
+
+                # 使用SGD更新参数
+                self.optimizer.step()
+                batch_loss.append(loss.item())
+            epoch_losses.append(sum(batch_loss) / len(batch_loss) if batch_loss else 0.0)
+            print(f"Client Index = {self.cid}\tEpoch: {epoch}\tLoss: {epoch_losses[-1]:.6f}")
+        # 存储每个 round 的详细信息，包括平均损失和每个 epoch 的损失
+        round_avg_loss = sum(epoch_losses) / len(epoch_losses)
+        self.all_epoch_losses[global_round] = {
+            "avg_loss": round_avg_loss,
+            "epoch_losses": epoch_losses,
+            "learning_rate": self.optimizer.param_groups[0]['lr']
+        }
+        self.upgrade_lr(global_round - 1)  # 更新学习率
+
     def train_hessian(self, train_data, device, global_round):
         self.model.to(device)
         self.model.train()

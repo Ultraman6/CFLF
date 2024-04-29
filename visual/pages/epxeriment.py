@@ -91,19 +91,19 @@ class experiment_page:
 
     def args_fusion_step(self):
         self.algo_args, self.exp_args = self.cf_ui.get_fusion_args()
-        if len(self.exp_args['algo_params']) == 0:
-            ui.notify('请添加算法参数')
-            return
+        # if len(self.exp_args['algo_params']) == 0:
+        #     ui.notify('请添加算法参数')
+        #     return
         if hasattr(self, 'pre_ui'):
             self.get_pre_ui.refresh()
             self.pre_ui.refresh_need.refresh()
         self.stepper.next()
 
     def task_fusion_step(self):
-        if hasattr(self, 'pre_ui'):
-            if self.pre_ui.experiment is None:
-                ui.notify('请装载实验对象')
-                return
+        # if hasattr(self, 'pre_ui'):
+        #     if self.pre_ui.experiment is None:
+        #         ui.notify('请装载实验对象')
+        #         return
         if hasattr(self, 'run_ui'):
             self.get_run_ui.refresh()
             self.run_ui.refresh_need.refresh()

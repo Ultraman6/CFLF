@@ -1,17 +1,23 @@
 # 用户自定义界面
 import asyncio
+import os
 from dataclasses import dataclass
+from io import BytesIO
 from typing import List
 
+import pandas as pd
+from ex4nicegui import deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
+from pandas._typing import WriteExcelBuffer
 
 import visual.parts.lazy.lazy_drop as ld
 from manager.save import Filer
 from visual.models import Experiment, User
 from visual.modules.preview import name_mapping
 from visual.parts.constant import profile_dict, path_dict, dl_configs, fl_configs, exp_configs, state_dict
-from visual.parts.func import cal_dis_dict, control_global_echarts, control_local_echarts
+from visual.parts.func import cal_dis_dict, control_global_echarts, control_local_echarts, convert_keys_to_int, \
+    algo_to_sheets, download_local_infos, download_global_infos
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
 
@@ -43,14 +49,17 @@ def self_info():
         btn.delete()  # 这样如果任务还没能接收，也会提前告知任务
         share = await User.get_share(user_info['id'])
         unshare = await User.get_unshare(user_info['id'])
+        shared = await User.get_shared(user_info['id'])
 
         def handle_drop(info: INFO, location: str):
             if location == '已共享的用户':
                 share.append((info.value, info.title))
                 unshare.remove((info.value, info.title))
-            else:
+            elif location == '未共享的用户':
                 unshare.append((info.value, info.title))
                 share.remove((info.value, info.title))
+            else:
+                ui.notify(f'用户: {info.title}所在位置: {location} 只可查看喔！', type='negative')
             ui.notify(f'用户: {info.title}现已设置为: {location}')
 
         def unshare_all():
@@ -66,7 +75,7 @@ def self_info():
                 share.append(unshare.pop(0))
 
         async def update_share():
-            state, mes = await User.set_share(user_info['id'], share)
+            state, mes = await User.set_share(user_info['id'], [item[0] for item in share])
             ui.notify(mes, color=state_dict[state])
 
         with ui.row():
@@ -75,13 +84,19 @@ def self_info():
                     ld.card(INFO(uid, uname))
             ui.button("全部私密", on_click=unshare_all)
             with ld.lazy_drop("未共享的用户", on_drop=handle_drop) as unshare_box:
-                for uid, uname in share:
+                for uid, uname in unshare:
                     ld.card(INFO(uid, uname))
             ui.button("全部共享", on_click=share_all)
+
+            with ld.lazy_drop("已共享给我的用户", on_drop=handle_drop) as unshare_box:
+                for uid, uname in shared:
+                    ld.card(INFO(uid, uname))
+
         ui.button('修改共享', on_click=update_share)
 
 
 # 管理个人历史记录
+@ui.refreshable
 def self_record():
     user_path = app.storage.user["user"]["local_path"]
     path_reader = {}
@@ -142,7 +157,7 @@ def self_record():
 
 
 def view_mapping(k, info):
-    with ui.dialog().props('maximized') as dialog, ui.card(), ui.column():
+    with ui.dialog().props('maximized w-full') as dialog, ui.card():
         rxui.button('关闭窗口', on_click=dialog.close)
         if k == 'tem':
             view_tem(info['info'])
@@ -382,147 +397,160 @@ def view_algo(info):
                                                     show_metric(k1, v1)
 
 
-def view_res(task_info, task_name):
-    task_names = {0: task_name} if type(task_name) is str else task_name
+def view_res(task_info, task_name, exp_name=None):
     infos_dict = {}
-    tid = 0
-    # 遍历传入的信息变量
-    for info_spot in task_info:
-        # 确保info_spot存在于infos_dict中
-        if info_spot not in infos_dict:
-            infos_dict[info_spot] = {}
-        # 处理全局信息
-        if info_spot == 'global':
-            for info_name in task_info[info_spot]:
-                # 确保info_name存在于infos_dict的对应info_spot中
-                if info_name not in infos_dict[info_spot]:
-                    infos_dict[info_spot][info_name] = {}
-                for info_type in task_info[info_spot][info_name]:
-                    # 确保info_type存在于infos_dict的对应info_name中
-                    if info_type not in infos_dict[info_spot][info_name]:
-                        infos_dict[info_spot][info_name][info_type] = {}
-                    # 添加或更新信息
-                    infos_dict[info_spot][info_name][info_type][tid] = \
-                        task_info[info_spot][info_name][info_type]
-        # 处理局部信息
-        elif info_spot == 'local':
-            if tid not in infos_dict[info_spot]:
-                infos_dict[info_spot][tid] = {}
-            for info_name in task_info[info_spot]:
-                if info_name not in infos_dict[info_spot][tid]:
-                    infos_dict[info_spot][tid][info_name] = {}
-                for info_type in task_info[info_spot][info_name]:
-                    # 这里直接更新或添加信息，因为局部信息是直接与tid相关联的
-                    infos_dict[info_spot][tid][info_name][info_type] = \
-                        task_info[info_spot][info_name][info_type]
-
+    if type(task_name) is str:
+        task_names = {0: task_name}
+        tid = 0
+        # 遍历传入的信息变量
+        for info_spot in task_info:
+            # 确保info_spot存在于infos_dict中
+            if info_spot not in infos_dict:
+                infos_dict[info_spot] = {}
+            # 处理全局信息
+            if info_spot == 'global':
+                for info_name in task_info[info_spot]:
+                    # 确保info_name存在于infos_dict的对应info_spot中
+                    if info_name not in infos_dict[info_spot]:
+                        infos_dict[info_spot][info_name] = {}
+                    for info_type in task_info[info_spot][info_name]:
+                        # 确保info_type存在于infos_dict的对应info_name中
+                        if info_type not in infos_dict[info_spot][info_name]:
+                            infos_dict[info_spot][info_name][info_type] = {}
+                        # 添加或更新信息
+                        infos_dict[info_spot][info_name][info_type][tid] = \
+                            task_info[info_spot][info_name][info_type]
+            # 处理局部信息
+            elif info_spot == 'local':
+                if tid not in infos_dict[info_spot]:
+                    infos_dict[info_spot][tid] = {}
+                for info_name in task_info[info_spot]:
+                    if info_name not in infos_dict[info_spot][tid]:
+                        infos_dict[info_spot][tid][info_name] = {}
+                    for info_type in task_info[info_spot][info_name]:
+                        # 这里直接更新或添加信息，因为局部信息是直接与tid相关联的
+                        infos_dict[info_spot][tid][info_name][info_type] = \
+                            task_info[info_spot][info_name][info_type]
+    else:
+        task_names = task_name
+        infos_dict = task_info
     # 任务状态、信息曲线图实时展
     for info_spot in infos_dict:
         if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
             rxui.label('全局结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
                                             'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
                                             'hover:bg-blue-700')
+            rxui.button('下载数据',
+                        on_click=lambda info_spot=info_spot:
+                        download_global_infos(exp_name if exp_name is not None else '暂无实验名称', task_names, infos_dict[info_spot])).props('icon=cloud_download')
             with rxui.grid(columns=2).classes('w-full'):
                 for info_name in infos_dict[info_spot]:
-                    control_global_echarts(info_name, infos_dict[info_spot][info_name], task_names)
+                    control_global_echarts(info_name, infos_dict[info_spot][info_name], task_names, True)
         elif info_spot == 'local':
-            with rxui.column().classes('w-full'):
-                rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
-                                                'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
-                                                'shadow-md', 'hover:bg-blue-700')
-                for tid in infos_dict[info_spot]:
+            # with rxui.column().classes('w-full'):
+            rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
+                                            'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
+                                            'shadow-md', 'hover:bg-blue-700')
+
+            for tid in infos_dict[info_spot]:
+                with ui.row().classes('w-full'):
                     rxui.label(task_names[tid]).tailwind(
                         'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                    control_local_echarts(infos_dict[info_spot][tid])
+                    rxui.button('下载数据',
+                                on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(task_names[tid],
+                                                                                                   infos_dict[info_spot][tid])).props('icon=cloud_download')
+                control_local_echarts(infos_dict[info_spot][tid], True, task_names[tid])
 
 
 # 查看历史保存的实验完整信息界面
 def self_experiment():
-    def view(e: events.GenericEventArguments):
-        config = records[e.args['id']].config
-        res = records[e.args['id']].results
-        task_names = records[e.args['id']].task_names
-        dis = records[e.args['id']].distribution
-        with ui.dialog().props('maximized') as dialog, ui.card(), ui.column():
-            rxui.button('关闭窗口', on_click=dialog.close)
-            with ui.tabs().classes('w-full') as tabs:
-                ttab = ui.tab('算法模板配置')
-                atab = ui.tab('实验算法配置')
-                dtab = ui.tab('任务数据划分')
-                rtab = ui.tab('实验任务结果')
-            with lazy_tab_panels(tabs).classes('w-full'):
-                with ui.tab_panel(ttab):
-                    view_tem(config['tem'])
-                with ui.tab_panel(atab):
-                    view_algo(config['algo'])
-                with ui.tab_panel(dtab):
-                    view_dis(dis, config['algo']['same_data'])
-                with ui.tab_panel(rtab):
-                    view_res(res, task_names)
-
-    def delete(e: events.GenericEventArguments):
-        state, mes = records[e.args['id']].remove()
-        if state:
-            rows.pop(e.args['id'])
-            table.update()
-            records.pop(e.args['id'])
-            ui.notify(mes, type='positive')
-        else:
-            ui.notify(mes, type='negative')
-
-    columns = [
-        {'name': 'id', 'label': '行主键', 'field': 'id'},
-        {'name': 'name', 'label': '实验名称', 'field': 'name'},
-        {'name': 'time', 'label': '完成时间', 'field': 'time'},
-        {'name': 'user', 'label': '完成者', 'field': 'user'},
-        {'name': 'des', 'label': '实验描述', 'field': 'des'},
-    ]
-    records: List[Experiment] = []
-
-    async def get_info() -> List[dict] and List[Experiment]:
-        rows = []
+    async def open_exp():
+        btn.set_visibility(False)
         uid = app.storage.user['user']['id']
-        shared = app.storage.user['user']['shared']
-        records = await Experiment.filter(user_id__in=[uid].extend(shared)).all()
+        user = await User.get(id=uid)
+        records = await user.get_exp()
+        rows = []
         for i, record in enumerate(records):
-            user = await User.get(id=record.user)
             rows.append({
                 'id': i,
                 'name': record.name,
                 'time': record.time,
-                'user': user.username,
-                'uid': record.user,
-                'des': record.des,
-                'type': uid == record.user
+                'user': record.user.username,
+                'uid': record.user_id,
+                'des': record.description,
+                'type': uid == record.user_id
             })
-        return rows, records
+        def view(e: events.GenericEventArguments):
+            config = records[e.args['id']].config
+            with ui.dialog().props('maximized justify-center') as dialog, ui.card():
+                rxui.button('关闭窗口', on_click=dialog.close)
+                with ui.tabs().classes('w-full') as tabs:
+                    ttab = ui.tab('算法模板配置')
+                    atab = ui.tab('实验算法配置')
+                    dtab = ui.tab('任务数据划分')
+                    rtab = ui.tab('实验任务结果')
+                with lazy_tab_panels(tabs).classes('w-full'):
+                    with ui.tab_panel(ttab):
+                        view_tem(config['tem'])
+                    with ui.tab_panel(atab):
+                        view_algo(config['algo'])
+                    with ui.tab_panel(dtab):
+                        view_dis(records[e.args['id']].distribution, config['algo']['same_data'])
+                    with ui.tab_panel(rtab):
+                        view_res(records[e.args['id']].results, records[e.args['id']].task_names, records[e.args['id']].name)
+            dialog.open()
 
-    rows, records = asyncio.run(get_info())
-    table = ui.table(columns=columns, rows=rows, row_key='id').props('grid')
-    table.add_slot('item', r'''
-        <q-card flat bordered :props="props" class="m-1">
-            <q-card-section class="text-center">
-                <strong>{{ props.row.name }}</strong>
-            </q-card-section>
-            <q-separator/>
-            <q-card-section class="text-center">
-                <strong>{{ props.row.time }}</strong>
+
+        async def delete(e: events.GenericEventArguments):
+            state, mes = await records[e.args['id']].remove()
+            if state:
+                rows.pop(e.args['id'])
+                table.update()
+                records.pop(e.args['id'])
+                ui.notify(mes, type='positive')
+            else:
+                ui.notify(mes, type='negative')
+
+        columns = [
+            {'name': 'id', 'label': '行主键', 'field': 'id'},
+            {'name': 'name', 'label': '实验名称', 'field': 'name'},
+            {'name': 'time', 'label': '完成时间', 'field': 'time'},
+            {'name': 'user', 'label': '完成者', 'field': 'user'},
+            {'name': 'des', 'label': '实验描述', 'field': 'des'},
+        ]
+
+        table = ui.table(columns=columns, rows=rows, row_key='id').props('grid')
+        table.add_slot('item', r'''
+            <q-card flat bordered :props="props" class="m-1">
+                <q-card-section class="text-center">
+                    <strong>实验名称: {{props.row.name }}</strong>
+                </q-card-section>
                 <q-separator/>
-                <strong>{{ props.row.user }}</strong>
-            </q-card-section>
-            <q-card-section class="text-center">
-                <q-btn flat color="primary" label="查看"
-                    @click="() => $parent.$emit('view', props.row)">
-                </q-btn> 
-                <q-btn v-if="props.row.type" flat color="delete" label="删除" @click="show(props.row)"
-                    @click="() => $parent.$emit('delete', props.row)">
-                </q-btn> 
-            </q-card-section>
-        </q-card>
-    ''')
-    table.on('view', view)
-    table.on('delete', delete)
-
+                <q-card-section class="text-center">
+                    <strong>完成时间: {{props.row.time}}</strong>
+                </q-card-section>
+                <q-separator/>
+                <q-card-section class="text-center">
+                    <strong>完成者: {{props.row.user}}({{props.row.type? '本人':'非本人'}})</strong>
+                </q-card-section>
+                <q-card-section class="text-center">
+                    <strong>实验描述</strong>
+                    <q-separator/>
+                    <strong>{{props.row.des}}</strong>
+                </q-card-section>
+                <q-card-section class="text-center">
+                    <q-btn flat color="primary" label="查看"
+                        @click="() => $parent.$emit('view', props.row)">
+                    </q-btn> 
+                    <q-btn v-if="props.row.type" flat color="delete" label="删除" @click="show(props.row)"
+                        @click="() => $parent.$emit('delete', props.row)">
+                    </q-btn> 
+                </q-card-section>
+            </q-card>
+        ''')
+        table.on('view', view)
+        table.on('delete', delete)
+    btn = ui.button('点击查看', on_click=open_exp)
 
 def view_dis(visual_data_infos, same):
     if same:  # 直接展示全局划分数据

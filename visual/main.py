@@ -1,12 +1,10 @@
 import os
 from functools import partial
 from typing import Optional
-
 from ex4nicegui import deep_ref
 from ex4nicegui.reactive import rxui
 from fastapi.responses import RedirectResponse
 from nicegui import app, ui, events, context
-
 from visual.models import User
 from visual.pages.frameworks import FramWindow
 from visual.parts.authmiddleware import init_db, AuthMiddleware, close_db
@@ -14,7 +12,7 @@ from visual.parts.constant import state_dict
 from visual.parts.func import to_base64, han_fold_choice, my_vmodel, locked_page_height
 from visual.parts.lazy.lazy_card import build_card
 
-
+# 防伪函数，服务端异步执行该函数进行认证检查
 async def detect_use():
     user = await User.get_or_none(username=app.storage.user["user"]['username'])
     if user is None:
@@ -22,7 +20,6 @@ async def detect_use():
         ui.navigate.to('/hall')
     else:
         return user
-
 
 @ui.page('/')
 async def main_page() -> None:
@@ -35,7 +32,7 @@ async def main_page() -> None:
 # 个人设置界面
 @ui.page('/self')
 async def self_page() -> None:
-    async def try_set(k: str = None) -> None:
+    async def try_set(k: str = None) -> None:  # 更新-界面层
         state, mes = await user.update(k, user_ref[k])
         if state:
             app.storage.user.update({'user': dict(user), 'authenticated': True})
@@ -93,7 +90,7 @@ async def self_page() -> None:
 @ui.page('/hall')
 async def hall() -> Optional[RedirectResponse]:
     ui.query("body").classes("bg-[#f7f8fc]")
-    context.get_client().content.tailwind.align_items("center")
+    context.client.content.tailwind.align_items("center")
     ui.label("欢迎使用CFLF").classes("text-h4")
     ui.label("这是一个联邦学习领域入门级的可视化实验平台，可以帮助你快速上手FL领域相关实验").classes("text-body2 mb-12")
     with ui.row():
@@ -116,12 +113,14 @@ async def doubt() -> Optional[RedirectResponse]:
 
 @ui.page('/login')
 async def login() -> Optional[RedirectResponse]:
-    async def try_login() -> None:  # 改为异步函数
+
+    async def try_login() -> None:  # 登录-界面层逻辑
         # 当前字段检查
         state, mes, order = await User.login(login_info.value['uname'], login_info.value['pwd'])
         if state:
             app.storage.user.update({'user': order, 'authenticated': True})
-            ui.navigate.to(app.storage.user.get('referrer_path', '/'))
+            ui.timer(2.5, lambda: ui.navigate.to(app.storage.user.get('referrer_path', '/')), once=True)
+            # ui.navigate.to(app.storage.user.get('referrer_path', '/'))
         ui.notify(mes, color=state_dict[state])
 
     if app.storage.user.get('authenticated', False):
@@ -129,7 +128,7 @@ async def login() -> Optional[RedirectResponse]:
 
     login_info = deep_ref({'uname': '', 'pwd': ''})
     ui.query("body").classes("bg-[#f7f8fc]")
-    context.get_client().content.tailwind.align_items("center")
+    context.client.content.tailwind.align_items("center")
     with ui.card().classes('absolute-center'):
         rxui.input('用户名', value=my_vmodel(login_info.value, 'uname')).on('keydown.enter', try_login)
         rxui.input('密码', value=my_vmodel(login_info.value, 'pwd'), password=True, password_toggle_button=True).on(
@@ -143,7 +142,7 @@ async def login() -> Optional[RedirectResponse]:
 
 @ui.page('/register')
 async def register() -> Optional[RedirectResponse]:
-    async def try_register() -> None:
+    async def try_register() -> None:  # 注册-界面层逻辑
         # 创建新用户并保存到数据库
         state, *info = await User.register(sign_info)
         if state:
@@ -151,6 +150,7 @@ async def register() -> Optional[RedirectResponse]:
             app.storage.user.update({'user': order, 'authenticated': True})
             # 导航到用户原来想要去的页面或首页
             ui.navigate.to(app.storage.user.get('referrer_path', '/'))
+            # ui.timer(2.5, lambda: ui.navigate.to(app.storage.user.get('referrer_path', '/')), once=True)
         else:
             mes = info
         ui.notify(mes, color=state_dict[state])
@@ -202,8 +202,9 @@ async def register() -> Optional[RedirectResponse]:
 
 
 # 加载数据库与中间件
+# f_app = FastAPI()
 app.on_startup(init_db)
 app.on_shutdown(close_db)
 app.add_middleware(AuthMiddleware)
 os.environ['NICEGUI_STORAGE_PATH'] = 'running/storage'
-ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=False, reload=True, reconnect_timeout=100)
+ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=False, reload=True, reconnect_timeout=1000)

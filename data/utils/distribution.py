@@ -2,8 +2,6 @@
     数据集装载方法
 """
 import torch.backends.cudnn as cudnn
-
-from data.dataset import get_mnist
 from data.utils.partition import (dirichlet_partition, imbalance_sample, DatasetSplit,
                                   shards_partition, noise_feature_partition, noise_label_partition, homo_partition,
                                   custom_class_partition, gaussian_feature_partition)
@@ -70,11 +68,5 @@ def split_data(dataset, args, kwargs, is_shuffle=True, is_test=False):
     return data_loaders
 
 
-# 模块内自己调用自己则会执行两次
-if __name__ == '__main__':
-    train, test = get_mnist('../../datasets')
-    args = algo_args_parser()
-    dataloaders = split_data(train, args, {'num_workers': 0, 'pin_memory': True})
-    # print(dataloaders[2].dataset.sample_info)
-    # print(dataloaders[2].dataset.noise_idxs)
-    # print(dataloaders[2].dataset.noise_info)
+
+

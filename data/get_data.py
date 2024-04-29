@@ -79,26 +79,48 @@ def custom_collate_fn(batch):
 
 def show_data_distribution(dataloaders, args):
     if args.show_distribution:
-        # 训练集加载器划分
+        total_train_samples = []
+        total_test_samples = []
+
+        # 训练集加载器划分和统计
         for i in range(args.num_clients):
             train_loader = dataloaders[0][i]
-            # distribution = get_distribution(train_loader, args.dataset)
-            print("train dataloader {} distribution".format(i))
+            print(f"train dataloader {i} distribution:")
             print(train_loader.dataset.len)
             dis = list(train_loader.dataset.sample_info.values())
             print([d / sum(dis) for d in dis])
+            total_train_samples.extend(dis)  # 收集所有客户端的训练数据以计算整体分布
+
             if args.local_test:
                 test_loader = dataloaders[2][i]
-                print("test dataloader {} distribution".format(i))
+                print(f"test dataloader {i} distribution:")
                 print(test_loader.dataset.len)
                 dis = list(test_loader.dataset.sample_info.values())
                 print([d / sum(dis) for d in dis])
+                total_test_samples.extend(dis)  # 收集所有客户端的测试数据以计算整体分布
+
         # 全局验证集加载器划分
         valid_loader = dataloaders[1]
-        print("global valid dataloader distribution")
+        print("global valid dataloader distribution:")
         print(valid_loader.dataset.len)
         dis = list(valid_loader.dataset.sample_info.values())
         print([d / sum(dis) for d in dis])
+
+        # 计算整体的训练数据和测试数据的不平衡度
+        def calculate_imbalance(samples):
+            mean = np.mean(samples)
+            std_dev = np.std(samples)
+            cv = std_dev / mean if mean else 0
+            return cv
+
+        train_cv = calculate_imbalance(total_train_samples)
+        print(f"Overall training data imbalance (CV): {train_cv:.4f}")
+
+        if total_test_samples:
+            test_cv = calculate_imbalance(total_test_samples)
+            print(f"Overall testing data imbalance (CV): {test_cv:.4f}")
+
+
 
 
 def get_distribution(dataloader, dataset_name, mode='pro'):
@@ -147,5 +169,11 @@ def get_distribution(dataloader, dataset_name, mode='pro'):
 
 # 模块内自己调用自己则会执行两次
 if __name__ == '__main__':
+    # train, test = get_mnist('../../datasets')
     args = algo_args_parser()
     get_dataloaders(args)
+    # dataloaders = split_data(train, args, {'num_workers': 0, 'pin_memory': True})
+    # show_data_distribution(dataloaders, args)
+    # print(dataloaders[2].dataset.sample_info)
+    # print(dataloaders[2].dataset.noise_idxs)
+    # print(dataloaders[2].dataset.noise_info)

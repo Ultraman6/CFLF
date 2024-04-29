@@ -1,7 +1,7 @@
 from nicegui import ui, app
 
 from visual.modules.subscribers import self_info, self_record, self_experiment
-from visual.pages.AI import ai_interface, ai_config
+from visual.pages.aigc import ai_interface, ai_config
 from visual.pages.epxeriment import experiment_page
 from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.lazy.lazy_tabs import lazy_tabs
@@ -11,7 +11,7 @@ class FramWindow:
     def __init__(self):
         self.tab_mapping = {
             '实验平台': ['实验模拟', '算法配置', '模型配置', '数据集配置', '机器配置'],
-            '个人设置': ['个人信息', '历史记录', '历史模型'],
+            '个人设置': ['个人信息', '历史记录', '历史实验', '历史模型'],
             'AI分析': ['AI配置', 'AI结果']
         }
         self.unit_mapping = {

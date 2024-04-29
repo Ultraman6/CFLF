@@ -19,12 +19,15 @@ class BaseClient:
         else:
             self.standalone_trainer = None
 
-    # 本地训练 调用trainer，传入args、device、训练数据集
-    def local_train(self, round_idx, w_global):
+    def train_unit(self, round_idx, w_global):
         self.local_params = copy.deepcopy(w_global)
         self.model_trainer.set_model_params(w_global)
         self.model_trainer.train(self.train_dataloader, round_idx)
-        upgrade_params = self.model_trainer.get_model_params(self.device)
+        return self.model_trainer.get_model_params(self.device)
+
+    # 本地训练 调用trainer，传入args、device、训练数据集
+    def local_train(self, round_idx, w_global):
+        upgrade_params = self.train_unit(round_idx, w_global)
         if self.args.grad_clip:  # 梯度裁剪
             upgrade_params = self.grad_clip(upgrade_params)
         if self.args.grad_norm:  # 梯度标准化

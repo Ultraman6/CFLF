@@ -1,23 +1,24 @@
 import copy
+import json
 import os
+import traceback
 from datetime import datetime
 from sqlite3 import IntegrityError
 from typing import Dict
-
 from ex4nicegui import to_ref
 from passlib.hash import bcrypt
 from tortoise import fields, models
 from tortoise.transactions import in_transaction
-
 from visual.parts.constant import profile_dict, path_dict, ai_config_dict
-from visual.parts.func import to_base64, get_image_data, move_all_files
+from visual.parts.func import to_base64, get_image_data, move_all_files, convert_keys_to_int
+
 
 
 class Experiment(models.Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=255)
     time = fields.DatetimeField(auto_now_add=True)
-    user = fields.ForeignKeyField('models.User', related_name='experiments')
+    user = fields.ForeignKeyField('models.User', related_name='experiments')  # 正确的外键定义方式
     config = fields.JSONField()
     distribution = fields.JSONField(null=True)
     task_names = fields.JSONField(null=True)
@@ -29,8 +30,9 @@ class Experiment(models.Model):
                              des: str) -> (bool, str):
         try:
             time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            await cls.create(name=name, user=user, time=time, config=config,
-                             distribution=dis, task_names=task_names, results=res, description=des)
+            user_instance = await User.get(id=user)
+            await cls.create(name=name, user=user_instance, time=time, config=config,
+                             distribution=json.dumps(dis), task_names=json.dumps(task_names), results=json.dumps(res), description=des)
             return True, f"{name}信息保存成功"
         except IntegrityError:
             # 如果违反了数据库的唯一性约束等
@@ -39,9 +41,9 @@ class Experiment(models.Model):
             # 捕获其他可能的异常，并返回错误消息
             return False, f"保存失败(其他错误): {str(e)}"
 
-    def remove(self):
+    async def remove(self):
         try:
-            self.delete()
+            await self.delete()
             return True, f"{self.name}数据删除成功"
         except IntegrityError:
             return False, "删除失败(完整性错误)"
@@ -57,7 +59,7 @@ class User(models.Model):
     local_path = fields.JSONField(null=True)  # 包含三种本地路径的JSON字段
     avatar = fields.TextField(null=True)  # 用户头像base64字符串
     ai_config = fields.JSONField(null=True)
-    share = fields.JSONField(null=True)  # 用户分享（id集合）
+    share = fields.JSONField(null=True)   # 用户分享（id集合）
     shared = fields.JSONField(null=True)  # 用户接收到的分享（id集合）
 
     @staticmethod
@@ -80,6 +82,15 @@ class User(models.Model):
             'avatar': to_ref(to_base64(get_image_data('running/default_logo.png')))
         }
 
+    async def get_exp(self):
+        records = await self.experiments.all().prefetch_related('user')
+        records.extend(await Experiment.filter(user_id__in=self.shared).all().prefetch_related('user'))
+        for record in records:
+            record.distribution = convert_keys_to_int(record.distribution)
+            record.task_names = convert_keys_to_int(record.task_names)
+            record.results = convert_keys_to_int(record.results)
+        return records
+
     def get_dict(self):
         profile = {}
         for k, v in profile_dict.items():
@@ -101,7 +112,7 @@ class User(models.Model):
         }
 
     @classmethod
-    async def login(cls, uname, pwd):
+    async def login(cls, uname, pwd): # 业务层逻辑
         user = await cls.get_or_none(username=uname)
         if not user:
             return False, '用户名不存在', None
@@ -111,7 +122,7 @@ class User(models.Model):
             return True, '登录成功', dict(user)
 
     @classmethod
-    async def register(cls, sign_info):
+    async def register(cls, sign_info): # 注册-业务层逻辑
         uname = sign_info['uname'].value
         pwd = sign_info['pwd'].value
         if not uname or uname == '':
@@ -125,7 +136,7 @@ class User(models.Model):
             path = {k: v['default'].value for k, v in sign_info['local_path'].items()}
             return await cls.create_new_user(uname, pwd, profile, path, sign_info['avatar'].value)
 
-    async def update(self, k, ref):
+    async def update(self, k, ref): # 更新-业务层映射
         if k == 'uname':
             return await self.set_username(ref.value)
         elif k == 'pwd':
@@ -145,10 +156,11 @@ class User(models.Model):
     async def get_unshare(cls, uid):
         # 查询共享用户的ID和用户名
         user = await User.get(id=uid)
-        return await User.filter(id__not_in=user.share + [user.id]).values_list('id', flat=True)
+        return await User.filter(id__not_in=user.share + [user.id]).values_list('id', 'username')
 
     @classmethod
     async def set_share(cls, uid: int, share_ids: list):
+        print( share_ids)
         async with in_transaction() as transaction:
             try:
                 user = await User.get(id=uid)
@@ -159,21 +171,25 @@ class User(models.Model):
                 # 找出新添加的共享用户ID和被移除的共享用户ID
                 added_share_ids = [sid for sid in share_ids if sid not in original_share_ids]
                 removed_share_ids = [sid for sid in original_share_ids if sid not in share_ids]
+                print(added_share_ids, removed_share_ids)
                 # 处理新添加的共享用户
-                if added_share_ids:
-                    added_users = await User.filter(id__in=added_share_ids)
+                if len(added_share_ids) > 0:
+                    added_users = await User.filter(id__in=added_share_ids).all()
                     for user in added_users:
                         if not user.shared:
                             user.shared = []
                         if uid not in user.shared:
                             user.shared.append(uid)
+                            user.shared = json.dumps(user.shared)
                     await User.bulk_update(added_users, fields=['shared'])
                 # 处理被移除的共享用户
-                if removed_share_ids:
+                if len(removed_share_ids) > 0:
+                    print(2)
                     removed_users = await User.filter(id__in=removed_share_ids)
                     for user in removed_users:
                         if user.shared and uid in user.shared:
                             user.shared.remove(uid)
+                            user.shared = json.dumps(user.shared)
                     await User.bulk_update(removed_users, fields=['shared'])
             except IntegrityError:
                 await transaction.rollback()
@@ -188,6 +204,12 @@ class User(models.Model):
         # 查询共享用户的ID和用户名
         user = await User.get(id=uid)
         return await User.filter(id__in=user.share).values_list('id', 'username')
+
+    @classmethod
+    async def get_shared(cls, uid):
+        # 查询共享用户的ID和用户名
+        user = await User.get(id=uid)
+        return await User.filter(id__in=user.shared).values_list('id', 'username')
 
     @classmethod
     async def get_all_users(cls):

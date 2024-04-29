@@ -39,8 +39,8 @@ def algo_args_parser():
     federated_learning = parser.add_argument_group('Federated Learning Configurations')
     federated_learning.add_argument('--round', type=int, default=10)
     federated_learning.add_argument('--epoch', type=int, default=1)
-    federated_learning.add_argument('--num_clients', type=int, default=5)
-    federated_learning.add_argument('--num_selected', type=float, default=5)
+    federated_learning.add_argument('--num_clients', type=int, default=20)
+    federated_learning.add_argument('--num_selected', type=float, default=20)
     federated_learning.add_argument('--data_change', type=float, default=0)
     federated_learning.add_argument('--sample_mode', type=str, default='random')
     federated_learning.add_argument('--agg_type', type=str, default='avg_sample',
@@ -55,17 +55,17 @@ def algo_args_parser():
     federated_learning.add_argument('--sample_mapping', type=str,
                                     default=json.dumps({
                                         "0": 1000, "1": 1000, "2": 1000, "3": 1000, "4": 1000,
-                                        # "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
-                                        # "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
-                                        # "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
+                                        "5": 1000, "6": 1000, "7": 1000, "8": 1000, "9": 1000,
+                                        "10": 1000, "11": 1000, "12": 1000, "13": 1000, "14": 1000,
+                                        "15": 1000, "16": 1000, "17": 1000, "18": 1000, "19": 1000,
                                     }))
-    federated_learning.add_argument('--data_type', type=str, default='custom_class',
+    federated_learning.add_argument('--data_type', type=str, default='dirichlet',
                                     choices=['homo', 'dirichlet', 'shards', 'custom_class'])
     federated_learning.add_argument('--dir_alpha', type=float, default=0.1)
     federated_learning.add_argument('--class_per_client', type=int, default=3)
     federated_learning.add_argument('--class_mapping', type=str,
                                     default=json.dumps({
-                                        "0": 1, "1": 1, "2": 2, "3": 2, "4": 3,
+                                        "0": 1, "1": 2, "2": 3, "3": 4, "4": 5,
                                         # "5": 3, "6": 4, "7": 4, "8": 5, "9": 5,
                                         # "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
                                         # "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
@@ -123,12 +123,20 @@ def algo_args_parser():
     specific_task.add_argument('--budget_mode', default='equal', type=str)
     specific_task.add_argument('--cost_mode', default='random', type=str)
     specific_task.add_argument('--cost_mapping', type=str, default=
-                                            json.dumps({"0": 0.2, "1": 0.2, "2": 0.2, "3": 0.2, "4": 0.2}
-    ))
+                                            json.dumps({
+                                                "0": 0.2, "1": 0.2, "2": 0.2, "3": 0.2, "4": 0.2,
+                                                "5": 0.2, "6": 0.2, "7": 0.2, "8": 0.2, "9": 0.2,
+                                                "10": 0.2, "11": 0.2, "12": 0.2, "13": 0.2, "14": 0.2,
+                                                "15": 0.2, "16": 0.2, "17": 0.2, "18": 0.2, "19": 0.2,
+                                            }))
     specific_task.add_argument('--bid_mode', default='follow', type=str)
     specific_task.add_argument('--bid_mapping', type=str, default=
-                                            json.dumps({"0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4, "4": 0.5}
-    ))
+                                            json.dumps({
+                                                "0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4, "4": 0.5,
+                                                "5": 0.5, "6": 0.5, "7": 0.5, "8": 0.5, "9": 0.5,
+                                                "10": 0.5, "11": 0.5, "12": 0.5, "13": 0.5, "14": 0.5,
+                                                "15": 0.5, "16": 0.5, "17": 0.5, "18": 0.5, "19": 0.5,
+                                            }))
     specific_task.add_argument('--auction_mode', default='cmab', type=str)
     specific_task.add_argument('--budgets', default=(10, 10), type=tuple)
     # 二阶段质量公平参数
@@ -148,7 +156,8 @@ def algo_args_parser():
     specific_task.add_argument('--after', default=5, type=int)
     #  CFFL 参数
     specific_task.add_argument('--a', default=5, type=float)
-
+    # FedProx参数
+    specific_task.add_argument('--mu', default=0.5, type=float)
     # specific_task.add_argument('--contrib_mode', default='poj', choices=['poj', 'tmc', 'cos'], type=str)
     # specific_task.add_argument('--reward_mode', default='mask', choices=['mask', 'RANK', 'cffl'], type=str)
     # specific_task.add_argument('--fusion_mode', default='attention', choices=['attention', 'margin_loss'], type=str)

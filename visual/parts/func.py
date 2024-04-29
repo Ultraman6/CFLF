@@ -1,18 +1,115 @@
 import base64
 import colorsys
+import io
 import os
 import random
 import shutil
 import time
+from datetime import datetime
 
 import aiohttp
+import pandas as pd
 import requests
 from ex4nicegui.reactive import local_file_picker, rxui
 from ex4nicegui.utils.signals import to_ref_wrapper, to_ref, on
 from nicegui import ui, context
+from openpyxl.styles import Alignment
+from openpyxl.workbook import Workbook
 
 from visual.parts.constant import record_names, record_types, type_name_mapping, user_info_mapping
 from visual.parts.local_file_picker import local_file_picker
+
+
+def algo_to_sheets(config):
+    # 初始化存放所有sheets数据的字典
+    sheets_dict = {}
+
+    # 处理除algo_params之外的其他配置，这些会放在一个单独的sheet中
+    main_config = {k: v for k, v in config.items() if k != 'algo_params'}
+    sheets_dict['main_config'] = pd.DataFrame([main_config])
+
+    # 处理algo_params配置，每个元素创建一个新的sheet
+    for algo_param in config['algo_params']:
+        # 参数id作为sheet的名字
+        sheet_name = f"algo_params_{algo_param['id']}"
+        # 分离'params'和其他配置
+        param_config = algo_param.pop('params')
+        other_config = algo_param  # 包括id, type, spot, algo
+
+        # 拆分params中的数组，使每个值成为一行
+        max_len = max(len(v) if isinstance(v, list) else 1 for v in param_config.values())
+        expanded_params = []
+        for i in range(max_len):
+            row = {k: v[i] if isinstance(v, list) and i < len(v) else v for k, v in param_config.items()}
+            expanded_params.append(row)
+
+        # 将拆分后的参数与其他配置合并
+        full_config_rows = []
+        for row in expanded_params:
+            full_row = {**other_config, **row}
+            full_config_rows.append(full_row)
+
+        # 将配置转换为DataFrame
+        sheet_data = pd.DataFrame(full_config_rows)
+        sheets_dict[sheet_name] = sheet_data
+
+    return sheets_dict
+
+def ext_info(info_dict, target_key):
+    # 递归函数来展开指定键
+    def recurse_extract(sub_dict, target_key):
+        if target_key in sub_dict:  # 如果找到目标键
+            # 返回目标键对应的值
+            return sub_dict[target_key]
+        else:  # 否则递归查找每个字典类型的值
+            flag = False
+            res = {}
+            for k, v in sub_dict.items():
+                if isinstance(v, dict):
+                    result = recurse_extract(v, target_key)
+                    if result is not None:
+                        flag=True
+                        res[k] = result
+            if flag:
+                return res
+            else:
+                return None
+
+    # 开始处理传入的字典
+    new_dict = {}
+    for k, v in info_dict.items():
+        if k == target_key:
+            new_dict = v  # 直接取值，不再递归
+        elif isinstance(v, dict):
+            # 递归查找并构建新的字典
+            result = recurse_extract(v, target_key)
+            if result is not None:  # 找到了目标键
+                new_dict[k] = result
+            else:  # 未找到目标键，保持原结构
+                new_dict[k] = v
+        else:  # 非字典类型的值，直接保留
+            new_dict[k] = v
+
+    return new_dict
+
+
+
+
+# 转换键的辅助函数
+def convert_keys_to_int(data):
+    if isinstance(data, dict):
+        new_dict = {}
+        for key, value in data.items():
+            if key.isdigit():  # 检查键是否为数字字符串
+                int_key = int(key)  # 转换为整数类型
+            else:
+                int_key = key  # 保持为原始类型
+            new_dict[int_key] = convert_keys_to_int(value)  # 递归调用
+        return new_dict
+    elif isinstance(data, list):
+        return [convert_keys_to_int(item) for item in data]  # 处理列表中的每个元素
+    else:
+        return data  # 非容器类型直接返回原值
 
 
 def get_image_data(image_path):
@@ -66,7 +163,6 @@ async def han_file_choice(ref, limited):
 def my_vmodel(data, key):
     def setter(new):
         data[key] = new
-
     return to_ref_wrapper(lambda: data[key], setter)
 
 
@@ -313,6 +409,7 @@ def color(value):
 
 
 def cal_dis_dict(infos, target='训练集'):
+    print(infos)
     infos_each = infos['each']
     infos_all = infos['all']
     num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0])  # 现在还有噪声数据，必须取元组的首元素
@@ -320,6 +417,17 @@ def cal_dis_dict(infos, target='训练集'):
     colors = list(map(lambda x: color(tuple(x)), ncolors(num_classes)))
     legend_dict, series_dict = get_dicts(colors, infos_each, infos_all)
     return {
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "saveAsImage": {
+                    "show": True,
+                    "title": "下载图像",
+                    "type": "png",
+                    "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
+                }
+            }
+        },
         "xAxis": {
             "type": "category",
             "name": target + 'ID',
@@ -397,7 +505,7 @@ def get_grad_info(info_ref):
     on(info_ref)(han_update)
 
 
-def get_user_info(info_ref):
+def get_user_info(info_ref, info_name, task_name):
     with ui.row().classes('w-full justify-center') as row:
         ui.label('请先执行任务')
     columns = [
@@ -412,16 +520,38 @@ def get_user_info(info_ref):
         {"name": "util", "label": "效用", "field": "util", 'align': 'center'},
         {"name": "contrib", "label": "贡献", "field": "contrib", 'align': 'center'},
         {"name": "reward", "label": "奖励", "field": "reward", 'align': 'center'},
-        {"name": "times", "label": "选中次数", "field": "times", 'align': 'center'},
+        {"name": "times", "label": "累计选中次数", "field": "times", 'align': 'center'},
     ]
+    def download_data():
+        # print(his_info)
+        wb = Workbook()
+        wb.remove(wb.active)
+        for cid, infos in his_info.items():
+            ws = wb.create_sheet(title='客户'+str(cid))
+            # 初始化行和列索引
+            row_index = 1  # 第一行为任务名称，第二行开始为数据类型和数据
+            column_index = 1
+            num = len(infos)
+            for item in columns:
+                ws.cell(row=1, column=column_index).value = item['label']
+                for i in range(num):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = infos[i][item['name']]
+                column_index += 1
+        data = io.BytesIO()
+        wb.save(data)
+        data.seek(0)
+        ui.download(data.read(), get_local_download_path(info_name, task_name))
+
     his_info, icon_list, dialogs, tables = {}, {}, {}, {}  # 此容器用于存放历史的信息记录
+
 
     def han_update():
         if len(info_ref.value) != 0:
             if info_ref.value[-1][0] == 'statue':  # 若是状态的更新
                 if len(icon_list) == 0:
                     row.clear()
-                    with row.classes('w-full'):
+                    with row:
+                        ui.button('下载数据', icon='download', on_click=download_data).props('icon=cloud_download')
                         for cid, statue in info_ref.value[-1][1].items():
                             if cid not in his_info:
                                 his_info[cid] = []  # 每个客户信息用列表存放绑定table
@@ -435,7 +565,8 @@ def get_user_info(info_ref):
                                 ui.label(f'客户{cid}').classes('w-full')
                 else:
                     for cid, statue in info_ref.value[-1][1].items():
-                        icon_list[cid].props(f'color={statue}')
+                        icon_list[cid].props('color=gray').tooltip('落选' if statue == 'gray' else '获胜')
+
             elif info_ref.value[-1][0] == 'info':  # 若是信息的更新
                 this_info = info_ref.value[-1][1]
                 for cid, info in this_info.items():  # 更新每个用户的基本信息
@@ -472,6 +603,17 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             })
 
     options = {
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "saveAsImage": {
+                    "show": True,
+                    "title": "下载图像",
+                    "type": "png",
+                    "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
+                }
+            }
+        },
         'grid': {
             "left": '10%',
             "top": '10%',
@@ -573,6 +715,17 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
 # 局部信息使用客户-指标-轮次的方式展示，暂不支持算法-时间的显示
 def get_local_option(info_dict: dict, mode_ref, info_name: str):
     return {
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "saveAsImage": {
+                    "show": True,
+                    "title": "下载图像",
+                    "type": "png",
+                    "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
+                }
+            }
+        },
         'grid': {
             "left": '10%',
             "top": '10%',
@@ -656,29 +809,552 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
         ],
     }
 
+# 全局信息使用算法-指标-轮次/时间的方式展示
+def get_global_option_res(infos_dict, mode_ref, info_name, task_names):
+    record_type = record_types['global']['param'][info_name]
+    record_name = record_names['global']['param'][info_name]
+    li = record_type.split('_')
+    record_type = li[0]
+    alloc_type = li[1] if len(li) > 1 else ''
+    new_series, new_names, new_x = [], [], None
+    if alloc_type == 'bul' and len(infos_dict[mode_ref.value][0]) != 0:
+        new_names = list(list(infos_dict[mode_ref.value][0])[-1][1].keys())
+        if record_type == 'line':  # 需要按x轴值排序
+            paired_data = [
+                (item[0], {name: item[1][name] for name in new_names})
+                for item in infos_dict[mode_ref.value][0].value
+            ]
+            paired_data.sort(key=lambda x: x[0])
+        else:
+            paired_data = infos_dict[mode_ref.value][0]
+        for name in new_names:
+            data = [(item[0], item[1][name]) for item in paired_data]
+            new_series.append({
+                'name': name,
+                'data': data,
+                'type': record_type
+            })
+    options = {
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "saveAsImage": {
+                    "show": True,
+                    "title": "下载图像",
+                    "type": "png",
+                    "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
+                }
+            }
+        },
+        'grid': {
+            "left": '10%',
+            "top": '10%',
+            "right": '10%',
+            "bottom": '10%',
+            "containLabel": True
+        },
+        'tooltip': {
+            'trigger': 'axis',
+            'axisPointer': {
+                'type': 'cross',
+                'lineStyle': {  # 设置纵向指示线
+                    'type': 'dashed',
+                    'color': "rgba(198, 196, 196, 0.75)"
+                }
+            },
+            'crossStyle': {  # 设置横向指示线
+                'color': "rgba(198, 196, 196, 0.75)"
+            },
+            'formatter': "算法{a}<br/>" + record_names['global']['type'][
+                mode_ref.value] + ',' + record_type + "<br/>{c}",
+            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+        },
+        "xAxis": {
+            "type": 'category' if record_type == 'bar' else 'value',
+            "name": record_names['global']['type'][mode_ref.value]
+            if info_name not in type_name_mapping else type_name_mapping[info_name],
+            'minInterval': 1 if mode_ref.value == 'round' else None,
+        },
+        "yAxis": {
+            "type": "value",
+            "name": record_name,
+            "axisLabel": {
+                'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'axisLine': {
+                'show': True
+            },
+            'splitNumber': 5,  # 分成5个区间
+        },
+        'legend': {
+            'data': [task_names[tid] for tid in task_names] if alloc_type != 'bul' or
+                                                               len(infos_dict[mode_ref.value][
+                                                                       0]) == 0 else new_names,
+            'type': 'scroll',  # 启用图例的滚动条
+            'orient': 'horizontal',  # 横向排列
+            'pageButtonItemGap': 5,
+            'pageButtonGap': 20,
+            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+            'textStyle': {
+                'overflow': 'truncate',  # 当文本超出宽度时，截断文本
+                'ellipsis': '...',  # 截断时末尾添加的字符串
+            },
+            'tooltip': {
+                'show': True  # 启用悬停时的提示框
+            }
+        },
+        'series': [
+            {
+                'name': task_names[tid],
+                'type': record_type,
+                'data': infos_dict[mode_ref.value][tid],  # 受制于rx，这里必须告知前端为list类型
+                'connectNulls': True,  # 连接数据中的空值
+            }
+            for tid in infos_dict[mode_ref.value]
+        ] if alloc_type != 'bul' or len(infos_dict[mode_ref.value][0]) == 0 else new_series,
+        'dataZoom': [
+            {
+                'type': 'inside',  # 放大和缩小
+                'orient': 'vertical',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            },
+            {
+                'type': 'inside',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            }
+        ],
+    }
+    if alloc_type == 'seg' and infos_dict[mode_ref.value][0]:
+        m = max(max(t) for t in infos_dict[mode_ref.value][0])
+        options['series'].append({
+            "type": 'line',
+            "data": [[0, 0], [m, m]],  # y=x
+            "lineStyle": {
+                "color": 'red',
+                "type": 'dashed',
+                "width": 1
+            }
+        })
+    return options
 
-def control_global_echarts(info_name, infos_dicts, task_names):
+def get_local_option_res(info_dict: dict, mode_ref, info_name: str):
+    return {
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "saveAsImage": {
+                    "show": True,
+                    "title": "下载图像",
+                    "type": "png",
+                    "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
+                }
+            }
+        },
+        'grid': {
+            "left": '10%',
+            "top": '10%',
+            "right": '10%',
+            "bottom": '10%',
+            "containLabel": True
+        },
+        'tooltip': {
+            'trigger': 'axis',
+            'axisPointer': {
+                'type': 'cross',
+                'lineStyle': {  # 设置纵向指示线
+                    'type': 'dashed',
+                    'color': "rgba(198, 196, 196, 0.75)"
+                }
+            },
+            'crossStyle': {  # 设置横向指示线
+                'color': "rgba(198, 196, 196, 0.75)"
+            },
+            'formatter': "客户{a}<br/>" + record_names['local']['type'][mode_ref.value] + ',' +
+                         record_names['local']['param'][info_name] + "<br/>{c}",
+            'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
+        },
+        "xAxis": {
+            "type": 'value',
+            "name": record_names['local']['type'][mode_ref.value],
+            'minInterval': 1 if mode_ref.value == 'round' else None,
+        },
+        "yAxis": {
+            "type": "value",
+            "name": record_names['local']['param'][info_name],
+            "axisLabel": {
+                'interval': 'auto',  # 根据图表的大小自动计算步长
+            },
+            'axisLine': {
+                'show': True
+            },
+            'splitNumber': 5,  # 分成5个区间
+        },
+        'legend': {
+            'data': ['客户' + str(cid) for cid in info_dict[mode_ref.value]],
+            'type': 'scroll',  # 启用图例的滚动条
+            'orient': 'horizontal',  # 横向排列
+            'pageButtonItemGap': 5,
+            'pageButtonGap': 20,
+            'pageButtonPosition': 'end',  # 将翻页按钮放在最后
+            'textStyle': {
+                # 'width': 80,  # 设置图例文本的宽度
+                'overflow': 'truncate',  # 当文本超出宽度时，截断文本
+                'ellipsis': '...',  # 截断时末尾添加的字符串
+            },
+            'tooltip': {
+                'show': True  # 启用悬停时的提示框
+            }
+        },
+        'series': [
+            {
+                'name': '客户' + str(cid),
+                'type': record_types['local']['param'][info_name],
+                'data': info_dict[mode_ref.value][cid],  # 受制于rx，这里必须告知前端为list类型
+                'connectNulls': True,  # 连接数据中的空值
+            }
+            for cid in info_dict[mode_ref.value]
+        ],
+        'dataZoom': [
+            {
+                'type': 'inside',  # 放大和缩小
+                'orient': 'vertical',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            },
+            {
+                'type': 'inside',
+                'start': 0,
+                'end': 100,
+                'minSpan': 1,  # 最小缩放比例，可以根据需要调整
+                'maxSpan': 100,  # 最大缩放比例，可以根据需要调整
+            }
+        ],
+    }
+
+def get_local_download_path(info_name, task_name=None, suffix='.xlsx'):
+    """创建下载文件的名称，包含时间戳。"""
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if task_name is None:
+        filename = f"{info_name}_{current_time}{suffix}"
+    else:
+        filename = f"{task_name}_{info_name}_{current_time}{suffix}"
+    print(filename)
+    return filename
+
+def transform_info_dicts(original_info):
+    transformed_info = {}
+    for data_type, tasks_data in original_info.items():
+        for task_id, values in tasks_data.items():
+            if task_id not in transformed_info:
+                transformed_info[task_id] = {}
+            transformed_info[task_id][data_type] = values  # 保留完整的[索引, 值]对
+    return transformed_info
+
+def download_global_info(info_name, task_names, info_dicts, mode_mapping, mode_ref):
+    # 创建工作簿和工作表
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'All_Tasks'
+    # 初始化行和列索引
+    row_index = 2  # 第一行为任务名称，第二行开始为数据类型和数据
+    column_index = 1
+    record_name = record_names['global']['param'][info_name]
+    record_type = record_types['global']['param'][info_name]
+    li = record_type.split('_')
+    record_type = li[0]
+    alloc_type = li[1] if len(li) > 1 else ''
+    new_series, new_names = [], []
+    if alloc_type == 'bul' and len(info_dicts[mode_ref.value][0]) != 0:
+        new_names = list(list(info_dicts[mode_ref.value][0])[-1][1].keys())
+        if record_type == 'line':  # 需要按x轴值排序
+            paired_data = [
+                (item[0], {name: item[1][name] for name in new_names})
+                for item in info_dicts[mode_ref.value][0].value
+            ]
+            paired_data.sort(key=lambda x: x[0])
+        else:
+            paired_data = info_dicts[mode_ref.value][0]
+        for name in new_names:
+            data = [(item[0], item[1][name]) for item in paired_data]
+            new_series.append({
+                'name': name,
+                'data': data,
+                'type': record_type
+            })
+        for item in new_series:
+            t_name = item['name']
+            data = item['data']
+
+            # 合并任务名称所在的列，并居中对齐任务名称
+            ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + 1)
+            cell = ws.cell(row=1, column=column_index)
+            cell.value = t_name
+            cell.alignment = Alignment(horizontal='center')
+
+            ws.cell(row=row_index, column=column_index).value = type_name_mapping[info_name]
+            for i, pair in enumerate(data):
+                ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+            column_index += 1
+
+            # 在最后一个数据类型之后添加infoname标签并写入数据
+            ws.cell(row=row_index, column=column_index).value = record_name
+            for i, pair in enumerate(data):
+                ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+            column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+    else:
+        info_dicts = transform_info_dicts(info_dicts)
+        for tid, t_name in task_names.items():
+            data_types = list(info_dicts[tid].keys())
+            num_data_types = len(data_types)
+
+            # 合并任务名称所在的列，并居中对齐任务名称
+            ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + num_data_types)
+            cell = ws.cell(row=1, column=column_index)
+            cell.value = t_name
+            cell.alignment = Alignment(horizontal='center')
+
+            # 写入数据类型名称和对应数据
+            for data_type in data_types:
+                ws.cell(row=row_index, column=column_index).value = mode_mapping[data_type] \
+                    if info_name not in type_name_mapping else type_name_mapping[info_name]
+                for i, pair in enumerate(info_dicts[tid][data_type]):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+                column_index += 1
+
+            # 在最后一个数据类型之后添加infoname标签并写入数据
+            ws.cell(row=row_index, column=column_index).value = record_name
+            for i, pair in enumerate(info_dicts[tid][data_types[0]]):
+                ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+
+            column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+
+    # 写入数据到内存中的字节流
+    data = io.BytesIO()
+    wb.save(data)
+    data.seek(0)
+    ui.download(data.read(), get_local_download_path(info_name))
+
+
+def download_global_infos(exp_name, task_names, infos_dicts):
+    # 创建工作簿和工作表
+    wb = Workbook()
+    wb.remove(wb.active)
+    for info_name, info_dicts in infos_dicts.items():
+        # 初始化行和列索引
+        row_index = 2  # 第一行为任务名称，第二行开始为数据类型和数据
+        column_index = 1
+        record_name = record_names['global']['param'][info_name]
+        ws = wb.create_sheet(title=record_name)
+        record_type = record_types['global']['param'][info_name]
+        li = record_type.split('_')
+        record_type = li[0]
+        alloc_type = li[1] if len(li) > 1 else ''
+        new_series, new_names = [], []
+        mode_list = list(info_dicts.keys())
+        mode_mapping = {mode: record_names['global']['type'][mode] for mode in mode_list}
+        if alloc_type == 'bul' and len(info_dicts[mode_list[0]][0]) != 0:
+            new_names = list(list(info_dicts[mode_list[0]][0])[-1][1].keys())
+            if record_type == 'line':  # 需要按x轴值排序
+                paired_data = [
+                    (item[0], {name: item[1][name] for name in new_names})
+                    for item in info_dicts[mode_list[0]][0].value
+                ]
+                paired_data.sort(key=lambda x: x[0])
+            else:
+                paired_data = info_dicts[mode_list[0]][0]
+            for name in new_names:
+                data = [(item[0], item[1][name]) for item in paired_data]
+                new_series.append({
+                    'name': name,
+                    'data': data,
+                    'type': record_type
+                })
+            for item in new_series:
+                t_name = item['name']
+                data = item['data']
+
+                # 合并任务名称所在的列，并居中对齐任务名称
+                ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + 1)
+                cell = ws.cell(row=1, column=column_index)
+                cell.value = t_name
+                cell.alignment = Alignment(horizontal='center')
+
+                ws.cell(row=row_index, column=column_index).value = type_name_mapping[info_name]
+                for i, pair in enumerate(data):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+                column_index += 1
+
+                # 在最后一个数据类型之后添加infoname标签并写入数据
+                ws.cell(row=row_index, column=column_index).value = record_name
+                for i, pair in enumerate(data):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+                column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+        else:
+            info_dicts = transform_info_dicts(info_dicts)
+            for tid, t_name in task_names.items():
+                data_types = list(info_dicts[tid].keys())
+                num_data_types = len(data_types)
+
+                # 合并任务名称所在的列，并居中对齐任务名称
+                ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + num_data_types)
+                cell = ws.cell(row=1, column=column_index)
+                cell.value = t_name
+                cell.alignment = Alignment(horizontal='center')
+
+                # 写入数据类型名称和对应数据
+                for data_type in data_types:
+                    ws.cell(row=row_index, column=column_index).value = mode_mapping[data_type] \
+                        if info_name not in type_name_mapping else type_name_mapping[info_name]
+                    for i, pair in enumerate(info_dicts[tid][data_type]):
+                        ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+                    column_index += 1
+
+                # 在最后一个数据类型之后添加infoname标签并写入数据
+                ws.cell(row=row_index, column=column_index).value = record_name
+                for i, pair in enumerate(info_dicts[tid][data_types[0]]):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+
+                column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+
+    # 写入数据到内存中的字节流
+    data = io.BytesIO()
+    wb.save(data)
+    data.seek(0)
+    ui.download(data.read(), get_local_download_path('全局全局信息', exp_name))
+
+def download_local_info(info_name, task_name, info_dicts, mode_mapping):
+    record_name = record_names['local']['param'][info_name]
+    info_dicts = transform_info_dicts(info_dicts)
+    # 创建工作簿和工作表
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'All_Clients'
+    # 初始化行和列索引
+    row_index = 2  # 第一行为任务名称，第二行开始为数据类型和数据
+    column_index = 1
+    for cid, value in info_dicts.items():
+        data_types = list(value.keys())
+        num_data_types = len(data_types)
+
+        # 合并任务名称所在的列，并居中对齐任务名称
+        ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + num_data_types)
+        cell = ws.cell(row=1, column=column_index)
+        cell.value = '客户' + str(cid)
+        cell.alignment = Alignment(horizontal='center')
+
+        # 写入数据类型名称和对应数据
+        for data_type in data_types:
+            ws.cell(row=row_index, column=column_index).value = mode_mapping[data_type] \
+                if info_name not in type_name_mapping else type_name_mapping[info_name]
+            for i, pair in enumerate(info_dicts[cid][data_type]):
+                ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+            column_index += 1
+
+        # 在最后一个数据类型之后添加infoname标签并写入数据
+        ws.cell(row=row_index, column=column_index).value = record_name
+        for i, pair in enumerate(info_dicts[cid][data_types[0]]):
+            ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+
+        column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+    # 写入数据到内存中的字节流
+    data = io.BytesIO()
+    wb.save(data)
+    data.seek(0)
+    ui.download(data.read(), get_local_download_path(info_name, task_name))
+
+def download_local_infos(task_name, infos_dicts):
+    # 创建工作簿和工作表
+    wb = Workbook()
+    wb.remove(wb.active)
+    for info_name, info_dicts in infos_dicts.items():
+        # 创建工作表并设置标题
+        record_name = record_names['local']['param'][info_name]
+        ws = wb.create_sheet(title=record_name)
+        # 初始化行和列索引
+        row_index = 2  # 第一行为任务名称，第二行开始为数据类型和数据
+        column_index = 1
+
+        info_dicts = transform_info_dicts(info_dicts)
+        for cid, value in info_dicts.items():
+            data_types = list(value.keys())
+            num_data_types = len(data_types)
+
+            # 合并任务名称所在的列，并居中对齐任务名称
+            ws.merge_cells(start_row=1, start_column=column_index, end_row=1, end_column=column_index + num_data_types)
+            cell = ws.cell(row=1, column=column_index)
+            cell.value = '客户' + str(cid)
+            cell.alignment = Alignment(horizontal='center')
+            mode_mapping = {mode: record_names['local']['type'][mode] for mode in list(infos_dicts[info_name].keys())}
+            # 写入数据类型名称和对应数据
+            for data_type in data_types:
+                ws.cell(row=row_index, column=column_index).value = mode_mapping[data_type]
+                for i, pair in enumerate(info_dicts[cid][data_type]):
+                    ws.cell(row=row_index + 1 + i, column=column_index).value = pair[0]  # 从第三行开始写入数据
+                column_index += 1
+
+            # 在最后一个数据类型之后添加infoname标签并写入数据
+            ws.cell(row=row_index, column=column_index).value = record_name
+            for i, pair in enumerate(info_dicts[cid][data_types[0]]):
+                ws.cell(row=row_index + 1 + i, column=column_index).value = pair[1]  # 写入info_name对应的数据
+
+            column_index += 2  # 跳过一列作为分隔列后，继续下一个任务
+    # 写入数据到内存中的字节流
+    data = io.BytesIO()
+    wb.save(data)
+    data.seek(0)
+    ui.download(data.read(), get_local_download_path('全部本地信息', task_name))
+
+
+
+def control_global_echarts(info_name, infos_dicts, task_names, is_res=False):
     mode_list = list(infos_dicts.keys())
     mode_mapping = {mode: record_names['global']['type'][mode] for mode in mode_list}
     mode_ref = to_ref(mode_list[0])
     with ui.column().classes("h-[40rem] w-[40rem]"):
-        rxui.select(value=mode_ref, options=mode_mapping)
-        rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names),
-                     not_merge=False).classes("h-[40rem] w-[40rem]")
+        with ui.row():
+            rxui.select(value=mode_ref, options=mode_mapping)
+            if is_res:
+                rxui.button('下载数据', on_click=lambda: \
+                    download_global_info(info_name, task_names, infos_dicts, mode_mapping, mode_ref)).props('icon=cloud_download')
+        if is_res:
+            rxui.echarts(lambda: get_global_option_res(infos_dicts, mode_ref, info_name, task_names),
+                         not_merge=False).classes("h-[40rem] w-[40rem]")
+        else:
+            rxui.echarts(lambda: get_global_option(infos_dicts, mode_ref, info_name, task_names),
+                         not_merge=False).classes("h-[40rem] w-[40rem]")
 
 
-def control_local_echarts(infos_dicts):
+def control_local_echarts(infos_dicts, is_res=False, task_name=None):
     with rxui.grid(columns=2).classes('w-full h-full'):
+
         for info_name in infos_dicts:
             with ui.column().classes("h-[40rem] w-[40rem]"):
                 mode_list = list(infos_dicts[info_name].keys())
                 mode_ref = to_ref(mode_list[0])
                 mode_mapping = {mode: record_names['local']['type'][mode] for mode in mode_list}
-                rxui.select(value=mode_ref, options=mode_mapping)
-                rxui.echarts(
-                    lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref,
-                                                                                    info_name),
-                    not_merge=False).classes("h-[40rem] w-[40rem]")
+                with ui.row():
+                    rxui.select(value=mode_ref, options=mode_mapping)
+                    if is_res:
+                        rxui.button('下载数据', on_click=lambda: download_local_info(info_name, task_name if task_name is not None else '暂无任务名称',
+                                                                                     infos_dicts[info_name], mode_mapping)).props('icon=cloud_download')
+                if is_res:
+                    rxui.echarts(
+                        lambda mode_ref=mode_ref, info_name=info_name: get_local_option_res(infos_dicts[info_name],
+                                                                                             mode_ref, info_name),
+                        not_merge=False).classes("h-[40rem] w-[40rem]")
+                else:
+                    rxui.echarts(
+                        lambda mode_ref=mode_ref, info_name=info_name: get_local_option(infos_dicts[info_name], mode_ref,
+                                                                                        info_name),
+                        not_merge=False).classes("h-[40rem] w-[40rem]")
 
 
 async def move_all_files(old_path, new_path):
@@ -701,7 +1377,7 @@ def locked_page_height():
 
     此函数创建时的 nicegui 版本为:1.4.20
     """
-    client = context.get_client()
+    client = context.client
     q_page = client.page_container.default_slot.children[0]
     q_page.props(
         ''':style-fn="(offset, height) => ( { height: offset ? `calc(100vh - ${offset}px)` : '100vh' })"'''

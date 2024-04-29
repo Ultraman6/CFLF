@@ -5,10 +5,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 from tortoise import Tortoise
 
+# 需要认证的接口
 unrestricted_page_routes = {'/hall', '/login', '/register', '/doubt'}
-
-
-class AuthMiddleware(BaseHTTPMiddleware):
+class AuthMiddleware(BaseHTTPMiddleware):  # 中间件实体
     async def dispatch(self, request: Request, call_next):
         if not app.storage.user.get('authenticated', False):
             if request.url.path in Client.page_routes.values() and request.url.path not in unrestricted_page_routes:

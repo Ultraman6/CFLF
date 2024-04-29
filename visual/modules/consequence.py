@@ -6,7 +6,8 @@ from nicegui import ui, app, events
 from nicegui.functions.refreshable import refreshable_method
 from visual.models import Experiment
 from visual.parts.constant import state_dict
-from visual.parts.func import control_global_echarts, control_local_echarts
+from visual.parts.func import control_global_echarts, control_local_echarts, ext_info, download_local_info, \
+    download_local_infos, download_global_infos
 from visual.parts.record import RecordManager
 
 
@@ -22,7 +23,8 @@ class res_ui:
         self.infos_dict = {}  # 无任何响应式
         self.task_names = {}
         self.rows = deep_ref([])
-        self.handle_task_info()
+        if self.experiment is not None:
+            self.handle_task_info()
         self.save_root = to_ref('../files/results')
         self.show_panels()
         self.draw_res()
@@ -58,31 +60,36 @@ class res_ui:
             ''')
             table.on("delete", self.delete_res)
             table.on("save", self.save_res)
-            ui.button('将本次实验结果保存至数据库', on_click=self.han_save).classes('w-full flat dense')
+            with ui.column().classes('items-center'):
+                ui.button('将本次实验信息保存至数据库', on_click=self.han_save).classes('flat dense')
 
     # 将本次实验的全部信息保存至数据库
     def han_save(self):
-        des = to_ref('')
-        with ui.dialog().props('persistent') as dialog, ui.card():
-            rxui.textarea(des, placeholder='请为本实验添加一些描述')
-            ui.button('确定保存', on_click=lambda: save_to_db)
-            ui.button('暂不保存', on_click=dialog.close)
+        if not (hasattr(self, 'dialog') and self.dialog is not None):
+            des = to_ref('')
+            with ui.dialog().props('persistent') as self.dialog, ui.card():
+                rxui.textarea(value=des, placeholder='请为本实验添加一些描述').classes('w-full')
+                ui.button('确定保存', on_click=lambda: save_to_db(des.value))
+                ui.button('暂不保存', on_click=self.dialog.close)
 
-        async def save_to_db():
-            config = {'tem': self.configer.algo_args, 'algo': self.configer.exp_args}
-            dis = self.previewer.visual_data_infos
-            state, mes = await Experiment.create_new_exp(name=self.experiment.name, user=app.storage.user['user']['id'],
-                                                         config=config, dis=dis,
-                                                         task_names=self.task_names, res=self.infos_dict, des=des.value)
-            ui.notify(mes, type=state_dict[state])
-            dialog.close()
+            async def save_to_db(des):
+                print(des)
+                config = {'tem': self.configer.algo_args, 'algo': self.configer.exp_args}
+                dis = self.previewer.visual_data_infos
+                state, mes = await Experiment.create_new_exp(name=self.experiment.exp_name, user=app.storage.user['user']['id'],
+                                                             config=config, dis=dis,
+                                                             task_names=self.task_names, res=self.infos_dict, des=des)
+                ui.notify(mes, type=state_dict[state])
+                self.dialog.close()
+
+        self.dialog.open()
 
     # 结果保存API
     def save_res(self, e: events.GenericEventArguments):
         idx = e.args["id"]  # 保存不需要直到顺序id
         self.rows.value[idx]['type'] = '新(已保存)'
         self.res_saver.filer.save_task_result(self.task_names[idx], e.args["time"], self.experiment.results[idx])
-        self.res_saver.show_dialog.refresh()
+        self.res_saver.dialog_content.refresh()
         ui.notify('Save the result of Task' + str(idx))
 
     def delete_res(self, e: events.GenericEventArguments):
@@ -91,15 +98,26 @@ class res_ui:
         self.draw_res.refresh()  # 刷新图表
         self.rows.value.pop(idx)
 
-    def read_res(self, task_info):
+    def read_res(self, task_info, batch=False):
         tid = len(self.task_names)
-        for row in self.rows.value:
-            if row['time'] == task_info['time'] and row['name'] == task_info['name']:
-                ui.notify(f'时间: {row["time"]}\n任务：{row["name"]} \n已经存在，请勿重复添加', color='negative')
-                return
-        self.task_names[tid] = task_info['name'] + task_info['time']
-        self.add_info(tid, task_info['info'])
-        self.rows.value.append({'id': tid, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
+        if batch:
+            task_names = task_info['names']
+            info_dict = task_info['info']
+            for i in range(len(task_names)):
+                print(info_dict)
+                info = ext_info(info_dict, i)
+                print(info)
+                self.task_names[tid+i] = task_names[i] + task_info['time']
+                self.add_info(tid+i, info)
+                self.rows.value.append({'id': tid+i, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
+        else:
+            for row in self.rows.value:
+                if row['time'] == task_info['time'] and row['name'] == task_info['name']:
+                    ui.notify(f'时间: {row["time"]}\n任务：{row["name"]} \n已经存在，请勿重复添加', color='negative')
+                    return
+            self.task_names[tid] = task_info['name'] + task_info['time']
+            self.add_info(tid, task_info['info'])
+            self.rows.value.append({'id': tid, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
         self.draw_res.refresh()  # 刷新图表
 
     def delete_info(self, tid):
@@ -191,15 +209,21 @@ class res_ui:
                     rxui.label('全局结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
                                                     'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
                                                     'hover:bg-blue-700')
+                    rxui.button('下载数据',
+                                on_click=lambda info_spot=info_spot: download_global_infos(self.experiment.exp_name if self.experiment is not None else '暂无实验名称', self.task_names,
+                                                                      self.infos_dict[info_spot])).props('icon=cloud_download')
                     with rxui.grid(columns=2).classes('w-full'):
                         for info_name in self.infos_dict[info_spot]:
-                            control_global_echarts(info_name, self.infos_dict[info_spot][info_name], self.task_names)
+                            control_global_echarts(info_name, self.infos_dict[info_spot][info_name], self.task_names, True)
                 elif info_spot == 'local':
                     with rxui.column().classes('w-full'):
                         rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
                                                         'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
                                                         'shadow-md', 'hover:bg-blue-700')
                         for tid in self.infos_dict[info_spot]:
-                            rxui.label(self.task_names[tid]).tailwind(
-                                'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                            control_local_echarts(self.infos_dict[info_spot][tid])
+                            with ui.row().classes('w-full'):
+                                rxui.label(self.task_names[tid]).tailwind(
+                                    'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                                rxui.button('下载数据',
+                                            on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(self.task_names[tid], self.infos_dict[info_spot][tid])).props('icon=cloud_download')
+                            control_local_echarts(self.infos_dict[info_spot][tid], True, self.task_names[tid])
