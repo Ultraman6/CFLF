@@ -6,8 +6,8 @@ import random
 import shutil
 import time
 from datetime import datetime
-
 import aiohttp
+import numpy as np
 import pandas as pd
 import requests
 from ex4nicegui.reactive import local_file_picker, rxui
@@ -15,9 +15,21 @@ from ex4nicegui.utils.signals import to_ref_wrapper, to_ref, on
 from nicegui import ui, context
 from openpyxl.styles import Alignment
 from openpyxl.workbook import Workbook
-
 from visual.parts.constant import record_names, record_types, type_name_mapping, user_info_mapping
 from visual.parts.local_file_picker import local_file_picker
+
+
+def convert_float32_to_float(data):
+    """ Recursively convert all numpy float32 values in a dictionary to Python float. """
+    if isinstance(data, dict):
+        return {key: convert_float32_to_float(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_float32_to_float(item) for item in data]
+    elif isinstance(data, tuple):
+        return tuple(convert_float32_to_float(item) for item in data)
+    elif isinstance(data, np.float32):
+        return float(data)
+    return data
 
 
 def algo_to_sheets(config):
@@ -409,7 +421,6 @@ def color(value):
 
 
 def cal_dis_dict(infos, target='训练集'):
-    print(infos)
     infos_each = infos['each']
     infos_all = infos['all']
     num_clients = 0 if len(infos_each) == 0 else len(infos_each[0][0])  # 现在还有噪声数据，必须取元组的首元素
@@ -509,7 +520,7 @@ def get_user_info(info_ref, info_name, task_name):
     with ui.row().classes('w-full justify-center') as row:
         ui.label('请先执行任务')
     columns = [
-        {"name": "round", "label": "轮次", "field": "id", 'align': 'center'},
+        {"name": "round", "label": "轮次", "field": "round", 'align': 'center'},
         {"name": "bid", "label": "声明成本", "field": "bid", 'align': 'center'},
         {"name": "cost", "label": "真实成本", "field": "cost", 'align': 'center'},
         {"name": "score", "label": "得分", "field": "score", 'align': 'center'},
@@ -563,9 +574,9 @@ def get_user_info(info_ref, info_name, task_name):
                                                                                                         lambda cid=cid:
                                                                                                         dialogs[cid].open()).tooltip(lay)
                                 ui.label(f'客户{cid}').classes('w-full')
-                else:
-                    for cid, statue in info_ref.value[-1][1].items():
-                        icon_list[cid].props('color=gray').tooltip('落选' if statue == 'gray' else '获胜')
+                # else:
+                #     for cid, statue in info_ref.value[-1][1].items():
+                #         icon_list[cid].props('color=gray').tooltip('落选' if statue == 'gray' else '获胜')
 
             elif info_ref.value[-1][0] == 'info':  # 若是信息的更新
                 this_info = info_ref.value[-1][1]
@@ -612,7 +623,9 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
                     "type": "png",
                     "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
                 }
-            }
+            },
+            "right": '20px',
+            "top": "30px"
         },
         'grid': {
             "left": '10%',
@@ -633,7 +646,7 @@ def get_global_option(infos_dict, mode_ref, info_name, task_names):
             'crossStyle': {  # 设置横向指示线
                 'color': "rgba(198, 196, 196, 0.75)"
             },
-            'formatter': "算法{a}<br/>" + record_names['global']['type'][
+            'formatter': "{a}<br/>" + record_names['global']['type'][
                 mode_ref.value] + ',' + record_type + "<br/>{c}",
             'extraCssText': 'box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);'  # 添加阴影效果
         },
@@ -724,7 +737,9 @@ def get_local_option(info_dict: dict, mode_ref, info_name: str):
                     "type": "png",
                     "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
                 }
-            }
+            },
+            "right": '20px',
+            "top": "30px"
         },
         'grid': {
             "left": '10%',
@@ -822,7 +837,7 @@ def get_global_option_res(infos_dict, mode_ref, info_name, task_names):
         if record_type == 'line':  # 需要按x轴值排序
             paired_data = [
                 (item[0], {name: item[1][name] for name in new_names})
-                for item in infos_dict[mode_ref.value][0].value
+                for item in infos_dict[mode_ref.value][0]
             ]
             paired_data.sort(key=lambda x: x[0])
         else:
@@ -844,7 +859,9 @@ def get_global_option_res(infos_dict, mode_ref, info_name, task_names):
                     "type": "png",
                     "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
                 }
-            }
+            },
+            "right": '20px',
+            "top": "30px"
         },
         'grid': {
             "left": '10%',
@@ -954,7 +971,9 @@ def get_local_option_res(info_dict: dict, mode_ref, info_name: str):
                     "type": "png",
                     "lang": ["点击右键 -> 保存图片"]  # 提示用户如何保存图片
                 }
-            }
+            },
+            "right": '20px',
+            "top": "30px"
         },
         'grid': {
             "left": '10%',
@@ -1077,7 +1096,7 @@ def download_global_info(info_name, task_names, info_dicts, mode_mapping, mode_r
         if record_type == 'line':  # 需要按x轴值排序
             paired_data = [
                 (item[0], {name: item[1][name] for name in new_names})
-                for item in info_dicts[mode_ref.value][0].value
+                for item in info_dicts[mode_ref.value][0]
             ]
             paired_data.sort(key=lambda x: x[0])
         else:
@@ -1333,8 +1352,7 @@ def control_global_echarts(info_name, infos_dicts, task_names, is_res=False):
 
 
 def control_local_echarts(infos_dicts, is_res=False, task_name=None):
-    with rxui.grid(columns=2).classes('w-full h-full'):
-
+    with ui.grid(columns="repeat(auto-fit,minmax(min(40rem,100%),1fr))").classes("w-full"):
         for info_name in infos_dicts:
             with ui.column().classes("h-[40rem] w-[40rem]"):
                 mode_list = list(infos_dicts[info_name].keys())
@@ -1343,7 +1361,7 @@ def control_local_echarts(infos_dicts, is_res=False, task_name=None):
                 with ui.row():
                     rxui.select(value=mode_ref, options=mode_mapping)
                     if is_res:
-                        rxui.button('下载数据', on_click=lambda: download_local_info(info_name, task_name if task_name is not None else '暂无任务名称',
+                        rxui.button('下载数据', on_click=lambda info_name=info_name: download_local_info(info_name, task_name if task_name is not None else '暂无任务名称',
                                                                                      infos_dicts[info_name], mode_mapping)).props('icon=cloud_download')
                 if is_res:
                     rxui.echarts(

@@ -27,7 +27,7 @@ def create_optimizer(model, args):
                               momentum=args.momentum, weight_decay=args.weight_decay)
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(params=model.parameters(), lr=args.learning_rate,
-                               betas=args.beta, eps=args.eps, weight_decay=args.weight_decay, amsgrad=args.amsgrad)
+                               betas=(args.beta1, args.beta2), eps=args.epsilon, weight_decay=args.weight_decay)
     elif args.optimizer == 'adamw':
         optimizer = optim.AdamW(params=model.parameters(), lr=args.learning_rate,
                                 weight_decay=args.weight_decay, amsgrad=args.amsgrad)
@@ -49,8 +49,8 @@ def schedule_lr(round_idx, current_lr, args):
         return current_lr
     elif args.scheduler == 'exponential':
         # ExponentialLR: 每轮学习率衰减
-        decay_rate = args.lr_decay_step
-        return current_lr * decay_rate
+        decay_rate = args.lr_decay_rate
+        return current_lr * (decay_rate ** round_idx)
     elif args.scheduler == 'cosineAnnealing':
         # CosineAnnealingLR: 余弦退火调度
         T_max = args.round

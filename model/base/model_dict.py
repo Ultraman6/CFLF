@@ -123,6 +123,12 @@ def _modeldict_zeroslike(md):
         res[layer] = md[layer] - md[layer]
     return res
 
+def check_params_zero(md):
+    """检查模型参数是否全部为零"""
+    for layer in md.values():
+        if layer is not None and not (layer == 0).all():
+            return False
+    return True
 
 def _modeldict_add(md1, md2):
     """模型参数相加"""
@@ -277,7 +283,7 @@ def _modeldict_eucdis(md1, md2):
 
 
 def _modellayer_cossim(lay1, lay2):
-    res = (lay1.view(-1).dot(lay2.view(-1)))
+    res = (lay1.view(-1).float().dot(lay2.view(-1).float()))
     l1 = torch.sum(torch.pow(lay1, 2))
     l2 = torch.sum(torch.pow(lay2, 2))
     return res / (torch.pow(l1, 0.5) * torch.pow(l2, 0.5))
@@ -480,22 +486,31 @@ def pad_grad_by_mult_order(g_global, g_local, mask_order=None, mask_percentile=N
 
     return g_global
 
-
+bn_list = ['bn1.bias', 'bn1.running_mean', 'bn2.bias', 'bn2.running_mean', 'bn1.num_batches_tracked', 'bn2.num_batches_tracked']
 def aggregate_att(w_clients, w_server, stepsize=0.1):
     w_next = copy.deepcopy(w_server)
     att = {}
     for k in w_server.keys():
-        w_next[k] = torch.zeros_like(w_server[k])
-        att[k] = torch.zeros(len(w_clients), device=w_server[k].device)
+        if k not in bn_list:
+            w_next[k] = torch.zeros_like(w_server[k])
+            att[k] = torch.zeros(len(w_clients), device=w_server[k].device)
+        else:
+            stacked_params = torch.stack([client[k].float() for client in w_clients])
+            w_next[k] = torch.mean(stacked_params, dim=0)
+
     for k in w_server.keys():
-        for i in range(len(w_clients)):
-            att[k][i] = 1 - _modellayer_cossim(w_server[k], w_clients[i][k])
+        if k not in bn_list:
+            for i in range(len(w_clients)):
+                att[k][i] = 1 - _modellayer_cossim(w_server[k], w_clients[i][k])
+
     for k in w_server.keys():
-        att[k] = torch.softmax(att[k], dim=0)
+        if k not in bn_list:
+            att[k] = torch.softmax(att[k], dim=0)
     for k in w_server.keys():
-        for i in range(len(w_clients)):
-            w_next[k] += (w_clients[i][k] - w_server[k]) * att[k][i]
-        w_next[k] = w_server[k] + w_next[k] * stepsize
+        if k not in bn_list:
+            for i in range(len(w_clients)):
+                w_next[k] += (w_clients[i][k] - w_server[k]) * att[k][i]
+            w_next[k] = w_server[k] + w_next[k] * stepsize
     return w_next
 
 

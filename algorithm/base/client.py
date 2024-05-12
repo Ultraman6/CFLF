@@ -11,7 +11,7 @@ class BaseClient:
         self.train_dataloader = train_dataloader
         self.test_dataloader = test_dataloader  # 测试数据集(开启才有)
         self.model_trainer: ModelTrainer = model_trainer
-        self.local_params = None  # 存放上一轮的模型
+        self.local_param = None  # 存放上一轮的模型
         self.args = args
         self.device = device
         if args.standalone:
@@ -20,7 +20,7 @@ class BaseClient:
             self.standalone_trainer = None
 
     def train_unit(self, round_idx, w_global):
-        self.local_params = copy.deepcopy(w_global)
+        self.local_param = copy.deepcopy(w_global)
         self.model_trainer.set_model_params(w_global)
         self.model_trainer.train(self.train_dataloader, round_idx)
         return self.model_trainer.get_model_params(self.device)
@@ -46,8 +46,9 @@ class BaseClient:
             model_trainer.set_model_params(copy.deepcopy(w_global))
             return model_trainer.test(self.test_dataloader, origin)
 
-    def update_data(self, new_train_dataloader):
+    def update_data(self, new_train_dataloader, new_test_dataloader):
         self.train_dataloader = new_train_dataloader
+        self.test_dataloader = new_test_dataloader
 
     def update_model(self, new_model_dict):
         self.model_trainer.set_model_params(new_model_dict)
@@ -65,10 +66,10 @@ class BaseClient:
     #         return class_count
 
     def grad_norm(self, upgrade_params):
-        params_updates = _modeldict_sub(upgrade_params, self.local_params)
+        params_updates = _modeldict_sub(upgrade_params, self.local_param)
         params_norm = _modeldict_norm(params_updates)
         params_norm_updates = _modeldict_scale(params_updates, self.args.grad_norm / params_norm)
-        return _modeldict_add(self.local_params, params_norm_updates)
+        return _modeldict_add(self.local_param, params_norm_updates)
 
     def grad_clip(self, upgrade_params):
         """

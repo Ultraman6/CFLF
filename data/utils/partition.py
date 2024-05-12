@@ -3,15 +3,38 @@ import json
 import random
 from collections import defaultdict
 import numpy as np
+import torch
 import torch.backends.cudnn as cudnn
 from scipy.stats import wasserstein_distance
 from torch.utils.data import Dataset, Subset
+from torchvision import transforms
 
 cudnn.banchmark = True
 
 '''
    数据集划分方法
 '''
+
+def augment_image(image):
+    # 设置增强变换
+    transform = transforms.Compose([
+        transforms.RandomRotation(360),  # 随机旋转
+        transforms.RandomHorizontalFlip(),  # 随机水平翻转
+        transforms.ColorJitter(brightness=(0.5, 1.5))  # 随机调整亮度
+    ])
+    # 应用增强变换
+    augmented_image = transform(image)
+    return augmented_image
+
+def augment_fn(indices, dataset):
+    """根据需要复制并增强样本以满足数量要求"""
+    augmented_indices = []
+    for idx in indices:
+        image, label = dataset[idx]
+        augmented_image = augment_image(image)
+        augmented_indices.append((augmented_image, label))
+    return augmented_indices
+
 
 def calculate_emd(distribution):
     num_classes = len(distribution)
@@ -53,7 +76,7 @@ class DatasetSplit(Dataset):
                     noise = self.noise_idxs[idx]
                     image = np.clip(image + noise, 0, 255)
                 elif self.noise_type == 'label':
-                    target = self.noise_idxs[item][1]
+                    target = self.noise_idxs[idx][1]
                 else:
                     raise ValueError('Unknown noise type: {}'.format(self.noise_type))
         return image, target
@@ -113,30 +136,40 @@ def random_sample(total_samples, num_clients):
     return size_users
 
 
-def balance_sample(test, valid_ratio):
+def balance_sample(dataset, valid_ratio):
     # 按类别分组样本索引
     label_to_indices = defaultdict(list)
-    for idx, (_, label) in enumerate(test):
-        label_to_indices[label].append(idx)
-
+    for idx, (_, label) in enumerate(dataset):
+        label_to_indices[label.item() if isinstance(label, torch.Tensor) else label].append(idx)
     num_classes = len(label_to_indices)
-    total_samples_for_valid = int(len(test) * valid_ratio)
+    total_samples = len(dataset)
+    total_samples_for_valid = int(total_samples * valid_ratio)
     # 保证总样本数可以被类别数整除
     total_samples_for_valid -= total_samples_for_valid % num_classes
     samples_per_class = total_samples_for_valid // num_classes
-
     # 准备每个类别的样本索引
-    selected_indices_per_class = {label: random.sample(indices, samples_per_class) for label, indices in
-                                  label_to_indices.items()}
-
-    # 按类别数为单位进行样本排列
+    selected_indices_per_class = {}
+    augmented_data = []
+    for label, indices in label_to_indices.items():
+        if len(indices) < samples_per_class:
+            # 不足的情况下进行数据增强
+            needed_samples = samples_per_class - len(indices)
+            augmented_samples = augment_fn(random.choices(indices, k=needed_samples), dataset)
+            augmented_data.extend(augmented_samples)
+            selected_indices_per_class[label] = indices + list(range(total_samples, total_samples + needed_samples))
+            total_samples += needed_samples
+        else:
+            selected_indices_per_class[label] = random.sample(indices, samples_per_class)
+    # 收集所有选中的索引
     subset_indices = []
     for _ in range(samples_per_class):
         for label in range(num_classes):
-            subset_indices.append(selected_indices_per_class[label].pop())
-    length = len(subset_indices)
-    num_classes = len(label_to_indices)
-    return DatasetSplit(test, subset_indices, {}, num_classes, length)
+            if selected_indices_per_class[label]:
+                subset_indices.append(selected_indices_per_class[label].pop())
+    # 添加增强数据到原始数据集
+    extended_dataset = list(dataset) + augmented_data
+    # 创建 DatasetSplit 实例
+    return DatasetSplit(extended_dataset, subset_indices, {}, num_classes, len(subset_indices))
 
 
 def imbalance_sample(datasize, args):
@@ -149,9 +182,11 @@ def imbalance_sample(datasize, args):
     elif args.num_type == 'random':  # 当imbalance参数为-1时，使用gen_ran_sum生成随机的数据量分配
         samples_per_client = random_sample(datasize, args.num_clients)
     elif args.num_type == 'custom_single':  # 自定义单个客户样本量
-        samples_per_client = [args.sample_per_client for _ in range(num_clients)]
+        samples_per_client = [int(args.sample_per_client) for _ in range(num_clients)]
     elif args.num_type == 'custom_each':  # 自定义样本量开启，提取映射关系参数并将其解析为JSON对象
-        samples_per_client = list(json.loads(args.sample_mapping).values())
+        sample_mapping_json = args.sample_mapping
+        sample_mapping_dict = json.loads(sample_mapping_json)
+        samples_per_client = [int(value) for value in sample_mapping_dict.values()]
     elif args.num_type == 'imbalance_control':
         imbalance = max(0.1, args.imbalance_alpha)
         sigma = imbalance
@@ -216,86 +251,112 @@ def homo_partition(dataset_size, num_clients, samples_per_client):
 
 
 def dirichlet_partition(dataset, num_clients, alpha, samples_per_client):
-    global alter_norms
-    attrs = index_func(dataset)
-    lb_counter = collections.Counter(attrs)
-    lb_names = list(lb_counter.keys())
-    lb_dict = {}
-    attrs = np.array(attrs)
-    for lb in lb_names:
-        lb_dict[lb] = np.where(attrs == lb)[0]
+    data_size = len(dataset)
+    labels = index_func(dataset)
+    n_classes = len(np.unique(labels))
+    label_distribution = np.random.dirichlet([alpha] * num_clients, n_classes)
+    class_indices = {i: [] for i in range(n_classes)}
+    for idx, label in enumerate(labels):
+        class_indices[label].append(idx)
+    allocated_samples = set()  # 已分配样本集合
+    client_indices = {cid: [] for cid in range(num_clients)}
+    client_original_probs = []  # 存储每个客户的原始概率分布
 
-    # 初始化每个客户端的样本列表
-    local_datas = [[] for _ in range(num_clients)]
-    # 计算每个客户端应该获得的样本总数的比例
-    total_samples = sum(samples_per_client)
-    client_sample_proportions = [n / total_samples for n in samples_per_client]
-    for lb in lb_names:
-        lb_idxs = lb_dict[lb]
-        # 每个类别的样本根据Dirichlet分布分配给客户端
-        dirichlet_proportions = np.random.dirichlet([alpha] * num_clients)
-        # 调整Dirichlet分布比例以满足每个客户端的样本量要求
-        adjusted_proportions = dirichlet_proportions * client_sample_proportions
-        adjusted_proportions = adjusted_proportions / adjusted_proportions.sum()
-        # 根据调整后的比例分配样本索引
-        start_idx = 0
-        for client_idx, proportion in enumerate(adjusted_proportions):
-            end_idx = start_idx + int(proportion * len(lb_idxs))
-            client_samples = lb_idxs[start_idx:end_idx]
-            local_datas[client_idx].extend(client_samples)
-            start_idx = end_idx
-    # 确保每个客户端获得的样本总数符合samples_per_client的要求
-    for client_idx in range(num_clients):
-        excess = len(local_datas[client_idx]) - samples_per_client[client_idx]
-        if excess > 0:
-            # 如果超出了指定的样本量，随机去除多余的样本
-            local_datas[client_idx] = np.random.choice(local_datas[client_idx], samples_per_client[client_idx],
-                                                       replace=False).tolist()
-        np.random.shuffle(local_datas[client_idx])  # 随机打乱每个客户端的样本
-    # 转换为 net_dataidx_map 格式
-    net_dataidx_map = {i: local_datas[i] for i in range(num_clients)}
-    return net_dataidx_map
+    # 初次分配
+    for client_id in range(num_clients):
+        client_probs = label_distribution[:, client_id] / np.sum(label_distribution[:, client_id])
+        client_original_probs.append(client_probs.copy())  # 保存原始概率分布
+        samples_to_assign = list((client_probs * samples_per_client[client_id]).astype(int))
+        for class_id, class_idx in class_indices.items():
+            available_indices = [idx for idx in class_idx if idx not in allocated_samples]
+            if samples_to_assign[class_id] == 0:
+                continue
+            dis_num = len(available_indices) - samples_to_assign[class_id]
+            if dis_num >= 0:
+                assigned_indices = np.random.choice(available_indices, samples_to_assign[class_id], replace=False)
+                client_indices[client_id].extend(assigned_indices)
+                allocated_samples.update(assigned_indices)
+            else:
+                assigned_indices = available_indices + np.random.choice(class_idx, dis_num)
+                client_indices[client_id].extend(assigned_indices)
+                allocated_samples.update(assigned_indices)
+
+    # 检查并调整每个客户的样本量
+    for client_id, client_idx in client_indices.items():
+        current_count = len(client_idx)
+        required_count = samples_per_client[client_id]
+
+        if current_count < required_count:
+            shortfall = required_count - current_count
+            while shortfall > 0:
+                # 计算每个类别的当前概率分布与原始概率分布的差距
+                current_distribution = np.bincount([labels[idx] for idx in client_indices[client_id]],
+                                                   minlength=n_classes)
+                current_distribution = current_distribution / current_distribution.sum()
+                prob_diffs = client_original_probs[client_id] - current_distribution
+                # 找到差距最大的类别
+                class_to_augment = np.argmax(prob_diffs)
+                available_indices = [idx for idx in class_indices[class_to_augment] if idx not in allocated_samples]
+                if available_indices:
+                    assigned_index = np.random.choice(available_indices, 1, replace=False)[0]
+                    client_indices[client_id].append(assigned_index)
+                    allocated_samples.add(assigned_index)
+                    shortfall -= 1
+                else:
+                    # 如果没有可用样本，使用数据增强
+                    assigned_index = np.random.choice(class_indices[class_to_augment])
+                    client_indices[client_id].append(assigned_index)
+                    allocated_samples.add(assigned_index)
+                    shortfall -= 1
+
+    return client_indices
 
 
-# 样本niid-类别法
 def shards_partition(dataset_size, dataset, num_clients, class_per_client, samples_per_client):
-    labels = index_func(dataset)  # 获取所有样本的标签
+    """
+    Partition dataset into shards or fragments per client based on the number of classes and samples per client.
+
+    Parameters:
+    dataset_size (int): Total number of data points in the dataset.
+    dataset (Dataset): The dataset to be partitioned.
+    num_clients (int): Number of clients.
+    class_per_client (int): Number of classes each client should hold. If -1, distribute all classes.
+    samples_per_client (list): List of integers specifying number of samples per client.
+    index_func (callable): Function that takes a dataset and returns an array of labels.
+    """
+
+    labels = index_func(dataset)
     num_classes = len(set(labels))
-    dpairs = [[did, lb] for did, lb in zip(list(range(dataset_size)), labels)]
+    dpairs = [(did, lb) for did, lb in enumerate(labels)]
 
     if class_per_client == -1:
         num = num_classes
     else:
         num = min(max(class_per_client, 1), num_classes)
 
-    K = num_classes
     local_datas = [[] for _ in range(num_clients)]
-    allocated_samples_per_client = [0 for _ in range(num_clients)]
+    allocated_samples_per_client = [0] * num_clients
 
-    # 创建每个类别出现次数的计数器
-    times = [0 for _ in range(K)]
-    # 生成所有类别的列表并随机打乱
-    all_classes = np.arange(K)
+    # Generate and shuffle class list
+    all_classes = np.arange(num_classes)
     np.random.shuffle(all_classes)
 
     print("Starting class allocation...")
-    # 循环分配类别到客户端以保证平衡
     class_allocations = [[] for _ in range(num_clients)]
     class_index = 0
+
     while any(len(ca) < num for ca in class_allocations):
         for client_id in range(num_clients):
             if len(class_allocations[client_id]) < num:
-                cls = all_classes[class_index % K]
+                cls = all_classes[class_index % num_classes]
                 class_allocations[client_id].append(cls)
-                times[cls] += 1
                 class_index += 1
                 if len(class_allocations[client_id]) == num:
                     print(f"Client {client_id} has reached its class allocation limit with classes: {class_allocations[client_id]}")
-                if class_index % K == 0:  # 当回到类别列表开头时重新打乱，以保持随机性
+                if class_index % num_classes == 0:
                     np.random.shuffle(all_classes)
 
     print("Class allocation completed. Distributing samples...")
-    # 样本分配和内部分布平衡
     for client_id in range(num_clients):
         needed_samples = samples_per_client[client_id] // len(class_allocations[client_id])
         for cls in class_allocations[client_id]:
@@ -305,22 +366,22 @@ def shards_partition(dataset_size, dataset, num_clients, class_per_client, sampl
             local_datas[client_id].extend(allocated_samples)
             allocated_samples_per_client[client_id] += len(allocated_samples)
 
-        print(f"Client {client_id} allocated samples. Beginning compensation mechanism if necessary...")
-        # 补偿机制
-        while allocated_samples_per_client[client_id] < samples_per_client[client_id]:
-            needed_samples = samples_per_client[client_id] - allocated_samples_per_client[client_id]
-            available_indices = [i for i, pair in enumerate(dpairs) if
-                                 pair[1] in class_allocations[client_id] and i not in local_datas[client_id]]
-            np.random.shuffle(available_indices)
-            additional_samples = available_indices[:needed_samples]
-            local_datas[client_id].extend(additional_samples)
-            allocated_samples_per_client[client_id] += len(additional_samples)
-            print(f"Client {client_id} compensated with additional {len(additional_samples)} samples.")
+            print(f"Client {client_id} allocated samples. Beginning compensation mechanism if necessary...")
+            # Compensation for any shortfalls
+            while allocated_samples_per_client[client_id] < samples_per_client[client_id]:
+                needed_samples = samples_per_client[client_id] - allocated_samples_per_client[client_id]
+                available_indices = [i for i, pair in enumerate(dpairs) if
+                                     pair[1] in class_allocations[client_id] and i not in local_datas[client_id]]
+                np.random.shuffle(available_indices)
+                additional_samples = available_indices[:needed_samples]
+                local_datas[client_id].extend(additional_samples)
+                allocated_samples_per_client[client_id] += len(additional_samples)
+                print(f"Client {client_id} compensated with additional {len(additional_samples)} samples.")
 
-        print(f"Client {client_id} final sample count: {allocated_samples_per_client[client_id]}")
+            print(f"Client {client_id} final sample count: {allocated_samples_per_client[client_id]}")
 
     print("All clients have been allocated and compensated if necessary.")
-    # 转换为 net_dataidx_map 格式
+    # Create mapping of client IDs to data indices
     net_dataidx_map = {i: local_datas[i] for i in range(num_clients)}
     return net_dataidx_map
 

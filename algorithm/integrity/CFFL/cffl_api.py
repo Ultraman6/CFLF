@@ -65,11 +65,12 @@ class CFFL_API(BaseServer):
                 acc_list.append(acc)
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
+                futures = [executor.submit(self.thread_test, cid=cid, w=None,
                                                 valid=self.valid_global, origin=False, mode='cooper') for cid in
-                           self.client_indexes}
-                for cid, future in futures.items():
-                    acc, _ = future.result()
+                           self.client_indexes]
+                for future in futures:
+                    (acc, _), mes = future.result()
+                    self.task.control.set_statue('text', mes)
                     acc_sum += acc
                     acc_list.append(acc)
         r_nice = []

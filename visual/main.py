@@ -207,4 +207,4 @@ app.on_startup(init_db)
 app.on_shutdown(close_db)
 app.add_middleware(AuthMiddleware)
 os.environ['NICEGUI_STORAGE_PATH'] = 'running/storage'
-ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=False, reload=True, reconnect_timeout=1000)
+ui.run(storage_secret='THIS_NEEDS_TO_BE_CHANGED', native=False, reload=True, reconnect_timeout=10000)

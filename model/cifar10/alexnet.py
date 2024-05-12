@@ -1,5 +1,4 @@
 from torch import nn
-
 from model.base.base_model import BaseModel
 
 

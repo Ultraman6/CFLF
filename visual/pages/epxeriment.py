@@ -110,6 +110,10 @@ class experiment_page:
         self.stepper.next()
 
     def res_fusion_step(self):
+        if hasattr(self, 'run_ui') and self.run_ui.experiment is not None:
+            for task in self.run_ui.experiment.task_queue.values():
+                task.get_pre_quit('页面跳转, 强制退出')
+
         if hasattr(self, 'res_ui'):
             self.get_res_ui.refresh()
             self.res_ui.show_panels.refresh()

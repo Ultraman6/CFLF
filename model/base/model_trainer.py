@@ -67,7 +67,7 @@ class ModelTrainer:
             "epoch_losses": epoch_losses,
             "learning_rate": self.optimizer.param_groups[0]['lr']
         }
-        self.upgrade_lr(global_round - 1)  # 更新学习率
+        # self.upgrade_lr(global_round - 1)  # 更新学习率
 
     def train_moon(self, train_data, global_round):
         self.model.to(self.device)

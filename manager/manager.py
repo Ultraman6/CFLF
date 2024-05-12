@@ -2,9 +2,11 @@ import asyncio
 import copy
 import itertools
 import os
+import traceback
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from ex4nicegui import deep_ref, to_raw
+from ex4nicegui import deep_ref, to_raw, batch
 from nicegui import run
 
 from data.get_data import get_dataloaders
@@ -15,11 +17,83 @@ from model.Initialization import model_creator
 from util.drawing import plot_results, create_result
 from util.logging import save_results_to_excel
 from util.running import control_seed
-from visual.parts.constant import algo_record
+from visual.parts.constant import algo_record, dl_configs, fl_configs, algo_configs
 from visual.parts.func import clear_ref
 
+def explore_deps(config, path=None, deps=None):
+    if deps is None:
+        deps = {}
+    if path is None:
+        path = []
+    # 遍历配置中的每个条目
+    for key, value in config.items():
+        current_path = path + [key]
+        # 如果有'options'，我们查找任何相关的'metrics'
+        if isinstance(value, dict):
+            if 'options' in value and value['options'] is not None:
+                # 预备该配置的依赖信息
+                option_deps = {}
 
-# 由于多进程原因，ref存储从task层移植到manager层中
+                # 对于每个选项，查看是否有特定的'metrics'
+                for option in value['options']:
+                    if option in value.get('metrics', {}):
+                        # 如果该选项有特定的'metrics'，我们假设这些'metrics'与其他配置有依赖关系
+                        option_deps[option] = list(value['metrics'][option].keys())
+                if option_deps:
+                    deps[f"{'.'.join(current_path)}"] = option_deps
+            # 递归搜索嵌套字典
+            explore_deps(value, current_path, deps)
+    return deps
+
+def generate_tasks(vars, deps):
+    dep_tasks = []
+    dep_params = set()
+    # Identify all parameters involved in dependencies
+    for param, options in deps.items():
+        dep_params.add(param)
+        for suboptions in options.values():
+            dep_params.update(suboptions)
+    # Independent variables are those not appearing in any dependencies
+    ind_vars = {k: v for k, v in vars.items() if k not in dep_params}
+    # Iterate through each parameter with dependencies
+    for param, options_dep in deps.items():
+        if param in vars:
+            tasks_for_param = []
+            for option in vars[param]:
+                if option in options_dep:
+                    # This option has dependent parameters
+                    flag = True
+                    for dep_param in options_dep[option]:
+                        if dep_param in vars:
+                            flag = False
+                            for dep_val in vars[dep_param]:
+                                task = {param: option, dep_param: dep_val}
+                                tasks_for_param.append(task)
+                    if flag:
+                        # Option with dependencies but none params
+                        task = {param: option}
+                        tasks_for_param.append(task)
+                else:
+                    # Option without dependencies
+                    task = {param: option}
+                    tasks_for_param.append(task)
+            if tasks_for_param:
+                dep_tasks.append(tasks_for_param)
+    # Cartesian product of all dependency-related tasks
+    if dep_tasks:
+        combined_dep_tasks = list(itertools.product(*dep_tasks))
+        combined_tasks = [{k: v for d in combo for k, v in d.items()} for combo in combined_dep_tasks]
+    else:
+        combined_tasks = [{}]
+    # All combinations of independent variables
+    ind_combinations = [dict(zip(ind_vars.keys(), prod)) for prod in itertools.product(*ind_vars.values())]
+    # Cartesian product of dependent and independent tasks
+    final_tasks = [{**dep, **ind} for dep in combined_tasks for ind in ind_combinations]
+    # Order tasks to match the order of variables in input
+    ordered_tasks = [OrderedDict((key, task[key]) for key in vars if key in task) for task in final_tasks]
+
+    return ordered_tasks
+
 
 
 def pack_result(task_name, result):
@@ -76,7 +150,9 @@ async def handle_mes_ref(data, ref):
             await handle_mes_ref(v, ref[k])
         else:
             # 否则，追加值到相应的数组中
-            ref[k].value.append(v)
+            @batch
+            def _():
+                ref[k].value.append(v)
 
 
 def copy_raw_ref(info_dict, copy_dict):
@@ -108,11 +184,13 @@ class ExperimentManager:
 
         self.model_global = None
         self.dataloaders_global = None
+        self.task_names = {}
         self.task_queue = {}  # 任务对象容器
         self.task_info_refs = {}  # 任务信息容器
         self.task_control = {}  # 插件-任务控制器
         self.results = {}
         self.local_results = {}
+
 
     def judge_algo(self, algorithm_name):
         """
@@ -169,20 +247,23 @@ class ExperimentManager:
         for algo in self.algo_queue:
             algo_name, variations = algo['algo'], algo['params']
             algo_class = self.judge_algo(algo_name)
+
             # 确定哪些参数是有多个配置的
-
-            params_with_multiple_options = {param: len(values) > 1 or getattr(self.args_template, param) != values[0]
-                                            for param, values in variations.items()}
-            for param_dict in itertools.product(*variations.values()):
-                param_combination = dict(zip(variations.keys(), param_dict))
+            algo_config = algo_configs['common']
+            if algo_name in algo_configs:
+                algo_config.update(algo_configs[algo_name])
+            combined_deps = explore_deps({**dl_configs, **fl_configs, **algo_config}, path=None, deps=None)
+            valid_variations = {param: values for param, values in variations.items()
+                                if len(values) > 1 or getattr(self.args_template, param) != values[0]}
+            print(valid_variations)
+            grid_tasks = generate_tasks(valid_variations, combined_deps)
+            for task_params in grid_tasks:
+                print(task_params)
+                task_name = f"{algo_name}"
                 args = copy.deepcopy(self.args_template)
-                for param, value in param_combination.items():
+                for param, value in task_params.items():
                     setattr(args, param, value)
-
-                # 只考虑数量大于一的参数的配置组合来命名
-                experiment_name_parts = [f"{param}{value}" for param, value in param_combination.items() if
-                                         params_with_multiple_options[param]]
-                experiment_name = f"{algo_name}_{'_'.join(experiment_name_parts)}" if experiment_name_parts else algo_name
+                    task_name += f"__{param}[{value}]"
                 self.handle_type(args)
                 model, dataloaders = self.control_self(args)  # 创建模型和数据加载器
                 self.task_info_refs[task_id] = self.adj_info_ref(args, algo_name)  # 最终数据绑定对象
@@ -192,9 +273,10 @@ class ExperimentManager:
                     visual = {'common': self.visual_control['common']}
                 self.task_control[task_id] = TaskController(task_id, self.run_mode, algo_name,
                                                             self.task_info_refs[task_id],
-                                                            visual)  # control会根据mode决定是否接收ref
-                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, experiment_name, task_id,
+                                                            visual)   # control会根据mode决定是否接收ref
+                self.task_queue[task_id] = Task(algo_class, args, model, dataloaders, task_name, task_id,
                                                 self.task_control[task_id])
+                self.task_names[task_id] = task_name
                 task_id += 1
 
     # 统计公共数据划分情况(返回堆叠式子的结构数据) train-标签-客户
@@ -237,7 +319,6 @@ class ExperimentManager:
 
     def get_local_loader_infos(self):
         dataloader_infos = {}
-        args_queue = []
         for id, task in enumerate(self.task_queue.values()):
             task_infos = {'train': {'each': {}, 'all': {'noise': [], 'total': []}},
                           'valid': {'each': {}, 'all': {'noise': [], 'total': []}}}
@@ -271,15 +352,15 @@ class ExperimentManager:
                 for cid in range(num_clients):
                     task_infos['test']['all']['noise'].append(test_loaders[cid].dataset.noise_len)
                     task_infos['test']['all']['total'].append(test_loaders[cid].dataset.len)
-            args_queue.append(task.args)
-            dataloader_infos[task.task_name] = task_infos
+            dataloader_infos[task.task_id] = task_infos
 
-        return dataloader_infos, args_queue  # 目前只考虑类别标签分布
+        return dataloader_infos
 
     async def run_experiment(self):
         """
         根据提供的执行模式运行实验。
         """
+        # 运行时信息监听
         if self.run_mode == 'serial':
             await run.io_bound(self.execute_serial)
         elif self.run_mode == 'thread':
@@ -312,7 +393,12 @@ class ExperimentManager:
         运行单个算法任务。
         """
         control_seed(task.args.seed)
-        res = task.run()  # 从此任务类无需知晓具体的控制模式
+        try:
+            res = task.run()  # 从此任务类无需知晓具体的控制模式
+        except Exception as e:
+            # 可以选择更详细的异常处理或日志记录
+            traceback.print_exc()  # 打印异常调用堆栈信息
+            raise Exception(f"An error occurred while running the task: {e}")
 
         return task.task_id, res
 
@@ -406,12 +492,27 @@ class ExperimentManager:
         while True:
             # 异步等待queue.get()
             task_id, message = await loop.run_in_executor(None, queue.get)
-            if message == "done":
+            # print(f"Task {task_id} received message: {message}")
+            if message[0] == "done":
                 return
             elif message[0] == "clear":
                 clear_ref(self.task_info_refs[task_id], message[1])
             else:
-                await handle_mes_ref(message, self.task_info_refs[task_id])
+                await handle_mes_ref(message[1], self.task_info_refs[task_id])
+            # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
+
+    async def monitor_queue_serial(self, queue):
+        """异步监控队列，实时处理收到的消息，并在所有工作进程完成后结束。"""
+        while True:
+            # 异步等待queue.get()
+            task_id, message = await queue.get()
+            # print(f"Task {task_id} received message: {message}")
+            if message[0] == "done":
+                return
+            elif message[0] == "clear":
+                clear_ref(self.task_info_refs[task_id], message[1])
+            else:
+                await handle_mes_ref(message[1], self.task_info_refs[task_id])
             # await asyncio.sleep(0.1)  # 短暂休眠以避免过度占用 CPU
 
     # 选择任务对齐进行可视化

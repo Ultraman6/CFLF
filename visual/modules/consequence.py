@@ -1,5 +1,8 @@
 # 任务运行结果界面
 from datetime import datetime
+from pprint import pprint
+
+import numpy as np
 from ex4nicegui import to_ref, deep_ref
 from ex4nicegui.reactive import rxui
 from nicegui import ui, app, events
@@ -7,7 +10,8 @@ from nicegui.functions.refreshable import refreshable_method
 from visual.models import Experiment
 from visual.parts.constant import state_dict
 from visual.parts.func import control_global_echarts, control_local_echarts, ext_info, download_local_info, \
-    download_local_infos, download_global_infos
+    download_local_infos, download_global_infos, my_vmodel, convert_float32_to_float
+from visual.parts.lazy.lazy_panels import lazy_tab_panels
 from visual.parts.record import RecordManager
 
 
@@ -67,18 +71,26 @@ class res_ui:
     def han_save(self):
         if not (hasattr(self, 'dialog') and self.dialog is not None):
             des = to_ref('')
+            name = to_ref(self.experiment.exp_name if self.experiment is not None else '暂无实验名称')
+            tname = deep_ref(self.task_names)
             with ui.dialog().props('persistent') as self.dialog, ui.card():
+                rxui.input(value=name, placeholder='确定实验名称').classes('w-full')
+                with ui.card().classes('w-full'):
+                    ui.label('确定任务名称')
+                    with ui.grid(columns=4):
+                        for cid in self.task_names:
+                            rxui.input(value=my_vmodel(tname.value, cid), placeholder='任务名称').classes('w-full')
                 rxui.textarea(value=des, placeholder='请为本实验添加一些描述').classes('w-full')
-                ui.button('确定保存', on_click=lambda: save_to_db(des.value))
+                ui.button('确定保存', on_click=lambda: save_to_db())
                 ui.button('暂不保存', on_click=self.dialog.close)
 
-            async def save_to_db(des):
-                print(des)
+            async def save_to_db():
                 config = {'tem': self.configer.algo_args, 'algo': self.configer.exp_args}
                 dis = self.previewer.visual_data_infos
-                state, mes = await Experiment.create_new_exp(name=self.experiment.exp_name, user=app.storage.user['user']['id'],
+                self.infos_dict = convert_float32_to_float(self.infos_dict)
+                state, mes = await Experiment.create_new_exp(name=name.value, user=app.storage.user['user']['id'],
                                                              config=config, dis=dis,
-                                                             task_names=self.task_names, res=self.infos_dict, des=des)
+                                                             task_names=self.task_names, res=dict(self.infos_dict), des=des.value)
                 ui.notify(mes, type=state_dict[state])
                 self.dialog.close()
 
@@ -102,14 +114,13 @@ class res_ui:
         tid = len(self.task_names)
         if batch:
             task_names = task_info['names']
+            print(task_names)
             info_dict = task_info['info']
-            for i in range(len(task_names)):
-                print(info_dict)
-                info = ext_info(info_dict, i)
-                print(info)
-                self.task_names[tid+i] = task_names[i] + task_info['time']
+            for i, id in enumerate(task_names):
+                info = ext_info(info_dict, id)
+                self.task_names[tid+i] = task_names[id] + task_info['time']
                 self.add_info(tid+i, info)
-                self.rows.value.append({'id': tid+i, 'time': task_info['time'], 'name': task_info['name'], 'type': '旧'})
+                self.rows.value.append({'id': tid+i, 'time': task_info['time'], 'name': task_names[id], 'type': '旧'})
         else:
             for row in self.rows.value:
                 if row['time'] == task_info['time'] and row['name'] == task_info['name']:
@@ -195,7 +206,7 @@ class res_ui:
                                 self.infos_dict[info_spot][tid][info_name][info_type] = {}
                             self.infos_dict[info_spot][tid][info_name][info_type] = \
                                 self.experiment.results[tid][info_spot][info_name][info_type]
-            self.task_names[tid] = self.experiment.task_queue[tid].task_name
+            self.task_names[tid] = self.experiment.task_names[tid]
             self.rows.value.append(
                 {'id': tid, 'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'name': self.task_names[tid],
                  'type': '新'})
@@ -212,7 +223,7 @@ class res_ui:
                     rxui.button('下载数据',
                                 on_click=lambda info_spot=info_spot: download_global_infos(self.experiment.exp_name if self.experiment is not None else '暂无实验名称', self.task_names,
                                                                       self.infos_dict[info_spot])).props('icon=cloud_download')
-                    with rxui.grid(columns=2).classes('w-full'):
+                    with ui.grid(columns="repeat(auto-fit,minmax(min(40rem,100%),1fr))").classes("w-full h-full"):
                         for info_name in self.infos_dict[info_spot]:
                             control_global_echarts(info_name, self.infos_dict[info_spot][info_name], self.task_names, True)
                 elif info_spot == 'local':
@@ -220,10 +231,25 @@ class res_ui:
                         rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
                                                         'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
                                                         'shadow-md', 'hover:bg-blue-700')
+                        tabs = ui.tabs().classes('w-full')
                         for tid in self.infos_dict[info_spot]:
-                            with ui.row().classes('w-full'):
-                                rxui.label(self.task_names[tid]).tailwind(
-                                    'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                                rxui.button('下载数据',
-                                            on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(self.task_names[tid], self.infos_dict[info_spot][tid])).props('icon=cloud_download')
-                            control_local_echarts(self.infos_dict[info_spot][tid], True, self.task_names[tid])
+                            ui.tab(self.task_names[tid]).move(tabs)
+                        with lazy_tab_panels(tabs).classes('w-full'):
+                        # with ui.grid(columns="repeat(auto-fit,minmax(min(80rem,100%),1fr))").classes("w-full"):
+                            for tid in self.infos_dict[info_spot]:
+                                with ui.tab_panel(self.task_names[tid]).classes('w-full'):
+                                    rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid]).tailwind(
+                                        'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                                    rxui.button('下载数据',
+                                                on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(
+                                                    self.task_names[tid], self.infos_dict[info_spot][tid])).props(
+                                        'icon=cloud_download')
+                                    control_local_echarts(self.infos_dict[info_spot][tid], True, self.task_names[tid])
+
+                        # for tid in self.infos_dict[info_spot]:
+                        #     with ui.row().classes('w-full'):
+                        #         rxui.label(self.task_names[tid]).tailwind(
+                        #             'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                        #         rxui.button('下载数据',
+                        #                     on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(self.task_names[tid], self.infos_dict[info_spot][tid])).props('icon=cloud_download')
+                        #     control_local_echarts(self.infos_dict[info_spot][tid], True, self.task_names[tid])

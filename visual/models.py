@@ -39,6 +39,8 @@ class Experiment(models.Model):
             return False, "保存失败(完整性错误)"
         except Exception as e:
             # 捕获其他可能的异常，并返回错误消息
+            traceback_details = traceback.format_exc()
+            print(f"保存失败(其他错误): {traceback_details}")
             return False, f"保存失败(其他错误): {str(e)}"
 
     async def remove(self):

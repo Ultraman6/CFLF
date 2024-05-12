@@ -1,8 +1,6 @@
 from algorithm.base.server import BaseServer
 from model.base.model_dict import aggregate_att
 
-# 设置时间间隔（以秒为单位）
-interval = 5
 
 
 class FedAtt_API(BaseServer):

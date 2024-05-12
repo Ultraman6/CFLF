@@ -154,7 +154,7 @@ class config_ui:
                 fl_module = ui.tab('联邦学习配置')
             with lazy_tab_panels(tabs, value=dl_module).classes('w-full'):
                 with ui.tab_panel(dl_module):
-                    with ui.row():
+                    with ui.grid(columns="repeat(auto-fit,minmax(min(350px,100%),1fr))").classes("w-full"):
                         for key, value in dl_configs.items():
                             with ui.card().tight().tooltip(value['help'] if 'help' in value else None):
                                 if 'options' in value:
@@ -179,7 +179,7 @@ class config_ui:
                                                         label=value1['name']).classes('w-full')
 
                 with ui.tab_panel(fl_module):
-                    with ui.row():
+                    with ui.grid(columns="repeat(auto-fit,minmax(min(350px,100%),1fr))").classes("w-full"):
                         # 结构化组件的生成代码（以联邦学习基本参数为例）
                         for key, value in fl_configs.items():
                             with ui.card().tight().tooltip(value['help'] if 'help' in value else None):
@@ -255,14 +255,16 @@ class config_ui:
         for item in self.exp_args['algo_params']:
             if 'algo' in item:
                 item = copy.deepcopy(item)
+                print(item['algo'])
                 for k, v in self.convert_info.items():
                     arr = []
-                    for i in item['params'][k]:
-                        if type(i) is dict:
-                            arr.append(convert_dict_to_tuple(i))
-                        elif type(i) is list:
-                            arr.append(json.dumps(convert_list_to_dict(i, v)))
-                    item['params'][k] = arr
+                    if k in item['params']:
+                        for i in item['params'][k]:
+                            if type(i) is dict:
+                                arr.append(convert_dict_to_tuple(i))
+                            elif type(i) is list:
+                                arr.append(json.dumps(convert_list_to_dict(i, v)))
+                        item['params'][k] = arr
                 exp_args['algo_params'].append(item)
 
         algo_args = copy.deepcopy(self.algo_args)

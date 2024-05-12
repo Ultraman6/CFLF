@@ -1,5 +1,6 @@
 # 公共配置：深度学习、联邦学习、可视化等常量配置
 import os
+import pprint
 
 dl_configs = {
     "dataset": {
@@ -88,6 +89,8 @@ fl_configs = {
     'epoch': {'name': '本地训练轮次数', 'format': '%.0f', 'help': '请大于0'},
     'num_clients': {'name': '客户总数', 'format': '%.0f', 'help': '请大于0'},
     'num_selected': {'name': '客户采样数', 'format': '%.0f', 'help': '请大于0 小于等于客户总数'},
+    'data_change': {'name': '数据移动性', 'format': '%.4f', 'help': '每轮数据变换的概率'},
+    'model_ride': {'name': '模型搭便车', 'format': '%.4f', 'help': '上传原始模型的概率'},
     'sample_mode': {'name': '客户采样模式', 'help': '请大于0 小于等于客户总数',
                     'options': {'random': '随机选择', 'num': '样本量优先', 'class': '标签数优先'},
                     },
@@ -311,6 +314,8 @@ algo_configs = {
             }
         },
         # 二阶段参数
+        'agg_mode': {'name': '模型协作策略', 'format': None, 'type': 'choice',
+                      'options': {'fusion': '质量融合', 'only': '直接聚合'}},
         'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
@@ -332,13 +337,13 @@ algo_configs = {
         'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
     'fusion_mask': {
-        # 'eta': {'name': '模型质量筛选系数', 'format': '%.4f', 'type': 'number', 'options': None},
         'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
         'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
         'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice',
                    'options': {'local': '就地保存', 'optimal': '最优保存'}},
         'fair': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'reo_fqy': {'name': '恢复策略周期', 'format': '%.0f', 'type': 'number', 'options': None},
         'time_mode': {
             'name': '时间模式', 'format': None, 'type': 'choice',
             'options': {'exp': '指数时间遗忘', 'cvx': '凸组合时间遗忘'},
@@ -353,9 +358,9 @@ algo_configs = {
         },
         'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
-    'margin_loss': {
-        'threshold': {'name': '边际损失淘汰阈值', 'format': '%.4f', 'type': 'number', 'options': None},
-        'gamma': {'name': '边际损失系数', 'format': '%.4f', 'type': 'number', 'options': None},
+    'cgsv': {
+        'rh': {'name': '时间遗忘系数', 'format': '%.4f', 'type': 'number', 'options': None},
+        'fair': {'name': '奖励公平系数', 'format': '%.4f', 'type': 'number', 'options': None},
     },
     'tmc': {
         'iters': {'name': 'TMC采样最大轮次', 'format': '%.0f', 'type': 'number', 'options': None},
@@ -373,6 +378,21 @@ algo_configs = {
     },
     'fedprox': {
         'mu': {'name': '偏差近似项', 'format': '%.4f', 'type': 'number', 'options': None},
+    },
+    'auto_fusion': {
+        'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_tol': {'name': '模型融合早停阈值', 'format': '%.0f', 'type': 'number', 'options': None},
+        'e_per': {'name': '模型融合早停温度', 'format': '%.4f', 'type': 'number', 'options': None},
+        'e_mode': {'name': '模型融合早停策略', 'format': None, 'type': 'choice',
+                   'options': {'local': '就地保存', 'optimal': '最优保存'}
+         },
+    },
+    'margin_loss': {
+        'threshold': {'name': '边际损失淘汰阈值', 'format': '%.4f', 'type': 'number', 'options': None},
+        'gamma': {'name': '边际损失系数', 'format': '%.4f', 'type': 'number', 'options': None},
+    },
+    'fedatt': {
+        'step': {'name': '注意力学习步长', 'format': '%.4f', 'type': 'number', 'options': None},
     },
 }
 
@@ -394,6 +414,7 @@ exp_configs = {
     'local_excel': {'name': '本地保存', 'help': '实验结果保存为本地excel', 'type': 'bool'},
     'local_visual': {'name': '本地可视化', 'help': '实验结果在plot可视化', 'type': 'bool'}
 }
+
 
 # 算法配置（包括每种算法特定的详细参数）
 algo_type_options = [
@@ -431,7 +452,6 @@ algo_name_options = {
     ],
     'fusion': [
         {'value': 'fedatt', 'label': '联邦注意力融合(FedAtt)'},
-        {'value': 'layer_att', 'label': '层注意力融合(FedAtt)'},
         {'value': 'cross_up_att', 'label': '损失交叉层注意力'},
         {'value': 'auto_fusion', 'label': '自注意力融合(DITFE)'},
         {'value': 'auto_layer_fusion', 'label': '自动分层融合'},
@@ -452,8 +472,9 @@ algo_name_options = {
         {'value': 'qfll', 'label': '质量公平联邦学习'},
         {'value': 'fusion_mask', 'label': 'DITFE(质量公平融合)'},
         {'value': 'cffl', 'label': '数据点SV(CFFL)'},
-        {'value': 'tmc', 'label': '蒙特卡洛SV(TMC)'},
         {'value': 'rank', 'label': '排名奖励(Rank)'},
+        {'value': 'cgsv', 'label': '梯度奖励公平(CGSV)'},
+        {'value': 'tmc', 'label': '蒙特卡洛SV(TMC)'},
         {'value': 'rffl', 'label': '余弦相似SV(RFFL)'},
     ],
     'incentive': [
@@ -470,7 +491,7 @@ algo_record = {
                 "progress": {"name": "进度", "type": "circle"},
                 "text": {"name": "日志", "type": "text"}
             },
-            "default": ["progress", "text"]
+            "default": ["progress"]
         },
         "global": {
             "name": "全局信息",
@@ -498,7 +519,7 @@ algo_record = {
                 "standalone_acc": {"name": "独立训练测试精度", "type": "line"},
                 "cooperation_acc": {"name": "合作训练测试精度", "type": "line"}
             },
-            "default": ["avg_loss", "learning_rate", "round"],
+            # "default": ["avg_loss", "learning_rate", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -510,12 +531,13 @@ algo_record = {
             "param": {
                 "e_acc": {"name": "融合测试精度", "type": "line"},
                 "e_round": {"name": "融合退火轮次数", "type": "line"},
-                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
-                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
-                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
-                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+                "sva": {"name": "每轮SV估算精度", "type": "line"},
+                "svt": {"name": "每轮SV估算开销", "type": "bar"},
+                "sva_acm": {"name": "每轮累计SV估算精度", "type": "line"},
+                "sva_final": {"name": "最终SV估算精度", "type": "bar"},
+                "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ["e_acc", "e_round", "round"],
+            "default": ["sva_acm", "sva_final", "svt_final", "sva", "svt", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -527,7 +549,7 @@ algo_record = {
                 "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            "default": ["contrib", "reward", "round"],
+            "default": ["contrib", "real_contrib", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -540,8 +562,10 @@ algo_record = {
                 "budget": {"name": "预算消耗进度", "type": "linear"},
                 "user_info": {"name": "用户完整信息", "type": "custom"},  # 自定义组件族
                 "grad_info": {"name": "梯度奖励信息", "type": "custom"},  # 自定义组件族
+                "sv_pro": {"name": "Shapely值估算进度", "type": "circle"},
+                "real_sv_pro": {"name": "真实Shapely值进度", "type": "circle"},
             },
-            "default": ["budget"]
+            # "default": ["budget", "user_info"]
         },
         "global": {
             "name": "全局信息",
@@ -556,13 +580,14 @@ algo_record = {
                 # 二阶段可视化信息
                 "e_acc": {"name": "融合测试精度", "type": "line"},
                 "e_round": {"name": "融合提升次数", "type": "line"},
-                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
-                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
-                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
-                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+                "sva": {"name": "每轮SV估算精度", "type": "line"},
+                "svt": {"name": "每轮SV估算开销", "type": "bar"},
+                "sva_acm": {"name": "每轮累计SV估算精度", "type": "line"},
+                "sva_final": {"name": "最终SV估算精度", "type": "bar"},
+                "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ["bid_info", "idx_info", "pay_info", "bid_pay", "util_info", "total_reward", "e_acc", "e_round",
-                        "round"],
+            "default": ["bid_pay", "util_info", "round"],
+# "bid_info", "idx_info", "pay_info", "bid_pay", "util_info",
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -578,7 +603,7 @@ algo_record = {
                 "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            "default": ["emp", "ucb", "contrib", "reward", "round"],
+            # "default": ["emp", "ucb", "contrib", "reward", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -591,7 +616,7 @@ algo_record = {
                 "reputation": {"name": "本轮声誉值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"}
             },
-            "default": ["reputation", "reward", "round"],
+            # "default": ["reputation", "reward", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -603,7 +628,7 @@ algo_record = {
             "param": {
                 "position": {"name": "本轮位次", "type": "line"}
             },
-            "default": ["position", "round"],
+            # "default": ["position", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -614,19 +639,22 @@ algo_record = {
             "name": "状态信息",
             "param": {
                 "after": {"name": "是否进入声誉淘汰阶段", "type": "switch"},
+                "sv_pro": {"name": "Shapely值估算进度", "type": "circle"},
+                "real_sv_pro": {"name": "真实Shapely值进度", "type": "circle"},
             },
-            "default": ["after"]
+            # "default": ["after"]
         },
         "global": {
             "name": "全局信息",
             "param": {  # 这些只有开启真实SV计算
                 'agg_weights': {"name": "本轮模型聚合权重", "type": "bar"},
-                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
-                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
-                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
-                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+                "sva": {"name": "每轮SV估算精度", "type": "line"},
+                "svt": {"name": "每轮SV估算开销", "type": "line"},
+                "sva_acm": {"name": "每轮累计SV估算精度", "type": "line"},
+                "sva_final": {"name": "最终SV估算精度", "type": "bar"},
+                "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ['agg_weights', "round"],
+            "default": ["sva_acm", "sva_final", "svt_final", "sva", "svt", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -639,7 +667,7 @@ algo_record = {
                 "reputation": {"name": "本轮声誉值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            "default": ["contrib", "reputation", "reward", "round"],
+            "default": ["contrib", "real_contrib", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -649,19 +677,21 @@ algo_record = {
         "statue": {
             "name": "状态信息",
             "param": {
-                "tmc_pro": {"name": "TMC估算进度", "type": "circle"},
+                "sv_pro": {"name": "Shapely值估算进度", "type": "circle"},
+                "real_sv_pro": {"name": "真实Shapely值进度", "type": "circle"},
             },
-            "default": ["tmc_pro"]
+            # "default": ["tmc_pro"]
         },
         "global": {
             "name": "全局信息",
             "param": {  # 这些只有开启真实SV计算
-                "sva": {"name": "每轮Shapely值估算精度", "type": "bar"},
-                "svt": {"name": "每轮Shapely值估算开销", "type": "bar"},
-                "sva_final": {"name": "最终Shapely值估算精度", "type": "bar"},
-                "svt_final": {"name": "最终Shapely值估算开销", "type": "bar"},
+                "sva": {"name": "每轮SV估算精度", "type": "line"},
+                "svt": {"name": "每轮SV估算开销", "type": "line"},
+                "sva_acm": {"name": "每轮累计SV估算精度", "type": "line"},
+                "sva_final": {"name": "最终SV估算精度", "type": "bar"},
+                "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ["round"],
+            "default": ["sva_acm", "sva_final", "svt_final", "sva", "svt", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -672,7 +702,7 @@ algo_record = {
                 "contrib": {"name": "本轮贡献值", "type": "line"},
                 "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
             },
-            "default": ["contrib", "round"],
+            "default": ["contrib", "real_contrib", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -684,7 +714,7 @@ algo_record = {
             "param": {
                 'agg_weights': {"name": "本轮模型聚合权重", "type": "bar"},
             },
-            "default": ["round"],
+            # "default": ["round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -694,7 +724,7 @@ algo_record = {
             "param": {
                 "margin_loss": {"name": "本轮边际损失", "type": "line"},
             },
-            "default": ["margin_loss", "round"],
+            # "default": ["margin_loss", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }

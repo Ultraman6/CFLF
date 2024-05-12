@@ -1,9 +1,10 @@
 from ex4nicegui.reactive import rxui
-from ex4nicegui.utils.signals import to_ref, on, to_raw
+from ex4nicegui.utils.signals import to_ref, on, to_raw, batch
 from nicegui import ui
 from visual.parts.constant import record_names, record_types
 from visual.parts.func import control_global_echarts, control_local_echarts, get_user_info, get_grad_info, \
     get_local_download_path
+from visual.parts.lazy.lazy_panels import lazy_tab_panels
 
 
 # 任务运行界面
@@ -62,7 +63,7 @@ class run_ui:
                             self.infos_ref[info_spot][info_name] = {}
                         self.infos_ref[info_spot][info_name][tid] = self.experiment.task_info_refs[tid][info_spot][
                             info_name]
-            self.task_names[tid] = self.experiment.task_queue[tid].task_name
+            self.task_names[tid] = self.experiment.task_names[tid]
 
     # 这里必须IO异步执行，否则会阻塞数据所绑定UI的更新
     def draw_controller(self):
@@ -250,7 +251,7 @@ class run_ui:
                     rxui.label('全局信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
                                                     'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
                                                     'hover:bg-blue-700')
-                    with rxui.grid(columns=2).classes('w-full h-full'):
+                    with ui.grid(columns="repeat(auto-fit,minmax(min(40rem,100%),1fr))").classes("w-full h-full"):
                         for info_name in self.infos_ref[info_spot]:
                             control_global_echarts(info_name, self.infos_ref[info_spot][info_name], self.task_names)
 
@@ -259,11 +260,17 @@ class run_ui:
                     with ui.column().classes('w-full'):
                         rxui.label('局部信息').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
                                                         'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
-                                                        'shadow-md', 'hover:bg-blue-700')
+                                                        'shadow-md', 'hover:bg-blue-700')  # 局部信息每个算法至少并列展示两个图
+                        tabs = ui.tabs().classes('w-full')
                         for tid in self.infos_ref[info_spot]:
-                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid]).tailwind(
-                                'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                            control_local_echarts(self.infos_ref[info_spot][tid])
+                            ui.tab(self.task_names[tid]).move(tabs)
+                        with lazy_tab_panels(tabs).classes('w-full'):
+                        # with ui.grid(columns="repeat(auto-fit,minmax(min(80rem,100%),1fr))").classes("w-full"):
+                            for tid in self.infos_ref[info_spot]:
+                                with ui.tab_panel(self.task_names[tid]).classes('w-full'):
+                                    rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid]).tailwind(
+                                        'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                                    control_local_echarts(self.infos_ref[info_spot][tid])
 
     def control_statue(self, info_spot, info_name):
         with rxui.column().classes('w-full'):
@@ -273,7 +280,7 @@ class run_ui:
                                                                              'hover:bg-blue-700')
             type = record_types[info_spot]['param'][info_name]
             if type == 'circle':
-                with rxui.grid(columns=5).classes('w-full'):
+                with ui.grid(columns="repeat(auto-fit,minmax(min(300px,100%),1fr))").classes("w-full"):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
                             rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])  # 目前只考虑展示进度条
@@ -288,7 +295,7 @@ class run_ui:
                                                                  str(list(pro_ref.value)[0][0])
                                                                  if len(pro_ref.value) > 0 else '0'))
             elif type == 'linear':
-                with rxui.grid(columns=5).classes('w-full'):
+                with ui.grid(columns="repeat(auto-fit,minmax(min(300px,100%),1fr))").classes("w-full"):
                     for tid in self.infos_ref[info_spot][info_name]:
                         with rxui.column().classes('w-full'):
                             rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])  # 目前只考虑展示进度条
@@ -305,7 +312,7 @@ class run_ui:
                                                                         str(list(pro_ref.value)[-1][0])
                                                                         if len(pro_ref.value) > 0 else '0'))
             elif type == 'text':
-                with rxui.grid(columns=2).classes('w-full'):
+                with ui.grid(columns="repeat(auto-fit,minmax(min(700px,100%),1fr))").classes("w-full"):
                     for tid in self.infos_ref[info_spot][info_name]:
                         tex_ref = self.infos_ref[info_spot][info_name][tid]
 
@@ -318,7 +325,7 @@ class run_ui:
                                               list(tex_ref.value))).classes('w-full').props(add='outlined readonly rows=10').tooltip(self.task_names[tid])
 
             elif type == 'switch':
-                with rxui.grid(columns=5).classes('w-full'):
+                with ui.grid(columns="repeat(auto-fit,minmax(min(300px,100%),1fr))").classes("w-full"):
                     for tid in self.infos_ref[info_spot][info_name]:
                         sw_ref = self.infos_ref[info_spot][info_name][tid]
                         rxui.switch(text=self.task_names[tid],

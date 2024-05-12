@@ -52,7 +52,7 @@ def model_creator(args):
             model = LSTM_shakespeare(mode=args.init_mode)
         else:
             raise ValueError('Model not implemented for shakespeare')
-    elif args.dataset == 'fashionmnist':
+    elif args.dataset == 'fmnist':
         if args.model == 'lr':
             model = LR_fashionmnist(mode=args.init_mode)
         elif args.model == 'cnn':

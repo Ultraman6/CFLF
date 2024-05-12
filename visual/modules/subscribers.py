@@ -209,51 +209,52 @@ def view_tem(info):
         with ui.tab_panel(fl_module):
             with ui.row():
                 for key, value in fl_configs.items():
-                    with ui.card().tooltip(value['help'] if 'help' in value else None):
-                        with ui.row().classes('w-full'):
-                            ui.label(value['name'])
-                            ui.separator().props('vertical')
-                            if 'options' in value and type(value['options']) is dict:
-                                ui.label(value['options'][info[key]])
-                            elif type(info[key]) is bool:
-                                ui.label('开启' if info[key] else '关闭')
-                            else:
-                                ui.label(info[key])
-                        if 'metrics' in value:
-                            for k, v in value['metrics'].items():
-                                with rxui.card().classes('w-full').bind_visible(info[key] == k):
-                                    for k1, v1 in v.items():
-                                        def show_metric(k1, v1):
-                                            if 'dict' in v1:
-                                                with ui.row().classes('w-full'):
-                                                    ui.label(v1['name'])
-                                                    ui.separator().props('vertical')
-                                                    for k2, v2 in v1['dict'].items():
-                                                        with ui.row():
-                                                            ui.label(v2['name'])
-                                                            ui.separator().props('vertical')
-                                                            ui.label(info[k1][k2])
+                    if key in info:
+                        with ui.card().tooltip(value['help'] if 'help' in value else None):
+                            with ui.row().classes('w-full'):
+                                ui.label(value['name'])
+                                ui.separator().props('vertical')
+                                if 'options' in value and type(value['options']) is dict:
+                                    ui.label(value['options'][info[key]])
+                                elif type(info[key]) is bool:
+                                    ui.label('开启' if info[key] else '关闭')
+                                else:
+                                    ui.label(info[key])
+                            if 'metrics' in value:
+                                for k, v in value['metrics'].items():
+                                    with rxui.card().classes('w-full').bind_visible(info[key] == k):
+                                        for k1, v1 in v.items():
+                                            def show_metric(k1, v1):
+                                                if 'dict' in v1:
+                                                    with ui.row().classes('w-full'):
+                                                        ui.label(v1['name'])
+                                                        ui.separator().props('vertical')
+                                                        for k2, v2 in v1['dict'].items():
+                                                            with ui.row():
+                                                                ui.label(v2['name'])
+                                                                ui.separator().props('vertical')
+                                                                ui.label(info[k1][k2])
 
-                                            elif 'mapping' in v1:
-                                                rxui.label(v1['name']).classes('w-full')
-                                                ui.separator()
-                                                with ui.grid(columns=5):
-                                                    for item in info[k1]:
-                                                        with ui.column():
-                                                            ui.label('客户' + item['id'])
-                                                            ui.separator()
-                                                            for k2, v2 in v1['mapping'].items():
-                                                                with ui.row():
-                                                                    ui.label(v2['name'])
-                                                                    ui.separator().props('vertical')
-                                                                    ui.label(item[k2])
-                                            else:
-                                                with ui.row().classes('w-full'):
-                                                    rxui.label(v1['name'])
-                                                    ui.separator().props('vertical')
-                                                    ui.label(info[k1])
+                                                elif 'mapping' in v1:
+                                                    rxui.label(v1['name']).classes('w-full')
+                                                    ui.separator()
+                                                    with ui.grid(columns=5):
+                                                        for item in info[k1]:
+                                                            with ui.column():
+                                                                ui.label('客户' + item['id'])
+                                                                ui.separator()
+                                                                for k2, v2 in v1['mapping'].items():
+                                                                    with ui.row():
+                                                                        ui.label(v2['name'])
+                                                                        ui.separator().props('vertical')
+                                                                        ui.label(item[k2])
+                                                else:
+                                                    with ui.row().classes('w-full'):
+                                                        rxui.label(v1['name'])
+                                                        ui.separator().props('vertical')
+                                                        ui.label(info[k1])
 
-                                        show_metric(k1, v1)
+                                            show_metric(k1, v1)
 
 
 def view_algo(info):
@@ -436,30 +437,47 @@ def view_res(task_info, task_name, exp_name=None):
         infos_dict = task_info
     # 任务状态、信息曲线图实时展
     for info_spot in infos_dict:
-        if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
-            rxui.label('全局结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
-                                            'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
-                                            'hover:bg-blue-700')
-            rxui.button('下载数据',
-                        on_click=lambda info_spot=info_spot:
-                        download_global_infos(exp_name if exp_name is not None else '暂无实验名称', task_names, infos_dict[info_spot])).props('icon=cloud_download')
-            with rxui.grid(columns=2).classes('w-full'):
-                for info_name in infos_dict[info_spot]:
-                    control_global_echarts(info_name, infos_dict[info_spot][info_name], task_names, True)
-        elif info_spot == 'local':
-            # with rxui.column().classes('w-full'):
-            rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
-                                            'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
-                                            'shadow-md', 'hover:bg-blue-700')
+        with ui.column().classes('w-full'):
+            if info_spot == 'global':  # 目前仅支持global切换横轴: 轮次/时间 （传入x类型-数据）
+                rxui.label('全局结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4', 'bg-blue-500',
+                                                'text-white', 'font-semibold', 'rounded-lg', 'shadow-md',
+                                                'hover:bg-blue-700')
+                rxui.button('下载数据',
+                            on_click=lambda info_spot=info_spot:
+                            download_global_infos(exp_name if exp_name is not None else '暂无实验名称', task_names, infos_dict[info_spot])).props('icon=cloud_download')
+                with ui.grid(columns="repeat(auto-fit,minmax(min(40rem,100%),1fr))").classes("w-full h-full"):
+                    for info_name in infos_dict[info_spot]:
+                        control_global_echarts(info_name, infos_dict[info_spot][info_name], task_names, True)
+            elif info_spot == 'local':
+                # with rxui.column().classes('w-full'):
+                rxui.label('局部结果').tailwind('mx-auto', 'w-1/2', 'text-center', 'py-2', 'px-4',
+                                                'bg-green-500', 'text-white', 'font-semibold', 'rounded-lg',
+                                                'shadow-md', 'hover:bg-blue-700')
 
-            for tid in infos_dict[info_spot]:
-                with ui.row().classes('w-full'):
-                    rxui.label(task_names[tid]).tailwind(
-                        'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
-                    rxui.button('下载数据',
-                                on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(task_names[tid],
-                                                                                                   infos_dict[info_spot][tid])).props('icon=cloud_download')
-                control_local_echarts(infos_dict[info_spot][tid], True, task_names[tid])
+                with rxui.column().classes('w-full'):
+                    tabs = ui.tabs().classes('w-full')
+                    for tid in infos_dict[info_spot]:
+                        ui.tab(task_names[tid]).move(tabs)
+                    with lazy_tab_panels(tabs).classes('w-full'):
+                        # with ui.grid(columns="repeat(auto-fit,minmax(min(80rem,100%),1fr))").classes("w-full"):
+                        for tid in infos_dict[info_spot]:
+                            with ui.tab_panel(task_names[tid]).classes('w-full'):
+                                rxui.label(task_names[tid]).classes('w-[20ch] truncate').tooltip(
+                                    task_names[tid]).tailwind(
+                                    'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                                rxui.button('下载数据',
+                                            on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(
+                                                task_names[tid], infos_dict[info_spot][tid])).props(
+                                    'icon=cloud_download')
+                                control_local_echarts(infos_dict[info_spot][tid], True, task_names[tid])
+                    # for tid in infos_dict[info_spot]:
+                    #     with ui.row().classes('w-full'):
+                    #         rxui.label(task_names[tid]).tailwind(
+                    #             'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
+                    #         rxui.button('下载数据',
+                    #                     on_click=lambda tid=tid, info_spot=info_spot: download_local_infos(task_names[tid],
+                    #                                                                                        infos_dict[info_spot][tid])).props('icon=cloud_download')
+                    #     control_local_echarts(infos_dict[info_spot][tid], True, task_names[tid])
 
 
 # 查看历史保存的实验完整信息界面
@@ -470,9 +488,9 @@ def self_experiment():
         user = await User.get(id=uid)
         records = await user.get_exp()
         rows = []
-        for i, record in enumerate(records):
+        for record in records:
             rows.append({
-                'id': i,
+                'id': record.id,
                 'name': record.name,
                 'time': record.time,
                 'user': record.user.username,
@@ -480,36 +498,51 @@ def self_experiment():
                 'des': record.description,
                 'type': uid == record.user_id
             })
+
         def view(e: events.GenericEventArguments):
-            config = records[e.args['id']].config
-            with ui.dialog().props('maximized justify-center') as dialog, ui.card():
-                rxui.button('关闭窗口', on_click=dialog.close)
-                with ui.tabs().classes('w-full') as tabs:
-                    ttab = ui.tab('算法模板配置')
-                    atab = ui.tab('实验算法配置')
-                    dtab = ui.tab('任务数据划分')
-                    rtab = ui.tab('实验任务结果')
-                with lazy_tab_panels(tabs).classes('w-full'):
-                    with ui.tab_panel(ttab):
-                        view_tem(config['tem'])
-                    with ui.tab_panel(atab):
-                        view_algo(config['algo'])
-                    with ui.tab_panel(dtab):
-                        view_dis(records[e.args['id']].distribution, config['algo']['same_data'])
-                    with ui.tab_panel(rtab):
-                        view_res(records[e.args['id']].results, records[e.args['id']].task_names, records[e.args['id']].name)
-            dialog.open()
+            record = None
+            for r in records:
+                if r.id == e.args['id']:
+                    record = r
+                    break
+            if record is not None:
+                with ui.dialog().props('maximized justify-center') as dialog, ui.card():
+                    rxui.button('关闭窗口', on_click=dialog.close)
+                    with ui.tabs().classes('w-full') as tabs:
+                        ttab = ui.tab('算法模板配置')
+                        atab = ui.tab('实验算法配置')
+                        dtab = ui.tab('任务数据划分')
+                        rtab = ui.tab('实验任务结果')
+                    with lazy_tab_panels(tabs).classes('w-full'):
+                        with ui.tab_panel(ttab):
+                            view_tem(record.config['tem'])
+                        with ui.tab_panel(atab):
+                            view_algo(record.config['algo'])
+                        with ui.tab_panel(dtab):
+                            view_dis(record.distribution, record.config['algo']['same_data'])
+                        with ui.tab_panel(rtab):
+                            view_res(record.results, record.task_names, record.name)
+                dialog.open()
 
 
         async def delete(e: events.GenericEventArguments):
-            state, mes = await records[e.args['id']].remove()
-            if state:
-                rows.pop(e.args['id'])
-                table.update()
-                records.pop(e.args['id'])
-                ui.notify(mes, type='positive')
+            record, i = None, 0
+            for i, r in enumerate(records):
+                if r.id == e.args['id']:
+                    record = r
+                    i=i
+                    break
+            if record is not None:
+                state, mes = await record.remove()
+                if state:
+                    rows.pop(i)
+                    table.update()
+                    records.pop(i)
+                    ui.notify(mes, type='positive')
+                else:
+                    ui.notify(mes, type='negative')
             else:
-                ui.notify(mes, type='negative')
+                ui.notify('未找到该实验记录', type='negative')
 
         columns = [
             {'name': 'id', 'label': '行主键', 'field': 'id'},
@@ -553,27 +586,28 @@ def self_experiment():
     btn = ui.button('点击查看', on_click=open_exp)
 
 def view_dis(visual_data_infos, same):
-    if same:  # 直接展示全局划分数据
-        with rxui.grid(columns=1).classes('w-full'):
-            for name in visual_data_infos:
-                with rxui.card().classes('w-full'):
-                    target = name_mapping[name]
-                    rxui.label(target).classes('w-full')
-                    rxui.echarts(cal_dis_dict(visual_data_infos[name], target=target))
-    else:  # 展示每个算法的划分数据 (多加一层算法名称的嵌套)
-        with lazy_tabs() as tabs:
-            for name in visual_data_infos:
-                tabs.add(ui.tab(name))
-        with lazy_tab_panels(tabs).classes('w-full') as panels:
-            for tid, name in enumerate(visual_data_infos):
-                panel = panels.tab_panel(name)
+    if visual_data_infos is not None:
+        if same:  # 直接展示全局划分数据
+            with rxui.grid(columns=1).classes('w-full'):
+                for name in visual_data_infos:
+                    with rxui.card().classes('w-full'):
+                        target = name_mapping[name]
+                        rxui.label(target).classes('w-full')
+                        rxui.echarts(cal_dis_dict(visual_data_infos[name], target=target))
+        else:  # 展示每个算法的划分数据 (多加一层算法名称的嵌套)
+            with lazy_tabs() as tabs:
+                for name in visual_data_infos:
+                    tabs.add(ui.tab(name))
+            with lazy_tab_panels(tabs).classes('w-full') as panels:
+                for tid, name in enumerate(visual_data_infos):
+                    panel = panels.tab_panel(name)
 
-                def closure(tid: int):
-                    @panel.build_fn
-                    def _(name: str):
-                        for item in visual_data_infos[name]:
-                            target = name_mapping[item]
-                            rxui.label(target).classes('w-full')
-                            ui.echart(cal_dis_dict(visual_data_infos[name][item], target=target)).classes('w-full')
+                    def closure(tid: int):
+                        @panel.build_fn
+                        def _(name: str):
+                            for item in visual_data_infos[name]:
+                                target = name_mapping[item]
+                                rxui.label(target).classes('w-full')
+                                ui.echart(cal_dis_dict(visual_data_infos[name][item], target=target)).classes('w-full')
 
-                closure(tid)
+                    closure(tid)

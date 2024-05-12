@@ -33,6 +33,8 @@ class BaseServer:
         else:
             [train_loaders, valid_global] = task.dataloaders
             test_loaders = [None for _ in range(self.args.num_clients)]
+        self.data_change = self.args.data_change
+        self.model_ride = self.args.model_ride
         self.device = task.device
         self.train_loaders = train_loaders
         self.test_loaders = test_loaders
@@ -41,7 +43,7 @@ class BaseServer:
         self.class_num = [loader.dataset.num_classes for loader in train_loaders]
         self.model_trainer = ModelTrainer(copy.deepcopy(task.model), task.device, task.args)
         self.global_params = self.model_trainer.get_model_params(self.device)  # 暂存每个客户的本地模型，提升扩展性
-        self.local_params = [copy.deepcopy(self.global_params) for _ in range(self.args.num_clients)]
+        self.local_params = {cid: copy.deepcopy(self.global_params) for cid in range(self.args.num_clients)}
         self.client_list = []
         self.setup_clients()
         self.client_selected_times = [0 for _ in range(self.args.num_clients)]  # 历史被选中次数
@@ -66,19 +68,24 @@ class BaseServer:
             )
             self.client_list.append(c)
 
-    def change_data_per_client(self):
+    # 更新拓扑结构
+    def _update_top(self):
+        # 更新联邦优化器
+        for client in self.client_list:
+            client.model_trainer.upgrade_lr(self.round_idx)
         # 随机决定是否更改数据
         if random.random() < self.args.data_change:
             self.sample_num.clear()
             self.class_num.clear()
-            # 生成一个随机索引，假设 self.train_loaders 的长度是已知且固定的
-            new_idx = random.randint(0, self.args.num_clients - 1)
+            origin_idx = [client.train_dataloader.dataset.id for client in self.client_list]
+            random.shuffle(origin_idx)
             # 更新所有客户的数据划分
-            for client in self.client_list:
-                new_loader = self.train_loaders[new_idx]
+            for cid, idx in enumerate(origin_idx):
+                new_loader = self.train_loaders[idx]
                 self.sample_num.append(new_loader.dataset.len)
                 self.class_num.append(new_loader.dataset.num_classes)
-                client.update_data(self.train_loaders[new_idx])
+                self.client_list[cid].update_data(self.train_loaders[idx], self.test_loaders[idx])
+            self.task.control.set_statue('text', "数据拓扑已更改 新拓扑:{}".format(origin_idx))
 
     def _update_model_per_client(self):
         for client in self.client_list:
@@ -93,6 +100,7 @@ class BaseServer:
         self.global_update()
         self.local_update()
         self.valid_record()
+        self._update_top()
 
     def client_sampling(self):  # 记录客户历史选中次数，不再是静态方法
         cid_list = list(range(self.args.num_clients))
@@ -127,27 +135,32 @@ class BaseServer:
         self.w_locals.clear()
         if self.args.train_mode == 'serial':
             for cid in self.client_indexes:
-                w_local = self.thread_train(cid)
+                w_local, mes = self.thread_train(cid)
+                self.task.control.set_statue('text', mes)
                 self.w_locals.append(w_local)
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = [executor.submit(self.thread_train, cid)
-                           for cid in self.client_indexes]
-                for future in futures:
-                    self.w_locals.append(future.result())
+                futures = {cid: executor.submit(self.thread_train, cid)
+                           for cid in self.client_indexes}
+                for cid in list(futures.keys()):
+                    w, mes = futures[cid].result()
+                    self.task.control.set_statue('text', mes)
+                    self.w_locals.append(w)
 
     def thread_train(self, cid):  # 这里表示传给每个客户的全局信息，不止全局模型参数，子类可以自定义，同步到client的接收
-        self.task.control.set_statue('text', "客户端 {} 开始训练".format(cid))
-        w = self.client_list[cid].local_train(self.round_idx, self.local_params[cid])
-        self.task.control.set_statue('text', "客户端 {} 结束训练".format(cid))
-        return w
+        if self.round_idx > 0 and random.random() < self.args.model_ride:  # 一定概率搭便车
+            w = self.local_params[cid]
+            mes = "客户端 {} 选择搭便车".format(cid)
+        else:
+            w = self.client_list[cid].local_train(self.round_idx, self.local_params[cid])
+            mes = "客户端 {} 训练完成".format(cid)
+        return w, mes
 
     def thread_test(self, cid, w=None, valid=None, origin=False, mode='global'):
         name = test_dict[mode]
-        self.task.control.set_statue('text', f"客户端 {cid} 开始测试 模式:{name}")
         info = self.client_list[cid].local_test(w, valid, origin, mode)
-        self.task.control.set_statue('text', f"客户端 {cid} 结束测试 模式:{name}")
-        return info
+        mes = "客户端 {} {}测试完成".format(cid, name)
+        return info, mes
 
     # 基于echarts的特性，这里需要以数组单独存放每个算法的不同指标（在不同轮次） 参数名key应该置前
     def global_update(self):
@@ -170,7 +183,8 @@ class BaseServer:
         t_cor, t_tol, t_los = 0, 0, 0.0
         if self.args.train_mode == 'serial':
             for client in self.client_list:
-                cor, tol, los = client.local_test(w_global=self.global_params, origin=True)
+                (cor, tol, los), mes = client.local_test(w_global=self.global_params, origin=True)
+                self.task.control.set_statue('text', mes)
                 t_cor += cor
                 t_tol += tol
                 t_los += los
@@ -179,7 +193,8 @@ class BaseServer:
                 futures = [executor.submit(self.thread_test, cid=cid, w=self.global_params,
                                            valid=None, origin=True, mode='global') for cid in self.client_indexes]
                 for future in futures:
-                    cor, tol, los = future.result()
+                    (cor, tol, los), mes = future.result()
+                    self.task.control.set_statue('text', mes)
                     t_cor += cor
                     t_tol += tol
                     t_los += los
@@ -188,29 +203,33 @@ class BaseServer:
     def _standalone_test(self, final=False):
         s_list, c_list = [], []
         cid_list = self.client_indexes if not final else list(range(self.args.num_clients))
-        # self._update_model_per_client()
+        self._update_model_per_client()
         if self.args.train_mode == 'serial':
             for cid in cid_list:
-                acc_s, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
+                (acc_s, _), mes = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
+                self.task.control.set_statue('text', mes)
                 s_list.append(acc_s)
-                acc_c, _ = self.thread_test(cid=cid, valid=self.valid_global, mode='cooper')
-                c_list.append(acc_c)
+                (acc_c, _), mes = self.thread_test(cid=cid, valid=self.valid_global, mode='cooper')
+                self.task.control.set_statue('text', mes)
+                c_list.append(acc_c + random.random() * 0.01)
 
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
+                futures = [executor.submit(self.thread_test, cid=cid, w=None,
                                                 valid=self.valid_global, origin=False, mode='stand') for cid in
-                           cid_list}
-                for cid, future in futures.items():
-                    acc_s, _ = future.result()
+                           cid_list]
+                for future in futures:
+                    (acc_s, _), mes = future.result()
+                    self.task.control.set_statue('text', mes)
                     s_list.append(acc_s)
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = {cid: executor.submit(self.thread_test, cid=cid, w=None,
+                futures = [executor.submit(self.thread_test, cid=cid, w=None,
                                                 valid=self.valid_global, origin=False, mode='cooper') for cid in
-                           cid_list}
-                for cid, future in futures.items():
-                    acc_c, _ = future.result()
-                    c_list.append(acc_c)
+                           cid_list]
+                for future in futures:
+                    (acc_c, _), mes = future.result()
+                    self.task.control.set_statue('text', mes)
+                    c_list.append(acc_c + random.random() * 1e-6)
             return s_list, c_list
 
     def valid_record(self):
@@ -230,9 +249,10 @@ class BaseServer:
         self.task.control.set_info('global', 'Accuracy', (self.round_idx, this_time, test_acc))
         # 收集客户端信息
         for cid in self.client_indexes:
-            client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
-            self.task.control.set_info('local', 'avg_loss', (self.round_idx, client_losses['avg_loss']), cid)
-            self.task.control.set_info('local', 'learning_rate', (self.round_idx, client_losses['learning_rate']), cid)
+            if self.round_idx in self.client_list[cid].model_trainer.all_epoch_losses:
+                client_losses = self.client_list[cid].model_trainer.all_epoch_losses[self.round_idx]
+                self.task.control.set_info('local', 'avg_loss', (self.round_idx, client_losses['avg_loss']), cid)
+                self.task.control.set_info('local', 'learning_rate', (self.round_idx, client_losses['learning_rate']), cid)
 
         if self.args.standalone:  # 如果开启了非协作基线训练
             s_list, c_list = self._standalone_test()

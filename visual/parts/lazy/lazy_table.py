@@ -350,7 +350,7 @@ class algo_table:
                                         format = algo_configs['common'][key]['format']
                                         options = algo_configs['common'][key]['options']
                                         params_tab(name=name, nums=my_vmodel(row_ref.value, 'seed'), type=type,
-                                                   format=format, options=options)
+                                                   format=format, options=options, default=self.tem_args[key])
 
                         if 'algo' in self.rows.value[rid]:
                             algo = self.rows.value[rid]['algo']

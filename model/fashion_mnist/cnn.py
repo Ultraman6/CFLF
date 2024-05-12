@@ -1,22 +1,33 @@
 import torch.nn.functional as F
 from torch import nn
-
+from model.base.attention import ReshapeLayer
 from model.base.base_model import BaseModel
 
 
 class CNN_fashionmnist(BaseModel):
-    def __init__(self, mode):
+    def __init__(self, mode='default'):
         super().__init__(mode, 1, 10)
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=5, padding=2)  # 输入通道为1，输出通道为32
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, padding=2)  # 输入通道为32，输出通道为64
-        self.pool = nn.MaxPool2d(2, 2)  # 池化层，减半图像尺寸
-        self.fc1 = nn.Linear(64 * 7 * 7, 1024)  # 全连接层，64*7*7是卷积层输出后的尺寸，1024是输出特征数
-        self.fc2 = nn.Linear(1024, 10)  # 最后一个全连接层，输出为10个类别
+        self.reshape = ReshapeLayer((1, 28, 28))
+        self.conv1 = nn.Conv2d(1, 32, 6, padding=3)  # 保持原设置
+        self.pool1 = nn.MaxPool2d(2, 2)
+        self.act1 = nn.ReLU()
+        # 更新conv2层，将kernel size调整为6x6，padding调整为3以尝试保持输出尺寸不变
+        self.conv2 = nn.Conv2d(32, 64, 7, padding=3)
+        self.pool2 = nn.MaxPool2d(2, 2)
+        self.act2 = nn.ReLU()
+        self.flatten = nn.Flatten()
+        # 因为padding和kernel size的调整，输出尺寸理论上应该保持不变，因此此处不需改动
+        self.out1 = nn.Linear(3136, 10)
+        self.initialize_weights()
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))  # 应用第一个卷积层后接ReLU激活函数和池化
-        x = self.pool(F.relu(self.conv2(x)))  # 应用第二个卷积层后接ReLU激活函数和池化
-        x = x.view(-1, 64 * 7 * 7)  # 展平卷积层的输出，以便输入到全连接层
-        x = F.relu(self.fc1(x))  # 应用第一个全连接层后接ReLU激活函数
-        x = self.fc2(x)  # 应用第二个全连接层，得到最终的分类输出
+        x = self.reshape(x)
+        x = self.conv1(x)
+        x = self.pool1(x)
+        x = self.act1(x)
+        x = self.conv2(x)
+        x = self.pool2(x)
+        x = self.act2(x)
+        x = self.flatten(x)
+        x = self.out1(x)
         return x

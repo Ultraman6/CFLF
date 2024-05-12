@@ -1,3 +1,4 @@
+import math
 import time
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
@@ -110,14 +111,16 @@ class RFFL_API(BaseServer):
             real_sv_time = time.time() - time_s
             self.cum_real_sv_time += real_sv_time
             self.task.control.set_statue('text', "完成计算用户真实贡献 TMC_Shapely")
-            contrib_list = []
-            real_contrib_list = []
+            contrib_list, acm_con = [], []
+            real_contrib_list, acm_real = [], []
             for cid in self.client_indexes:
                 contrib_list.append(self.his_contrib[cid][self.round_idx])
+                acm_con.append(sum(self.his_contrib[cid].values()))
                 real_contrib_list.append(self.his_real_contrib[cid][self.round_idx])
-            self.task.control.set_info('global', 'svt', (self.round_idx, sv_time / real_sv_time))  # 相对计算开销
-            self.task.control.set_info('global', 'sva',
-                                       (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
+                acm_real.append(sum(self.his_real_contrib[cid].values()))
+            self.task.control.set_info('global', 'svt', (self.round_idx, sv_time))  # 相对计算开销
+            self.task.control.set_info('global', 'sva', (self.round_idx, np.corrcoef(contrib_list, real_contrib_list)[0, 1]))
+            self.task.control.set_info('global', 'sva_acm', (self.round_idx, np.corrcoef(acm_con, acm_real)[0, 1]))
 
         self.task.control.set_statue('text', f"开始计算客户奖励")
         sum_r = sum(self.his_reputation[cid][self.round_idx] for cid in self.client_indexes_up)
@@ -154,7 +157,9 @@ class RFFL_API(BaseServer):
         return ctb
 
     def cal_contrib(self):
+        total = len(self.client_indexes)
         new_client_indexes, r_th = [], 1 / len(self.client_indexes) * self.r_th
+        self.task.control.set_statue('sv_pro', (total, 0))
         if self.args.train_mode == 'serial':
             for idx, cid in enumerate(self.client_indexes):
                 ctb = self.cal_cos_sv(idx, cid)
@@ -164,14 +169,14 @@ class RFFL_API(BaseServer):
                 if self.his_reputation[cid][self.round_idx] >= r_th or self.round_idx < self.args.after:
                     new_client_indexes.append(cid)
                 else:
-                    self.task.control.set_statue('text',
-                                                 f"客户{cid}当前轮次声誉{self.his_reputation[cid][self.round_idx]}/{r_th}不足, 被淘汰")
+                    self.task.control.set_statue('text', f"客户{cid}当前轮次声誉{self.his_reputation[cid][self.round_idx]}/{r_th}不足, 被淘汰")
+                self.task.control.set_statue('sv_pro', (total, idx+1))
 
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = {cid: executor.submit(self.cal_cos_sv, idx, cid) for idx, cid in
                            enumerate(self.client_indexes)}
-                for cid, future in futures.items():
+                for idx, (cid, future) in enumerate(futures.items()):
                     ctb = future.result()
                     self.task.control.set_info('local', 'contrib', (self.round_idx, ctb), cid)
                     self.task.control.set_info('local', 'reputation',
@@ -179,15 +184,15 @@ class RFFL_API(BaseServer):
                     if self.his_reputation[cid][self.round_idx] >= r_th or self.round_idx < self.args.after:
                         new_client_indexes.append(cid)
                     else:
-                        self.task.control.set_statue('text',
-                                                     f"客户{cid}当前轮次声誉{self.his_reputation[cid][self.round_idx]}/{r_th}不足, 被淘汰")
+                        self.task.control.set_statue('text', f"客户{cid}当前轮次声誉{self.his_reputation[cid][self.round_idx]}/{r_th}不足, 被淘汰")
+                    self.task.control.set_statue('sv_pro', (total, idx + 1))
+
         self.client_indexes_up = new_client_indexes
 
     # 真实Shapely值计算
     def _subset_cos_sim(self, cid, subset_g, subset_w):  # 还是真实SV计算
         g_s = _modeldict_weighted_average(subset_g, subset_w / sum(subset_w))
-        subset_w_i = subset_w + (self.agg_weights[cid],)
-        g_s_i = _modeldict_weighted_average(subset_g + (self.g_locals[cid],), subset_w_i)
+        g_s_i = _modeldict_weighted_average(subset_g + (self.g_locals[cid],), subset_w + (self.agg_weights[cid],))
         v_i = float(_modeldict_cossim(self.g_global, g_s).cpu())
         v = float(_modeldict_cossim(self.g_global, g_s_i).cpu())
         return v - v_i
@@ -218,17 +223,24 @@ class RFFL_API(BaseServer):
         return margin_sum / cmb_num
 
     def cal_real_contrib(self):
+        total = len(self.client_indexes)
+        total_round = math.factorial(total)
+        per_round = total_round / total
+        self.task.control.set_statue('real_sv_pro', (total_round, 0))
         # 使用多线程计算每个客户的余弦距离，并限制最大线程数
         if self.args.train_mode == 'serial':
             for idx, cid in enumerate(self.client_indexes):
                 real_contrib = self._compute_cos_sim_for_client(idx)
                 self.his_real_contrib[cid][self.round_idx] = real_contrib
                 self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
+                self.task.control.set_statue('real_sv_pro', (total_round, per_round * (idx + 1)))
+
         elif self.args.train_mode == 'thread':
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = {cid: executor.submit(self._compute_cos_sim_for_client, idx)
                            for idx, cid in enumerate(self.client_indexes)}
-                for cid, future in futures.items():
+                for idx, (cid, future) in enumerate(futures.items()):
                     real_contrib = future.result()
                     self.his_real_contrib[cid][self.round_idx] = real_contrib
                     self.task.control.set_info('local', 'real_contrib', (self.round_idx, real_contrib), cid)
+                    self.task.control.set_statue('real_sv_pro', (total_round, per_round * (idx + 1)))

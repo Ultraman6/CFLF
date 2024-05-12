@@ -23,7 +23,8 @@ class RANK_API(BaseServer):
                                                 valid=self.valid_global, origin=False, mode='cooper') for cid in
                            self.client_indexes}
                 for cid, future in futures.items():
-                    acc, _ = future.result()
+                    (acc, _), mes = future.result()
+                    self.task.control.set_statue('text', mes)
                     cid_acc[cid] = acc
         sorted_cid = [cid for cid, acc in sorted(cid_acc.items(), key=lambda item: item[1])]
         for idx, cid in enumerate(sorted_cid):  # 位次应该等同数量

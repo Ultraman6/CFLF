@@ -27,7 +27,7 @@ def get_data(args):
             return get_cinic10(dataset_root, args.model)
         elif dataset == 'femnist':
             return get_femnist(dataset_root)
-        elif dataset == 'fashionmnist':
+        elif dataset == 'fmnist':
             return get_fashionmnist(dataset_root)
         elif dataset == 'SVHN':
             return get_svhn(dataset_root, args.model)

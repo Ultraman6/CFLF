@@ -1,13 +1,13 @@
 from algorithm.base.server import BaseServer
 from algorithm.integrity.CFFL.cffl_api import CFFL_API
+from algorithm.integrity.CGSV.cgsv_api import CGSV_API
 from algorithm.integrity.DITFE.ditfe_api import DITFE_API
 from algorithm.integrity.FedAtt.fedatt_api import FedAtt_API
 from algorithm.integrity.FedProx.fedprox_api import FedProx_API
 from algorithm.integrity.RANK.rank_api import RANK_API
 from algorithm.integrity.RFFL.rffl_api import RFFL_API
 from algorithm.integrity.TMC_Shapely.tmc_api import TMC_API
-from algorithm.method.auto_fusion.auto_fusion import Auto_Fusion_API
-from algorithm.method.auto_fusion.auto_fusion_layer import Auto_Fusion_Layer_API
+from algorithm.method.auto_fusion_layer import Auto_Fusion_Layer_API
 from algorithm.method.cosine_similarity_reward.common import CS_Reward_API
 from algorithm.method.cosine_similarity_reward.just_outer import CS_Reward_Out_API
 from algorithm.method.cosine_similarity_reward.reputation import CS_Reward_Reputation_API
@@ -26,7 +26,6 @@ from algorithm.method.margin_KL.exp_sub_exp import Exp_Sub_Exp_API
 from algorithm.method.margin_KL.sub_exp import Sub_Exp_API
 from algorithm.method.margin_KL.sub_exp_exp import Sub_Exp_Exp_API
 from algorithm.method.margin_KL.sub_exp_num import Sub_Exp_Num_API
-from algorithm.method.gradnorm_update import Grad_Norm_Update_API
 from algorithm.integrity.DITFE.fusion_mask import Fusion_Mask_API
 from algorithm.method.up_metric.KL_update import JSD_Up_API
 from algorithm.method.up_metric.cross_up_select import Cross_Up_Select_API
@@ -36,7 +35,7 @@ from algorithm.method.up_metric.cross_update import Cross_Up_API
 from algorithm.method.stage_two.margin_kl_cos_reward import Stage_Two_API
 from algorithm.method.update_cluster.gradient_cluster import Up_Cluster_API
 from algorithm.method.margin_loss import Margin_Loss_API
-
+from algorithm.method.auto_fusion import Auto_Fusion_API
 algorithm_mapping = {
     'fedavg': BaseServer,
     'margin_dot': Margin_Dot_API,
@@ -46,7 +45,6 @@ algorithm_mapping = {
     'cross_up_num': Cross_Up_Num_API,
     'up_cluster': Up_Cluster_API,
     'JSD_up': JSD_Up_API,
-    'grad_norm_up': Grad_Norm_Update_API,
     'Margin_GradNorm': Grad_Norm_API,
     'MarginKL_sub_exp_exp': Sub_Exp_Exp_API,
     'MarginKL_sub_exp': Sub_Exp_API,
@@ -80,5 +78,6 @@ algorithm_mapping = {
     'margin_loss': Margin_Loss_API,
     'auto_fusion': Auto_Fusion_API,
     'ditfe': DITFE_API,
-    'fedatt': FedAtt_API
+    'fedatt': FedAtt_API,
+    'cgsv': CGSV_API,
 }
