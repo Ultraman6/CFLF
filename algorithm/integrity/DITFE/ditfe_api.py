@@ -170,7 +170,6 @@ class DITFE_API(BaseServer):
             bids = np.linspace(min_bid, max_bid, num=self.args.num_clients)[
                 np.argsort([self.his_scores[k]*self.ucb_rewards[k] for k in sorted(self.his_scores, key=self.his_scores.get, reverse=True)])]
             # np.random.shuffle(bids)
-            print(bids)
         elif self.args.bid_mode == 'custom':
             bids = list(json.loads(self.args.bid_mapping).values())
         score_max, score_min = max(scores), min(scores)
@@ -430,9 +429,9 @@ class DITFE_API(BaseServer):
         self.cal_reward()
         self.task.control.set_statue('text', f"结束计算客户奖励 计算模式: {self.args.time_mode}")
 
-        # self.task.control.set_statue('text', f"开始分配客户模型 计算模式: 梯度掩码")
-        # self.alloc_mask()
-        # self.task.control.set_statue('text', f"结束分配客户模型 计算模式: 梯度掩码")
+        self.task.control.set_statue('text', f"开始分配客户模型 计算模式: 梯度掩码")
+        self.alloc_mask()
+        self.task.control.set_statue('text', f"结束分配客户模型 计算模式: 梯度掩码")
 
         # 分配当前轮次的训练梯度
         for cid in self.client_indexes:
@@ -601,7 +600,7 @@ class DITFE_API(BaseServer):
         # 先得到每位胜者在当前轮次的奖励（不公平）
         alloc_rewards = self.cal_time_mode()
         r_sum = sum(alloc_rewards)
-        rewards = {cid: np.tanh(self.fair * r_i / r_sum) for cid, r_i in alloc_rewards.items()}
+        rewards = {cid: np.tanh(self.fair * r_i / r_sum) * self.his_scores[cid] for cid, r_i in alloc_rewards.items()}
         max_reward = np.max(list(rewards.values()))  # 计算得到奖励比例系数
         max_score = np.max([self.his_scores[cid] for cid in self.client_indexes])
         per_rewards = {}
@@ -627,10 +626,12 @@ class DITFE_API(BaseServer):
             if len(self.his_contrib[cid]) == 1:
                 r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
             else:
-                his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
+                his_contrib = list(self.his_contrib[cid].items())
+                t_r = his_contrib[-1][1]
+                # his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
                 numerator = sum(
-                    self.args.rho ** (self.round_idx - k) * his_contrib_i[k] for k in range(self.round_idx + 1))
-                denominator = sum(self.args.rho ** (self.round_idx - k) for k in range(self.round_idx + 1))
+                    self.args.rho ** (t_r - t_k) * c for c, t_k in his_contrib)
+                denominator = sum(self.args.rho ** (t_r - t_k) for c, t_k in his_contrib)
                 r_i = max(numerator / denominator * self.his_scores[cid], 0)  # 时间贡献用于奖励计算w
         return r_i
 

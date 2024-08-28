@@ -142,6 +142,11 @@ class Fusion_Mask_API(BaseServer):
         self.cum_sv_time = 0.0
         self.cum_real_sv_time = 0.0
 
+    # def valid_record(self):
+    #     super().valid_record()
+    #     for cid in self.client_indexes:
+    #         self.local_params[cid] = copy.deepcopy(self.global_params)
+
     def global_update(self):
         for cid in self.client_indexes:  # 得分计算
             did = self.client_list[cid].train_dataloader.dataset.id
@@ -207,7 +212,7 @@ class Fusion_Mask_API(BaseServer):
     def cal_contrib(self):
         total = len(self.client_indexes)
         self.task.control.set_statue('sv_pro', (total, 0))
-
+        ctb_list = []
         if self.args.train_mode == 'serial':
             for idx, cid in enumerate(self.client_indexes):
                 mg, g = self.modified_g_locals[idx], self.g_locals[idx]
@@ -216,6 +221,7 @@ class Fusion_Mask_API(BaseServer):
                 norm = float(_modeldict_norm(mg).cpu())  # 记录每个客户每轮的贡献值
                 norm1 = float(_modeldict_norm(g).cpu())
                 ctb = cossim * norm
+                ctb_list.append(ctb)
                 self.his_contrib[cid][self.round_idx] = ctb
                 self.task.control.set_info('local', 'contrib', (self.round_idx, ctb), cid)
                 self.task.control.set_statue('sv_pro', (total, idx+1))
@@ -227,9 +233,11 @@ class Fusion_Mask_API(BaseServer):
                            for idx, cid in enumerate(self.client_indexes)}
                 for idx, (cid, future) in enumerate(futures.items()):
                     ctb = future.result()
+                    ctb_list.append(ctb)
                     self.his_contrib[cid][self.round_idx] = ctb
                     self.task.control.set_info('local', 'contrib', (self.round_idx, ctb), cid)
                     self.task.control.set_statue('sv_pro', (total, idx + 1))
+        print(ctb_list)
 
     def cal_real_contrib(self):
         total = len(self.client_indexes)
@@ -318,56 +326,56 @@ class Fusion_Mask_API(BaseServer):
 
     def alloc_mask(self):
         # 先得到每位胜者在当前轮次的奖励（不公平）
-        # max_score = np.max([self.his_scores[cid] for cid in self.client_indexes])  # 目前这样子最优
-        # # min((r_i / r_sum * self.his_scores[cid] / max_score / 1)**0.5, 1)
-        # rewards = {cid: np.tanh(self.fair * self.his_rewards[cid][self.round_idx]) for cid in self.client_indexes}
-        # max_reward = np.max(list(rewards.values()))  # 计算得到奖励比例系数
-        # per_rewards = {}
-        # if self.reo_fqy > 0 and self.round_idx % self.reo_fqy == 0:
-        #     global_params = copy.deepcopy(self.global_params)
-        #     self.task.control.set_statue('text', f"轮次{self.round_idx} 开始恢复策略")
-        #     self.model_trainer.set_model_params(self.global_params)
-        #     self.model_trainer.train(self.valid_global, self.round_idx)
-        #     self.global_params = self.model_trainer.get_model_params(self.device)
-        #     self.g_global = _modeldict_sum((self.g_global, _modeldict_sub(self.global_params, global_params)))
-        #     self.task.control.set_statue('text', f"轮次{self.round_idx} 结束恢复策略")
-        #
-        # for cid, r in rewards.items():  # 计算每位客户的梯度奖励（按层次）
-        #     r_per = r / max_reward
-        #     per_rewards[cid] = r_per
-        #     self.local_params[cid] = _modeldict_add(self.local_params[cid],
-        #                                             pad_grad_by_order(self.g_global,
-        #                                                               mask_percentile=r_per * self.his_scores[
-        #                                                                   cid] / max_score, mode='layer'))
-        # self.task.control.set_statue('grad_info', per_rewards)
-        for cid in self.client_indexes:
-            self.local_params[cid] = copy.deepcopy(self.global_params)
+        alloc_rewards = self.cal_time_mode()
+        r_sum = sum(alloc_rewards)
+        rewards = {cid: np.tanh(self.fair * r_i / r_sum) for cid, r_i in alloc_rewards.items()}
+        max_reward = np.max(list(rewards.values()))  # 计算得到奖励比例系数
+        # if max_reward == 0:
+        #     rewards = {cid: 1.0 for cid in self.client_indexes}
+        max_score = np.max([self.his_scores[cid] for cid in self.client_indexes])
+        per_rewards = {}
+        for cid, r in rewards.items():  # 计算每位客户的梯度奖励（按层次）
+            r_per = r / max_reward if max_reward != 0 else 1.0
+            per_rewards[cid] = r_per
+            self.local_params[cid] = pad_grad_by_order(self.global_params,
+                                    mask_percentile=r_per * self.his_scores[cid] / max_score, mode='layer')
+        print(per_rewards)
+        self.task.control.set_statue('grad_info', per_rewards)
+
+
+    def _cal_time(self, cid):
+        r_i = 0.0
+        if self.time_mode == 'cvx':
+            if len(self.his_contrib[cid]) == 1:
+                r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
+            else:
+                cum_contrib = sum(self.his_contrib[cid].values()[:-1]) if len(
+                    self.his_contrib[cid].values()) > 1 else 0
+                r_i = max((self.rho * cum_contrib + (1 - self.rho) * self.his_contrib[cid][self.round_idx]) * self.his_scores[cid], 0)
+
+        elif self.time_mode == 'exp':
+            if len(self.his_contrib[cid]) == 1:
+                r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
+            else:
+                his_contrib = list(self.his_contrib[cid].items())
+                t_r = his_contrib[-1][1]
+                # his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
+                numerator = sum(
+                    self.args.rho ** (t_r - t_k) * c for c, t_k in his_contrib)
+                denominator = sum(self.args.rho ** (t_r - t_k) for c, t_k in his_contrib)
+                r_i = max(numerator / denominator * self.his_scores[cid], 0)  # 时间贡献用于奖励计算w
+        return r_i
+
 
     def cal_time_mode(self):
         time_contrib = {}
         # 计算每位客户的时间贡献
-        if self.time_mode == 'cvx':
-            for cid in self.client_indexes:
-                if len(self.his_contrib[cid]) == 1:
-                    r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
-                else:
-                    cum_contrib = sum(self.his_contrib[cid].values()[:-1]) if len(
-                        self.his_contrib[cid].values()) > 1 else 0
-                    r_i = max((self.rho * cum_contrib + (1 - self.rho) * self.his_contrib[cid][self.round_idx]) * self.his_scores[cid], 0)
-                time_contrib[cid] = r_i
-
-        elif self.time_mode == 'exp':
-            for cid in self.client_indexes:
-                if len(self.his_contrib[cid]) == 1:
-                    r_i = max(list(self.his_contrib[cid].values())[0] * self.his_scores[cid], 0)
-                else:
-                    his_contrib_i = [self.his_contrib[cid].get(r, 0) for r in range(self.round_idx + 1)]
-                    numerator = sum(
-                        np.exp(-self.args.rho * (self.round_idx - k)) * his_contrib_i[k] for k in range(self.round_idx + 1))
-                    denominator = sum(np.exp(-self.args.rho * (self.round_idx - k)) for k in range(self.round_idx + 1))
-                    r_i = max(numerator / denominator * self.his_scores[cid], 0)  # 时间贡献用于奖励计算
-                time_contrib[cid] = r_i
+        for cid in self.client_indexes:
+            time_contrib[cid] = self._cal_time(cid)
+        # for cid in self.client_banned:
+        #     time_contrib[cid] = self._cal_time(cid)
         return time_contrib
+
 
     def cal_reward(self):
         cum_reward = 0.0

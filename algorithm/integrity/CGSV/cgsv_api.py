@@ -172,6 +172,7 @@ class CGSV_API(BaseServer):
             per_rewards[cid] = r_per
             self.local_params[cid] = _modeldict_add(self.local_params[cid],
                                         pad_grad_by_order(self.g_global, mask_percentile=r_per, mode='layer'))
+        print(per_rewards)
         self.task.control.set_statue('grad_info', per_rewards)
 
     def cal_reward(self):

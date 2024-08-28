@@ -77,6 +77,7 @@ class TaskController:
 
     # 此value包含了type
     def set_info(self, spot, name, value, cid=None):
+
         if self.check_visual(spot, name):
             v = value[-1]
             if self.algo in algo_record and spot in algo_record[self.algo] and name in algo_record[self.algo][spot]['param']:
@@ -85,7 +86,7 @@ class TaskController:
                 types = list(algo_record['common'][spot]['type'].keys())
             for i, v1 in enumerate(value[:-1]):
                 type = types[i]
-                if self.check_visual(spot, type, 'type'):
+                if self.check_visual(spot, type, 'type'):  # 存在逻辑bug,其他算法的类型选择会影响至此
                     if self.mode != 'process':
                         if cid is None:  # 每轮的信息通过容器传递
                             self.informer[spot][name][type].value.append((v1, v))

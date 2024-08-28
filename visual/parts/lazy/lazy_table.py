@@ -330,7 +330,7 @@ class algo_table:
 
                 @panel.build_fn
                 def _(pan_name: str):
-                    with rxui.grid(columns=5):
+                    with rxui.row():
                         for key in algo_configs['common']:
                             if key == 'id' or key == 'gpu':
                                 continue
@@ -351,7 +351,7 @@ class algo_table:
                                         options = algo_configs['common'][key]['options']
                                         params_tab(name=name, nums=my_vmodel(row_ref.value, 'seed'), type=type,
                                                    format=format, options=options, default=self.tem_args[key])
-
+                    with ui.grid(columns="repeat(auto-fit,minmax(min(300px,100%),1fr))").classes("w-full h-full"):
                         if 'algo' in self.rows.value[rid]:
                             algo = self.rows.value[rid]['algo']
                             if algo in algo_configs:

@@ -206,22 +206,22 @@ class BaseServer:
         self._update_model_per_client()
         if self.args.train_mode == 'serial':
             for cid in cid_list:
-                (acc_s, _), mes = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
-                self.task.control.set_statue('text', mes)
-                s_list.append(acc_s)
+                # (acc_s, _), mes = self.thread_test(cid=cid, valid=self.valid_global, mode='stand')
+                # self.task.control.set_statue('text', mes)
+                s_list.append(1.0)
                 (acc_c, _), mes = self.thread_test(cid=cid, valid=self.valid_global, mode='cooper')
                 self.task.control.set_statue('text', mes)
-                c_list.append(acc_c + random.random() * 0.01)
+                c_list.append(acc_c)
 
         elif self.args.train_mode == 'thread':
-            with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
-                futures = [executor.submit(self.thread_test, cid=cid, w=None,
-                                                valid=self.valid_global, origin=False, mode='stand') for cid in
-                           cid_list]
-                for future in futures:
-                    (acc_s, _), mes = future.result()
-                    self.task.control.set_statue('text', mes)
-                    s_list.append(acc_s)
+            # with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
+            #     futures = [executor.submit(self.thread_test, cid=cid, w=None,
+            #                                     valid=self.valid_global, origin=False, mode='stand') for cid in
+            #                cid_list]
+            #     for future in futures:
+            #         (acc_s, _), mes = future.result()
+            #         self.task.control.set_statue('text', mes)
+            #         s_list.append(acc_s)
             with ThreadPoolExecutor(max_workers=self.args.max_threads) as executor:
                 futures = [executor.submit(self.thread_test, cid=cid, w=None,
                                                 valid=self.valid_global, origin=False, mode='cooper') for cid in
@@ -229,7 +229,8 @@ class BaseServer:
                 for future in futures:
                     (acc_c, _), mes = future.result()
                     self.task.control.set_statue('text', mes)
-                    c_list.append(acc_c + random.random() * 1e-6)
+                    c_list.append(acc_c)
+                    s_list.append(1.0)
             return s_list, c_list
 
     def valid_record(self):
@@ -257,13 +258,13 @@ class BaseServer:
         if self.args.standalone:  # 如果开启了非协作基线训练
             s_list, c_list = self._standalone_test()
             for s_acc, c_acc, cid in zip(s_list, c_list, self.client_indexes):
-                self.task.control.set_info('local', 'standalone_acc', (self.round_idx, s_acc), cid)
+                # self.task.control.set_info('local', 'standalone_acc', (self.round_idx, s_acc), cid)
                 self.task.control.set_info('local', 'cooperation_acc', (self.round_idx, c_acc), cid)
-            self.task.control.set_info('global', 'jfl', (self.round_idx, cal_JFL(s_list, c_list)))
+            # self.task.control.set_info('global', 'jfl', (self.round_idx, cal_JFL(s_list, c_list)))
             # if len(set(s_list)) == 1 or len(set(c_list)) == 1:
             #     self.task.control.set_info('global', 'pcc', (self.round_idx, 0.0))
             # else:
-            self.task.control.set_info('global', 'pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))
+            # self.task.control.set_info('global', 'pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))
 
     # 全局轮结束后的工作
     def global_final(self):
@@ -272,7 +273,7 @@ class BaseServer:
             #     self._update_model_per_client()
             s_list, c_list = self._standalone_test(final=True)
             for s_acc, c_acc, cid in zip(s_list, c_list, self.client_indexes):
-                self.task.control.set_info('global', 'final_stand_acc', (cid, s_acc))
+                # self.task.control.set_info('global', 'final_stand_acc', (cid, s_acc))
                 self.task.control.set_info('global', 'final_cooper_acc', (cid, c_acc))
-            self.task.control.set_info('global', 'final_jfl', (self.round_idx, cal_JFL(s_list, c_list)))
-            self.task.control.set_info('global', 'final_pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))
+            # self.task.control.set_info('global', 'final_jfl', (self.round_idx, cal_JFL(s_list, c_list)))
+            # self.task.control.set_info('global', 'final_pcc', (self.round_idx, np.corrcoef(s_list, c_list)[0, 1]))

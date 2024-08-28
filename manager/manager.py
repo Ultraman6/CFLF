@@ -33,7 +33,6 @@ def explore_deps(config, path=None, deps=None):
             if 'options' in value and value['options'] is not None:
                 # 预备该配置的依赖信息
                 option_deps = {}
-
                 # 对于每个选项，查看是否有特定的'metrics'
                 for option in value['options']:
                     if option in value.get('metrics', {}):

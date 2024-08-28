@@ -37,47 +37,47 @@ def algo_args_parser():
 
     # 分区2：联邦学习配置
     federated_learning = parser.add_argument_group('Federated Learning Configurations')
-    federated_learning.add_argument('--round', type=int, default=20)
+    federated_learning.add_argument('--round', type=int, default=100)
     federated_learning.add_argument('--epoch', type=int, default=1)
-    federated_learning.add_argument('--num_clients', type=int, default=20)
-    federated_learning.add_argument('--num_selected', type=float, default=20)
+    federated_learning.add_argument('--num_clients', type=int, default=10)
+    federated_learning.add_argument('--num_selected', type=float, default=10)
     federated_learning.add_argument('--data_change', type=float, default=0)
     federated_learning.add_argument('--model_ride', type=float, default=0)
     federated_learning.add_argument('--sample_mode', type=str, default='random')
     federated_learning.add_argument('--agg_type', type=str, default='avg_sample',
                                     choices=['avg_only', 'avg_sample', 'avg_class'])
     federated_learning.add_argument('--local_test', type=bool, default=False)
-    parser.add_argument('--standalone', default=False, type=bool)
+    parser.add_argument('--standalone', default=True, type=bool)
     federated_learning.add_argument('--valid_ratio', type=float, default=0.1)
     federated_learning.add_argument('--num_type', type=str, default='custom_single',
                                     choices=['average', 'random', 'custom_single', 'custom_each', 'imbalance_control'])
     federated_learning.add_argument('--imbalance_alpha', type=float, default=0.1)
-    federated_learning.add_argument('--sample_per_client', type=int, default=100)
+    federated_learning.add_argument('--sample_per_client', type=int, default=500)
     federated_learning.add_argument('--sample_mapping', type=str,
                                     default=json.dumps({
                                     "0": 100, "1": 100, "2": 100, "3": 100, "4": 100, "5": 100, "6": 100, "7": 100, "8": 100, "9": 100,
                                     "10": 100, "11": 100, "12": 100, "13": 100, "14": 100, "15": 100, "16": 100, "17": 100, "18": 100, "19": 100,
-                                    "20": 100, "21": 100, "22": 100, "23": 100, "24": 100, "25": 100, "26": 100, "27": 100, "28": 100, "29": 100,
-                                    "30": 100, "31": 100, "32": 100, "33": 100, "34": 100, "35": 100, "36": 100, "37": 100, "38": 100, "39": 100,
-                                    "40": 100, "41": 100, "42": 100, "43": 100, "44": 100, "45": 100, "46": 100, "47": 100, "48": 100, "49": 100,
-                                    "50": 100, "51": 100, "52": 100, "53": 100, "54": 100, "55": 100, "56": 100, "57": 100, "58": 100, "59": 100,
-                                    "60": 100, "61": 100, "62": 100, "63": 100, "64": 100, "65": 100, "66": 100, "67": 100, "68": 100, "69": 100,
-                                    "70": 100, "71": 100, "72": 100, "73": 100, "74": 100, "75": 100, "76": 100, "77": 100, "78": 100, "79": 100,
-                                    "80": 100, "81": 100, "82": 100, "83": 100, "84": 100, "85": 100, "86": 100, "87": 100, "88": 100, "89": 100,
-                                    "90": 100, "91": 100, "92": 100, "93": 100, "94": 100,
-                                    "95": 1000, "96": 1000, "97": 1000, "98": 1000, "99": 1000
+                                    # "20": 100, "21": 100, "22": 100, "23": 100, "24": 100, "25": 100, "26": 100, "27": 100, "28": 100, "29": 100,
+                                    # "30": 100, "31": 100, "32": 100, "33": 100, "34": 100, "35": 100, "36": 100, "37": 100, "38": 100, "39": 100,
+                                    # "40": 100, "41": 100, "42": 100, "43": 100, "44": 100, "45": 100, "46": 100, "47": 100, "48": 100, "49": 100,
+                                    # "50": 100, "51": 100, "52": 100, "53": 100, "54": 100, "55": 100, "56": 100, "57": 100, "58": 100, "59": 100,
+                                    # "60": 100, "61": 100, "62": 100, "63": 100, "64": 100, "65": 100, "66": 100, "67": 100, "68": 100, "69": 100,
+                                    # "70": 100, "71": 100, "72": 100, "73": 100, "74": 100, "75": 100, "76": 100, "77": 100, "78": 100, "79": 100,
+                                    # "80": 100, "81": 100, "82": 100, "83": 100, "84": 100, "85": 100, "86": 100, "87": 100, "88": 100, "89": 100,
+                                    # "90": 100, "91": 100, "92": 100, "93": 100, "94": 100,
+                                    # "95": 1000, "96": 1000, "97": 1000, "98": 1000, "99": 1000
                                 }
                                 ))
-    federated_learning.add_argument('--data_type', type=str, default='homo',
+    federated_learning.add_argument('--data_type', type=str, default='custom_class',
                                     choices=['homo', 'dirichlet', 'shards', 'custom_class'])
     federated_learning.add_argument('--dir_alpha', type=float, default=0.1)
     federated_learning.add_argument('--class_per_client', type=int, default=3)
     federated_learning.add_argument('--class_mapping', type=str,
                                     default=json.dumps({
-                                        "0": 1, "1": 1, "2": 2, "3": 2, "4": 3,
-                                        "5": 3, "6": 4, "7": 4, "8": 5, "9": 5,
-                                        "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
-                                        "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
+                                        "0": 1, "1": 2, "2": 3, "3": 4, "4": 5,
+                                        "5": 6, "6": 7, "7": 8, "8": 9, "9": 10,
+                                        # "10": 6, "11": 6, "12": 7, "13": 7, "14": 8,
+                                        # "15": 8, "16": 9, "17": 9, "18": 10, "19": 10,
                                 }
                                 ))
     # "0": 1, "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1, "9": 1, "10": 1, "11": 1, "12": 1, "13": 1, "14": 1, "15": 1, "16": 1, "17": 1, "18": 1,
@@ -111,8 +111,8 @@ def algo_args_parser():
     federated_learning.add_argument('--gaussian_params', type=tuple, default=(0.1, 0.1))
     federated_learning.add_argument('--noise_mapping', type=str,
                                     default=json.dumps({
-                                        "0": (0.2, 0.2), "1": (0.2, 0.2), "2": (0.2, 0.2), "3": (0.2, 0.2),
-                                        "4": (0.2, 0.2),
+                                        "0": (0.1, 0.2), "1": (0.2, 0.2), "2": (0.3, 0.2), "3": (0.4, 0.2),
+                                        "4": (0.5, 0.2),
                                     }))
     federated_learning.add_argument('--mean', type=int, default=1,
                                     help='means the mean of distributions among clients for synthetic dataset')
@@ -151,13 +151,13 @@ def algo_args_parser():
     # 一阶段拍卖参数
     specific_task.add_argument('--k', default=1.0, type=float)
     specific_task.add_argument('--tao', default=0.5, type=float)
-    specific_task.add_argument('--cost', default=(0.0, 1.0), type=tuple)   # 客户真实成本
-    specific_task.add_argument('--bids', default=(0.0, 1.0), type=tuple)   # 客户投标价格
+    specific_task.add_argument('--cost', default=(1.0, 3.0), type=tuple)   # 客户真实成本
+    specific_task.add_argument('--bids', default=(1.0, 3.0), type=tuple)   # 客户投标价格
     specific_task.add_argument('--fake', default=0.0, type=float)    # 客户虚假投标的概率
     specific_task.add_argument('--scores', default=(0, 1.0), type=tuple)
     specific_task.add_argument('--budget_mode', default='equal', type=str)
     specific_task.add_argument('--agg_mode', default='fusion', type=str)
-    specific_task.add_argument('--cost_mode', default='same', type=str)
+    specific_task.add_argument('--cost_mode', default='random', type=str)
     specific_task.add_argument('--cost_mapping', type=str, default=
                                             json.dumps({
                                                 "0": 0.2, "1": 0.2, "2": 0.2, "3": 0.2, "4": 0.2,
@@ -165,7 +165,7 @@ def algo_args_parser():
                                                 "10": 0.2, "11": 0.2, "12": 0.2, "13": 0.2, "14": 0.2,
                                                 "15": 0.2, "16": 0.2, "17": 0.2, "18": 0.2, "19": 0.2,
                                             }))
-    specific_task.add_argument('--bid_mode', default='uniform', type=str)
+    specific_task.add_argument('--bid_mode', default='follow', type=str)
     specific_task.add_argument('--bid_mapping', type=str, default=
                                             json.dumps({
                                                 "0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4, "4": 0.5,
@@ -174,7 +174,7 @@ def algo_args_parser():
                                                 "15": 0.5, "16": 0.5, "17": 0.5, "18": 0.5, "19": 0.5,
                                             }))
     specific_task.add_argument('--auction_mode', default='cmab', type=str)
-    specific_task.add_argument('--budgets', default=(5, 5), type=tuple)
+    specific_task.add_argument('--budgets', default=(100, 100), type=tuple)
     # 二阶段质量公平参数
     specific_task.add_argument('--e', default=10, type=int)
     specific_task.add_argument('--e_tol', default=4, type=int)

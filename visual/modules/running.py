@@ -295,10 +295,12 @@ class run_ui:
                                                                  str(list(pro_ref.value)[0][0])
                                                                  if len(pro_ref.value) > 0 else '0'))
             elif type == 'linear':
-                with ui.grid(columns="repeat(auto-fit,minmax(min(300px,100%),1fr))").classes("w-full"):
+                with ui.column().classes("w-full"):
                     for tid in self.infos_ref[info_spot][info_name]:
-                        with rxui.column().classes('w-full'):
-                            rxui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])  # 目前只考虑展示进度条
+                        with rxui.column():
+                            rxui.label(self.task_names[tid]).classes('w-[10ch] truncate').tooltip(
+                                self.task_names[tid]).tailwind(
+                                'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                             pro_ref = self.infos_ref[info_spot][info_name][tid]
                             # slider = rxui.slider(value=lambda pro_ref=pro_ref: (list(pro_ref.value)[-1][0] - list(pro_ref.value)[-1][-1]) / list(pro_ref.value)[-1][0]
                             #                   if len(pro_ref.value) > 0 else 0, max=1.0, min=0.0)
@@ -337,7 +339,9 @@ class run_ui:
                     for i, tid in enumerate(self.infos_ref[info_spot][info_name]):
                         if i != 0:
                             ui.separator()
-                        ui.label(self.task_names[tid]).classes('w-[20ch] truncate').tooltip(self.task_names[tid])
+                        rxui.label(self.task_names[tid]).classes('w-[10ch] truncate').tooltip(
+                            self.task_names[tid]).tailwind(
+                            'text-lg text-gray-800 font-semibold px-4 py-2 bg-gray-100 rounded-md shadow-lg')
                         if info_name == 'user_info':
                             get_user_info(self.infos_ref[info_spot][info_name][tid], info_name, self.task_names[tid])  # 直接 传入ref
                         elif info_name == 'grad_info':

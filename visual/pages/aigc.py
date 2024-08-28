@@ -74,6 +74,7 @@ def ai_interface():
             with open(file_path, "wb") as f:
                 f.write(filedata)
             await embedding.create_index()
+            print(1)
             embeddinglist.refresh()
 
         with ui.grid(rows="auto auto 1fr auto", columns="auto 1fr").classes(

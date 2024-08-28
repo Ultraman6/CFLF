@@ -334,7 +334,7 @@ algo_configs = {
                 },
             }
         },
-        'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
+        # 'real_sv': {'name': '开启真实SV计算', 'format': None, 'type': 'check', 'options': None},
     },
     'fusion_mask': {
         'e': {'name': '模型融合最大迭代次数', 'format': '%.0f', 'type': 'number', 'options': None},
@@ -519,7 +519,7 @@ algo_record = {
                 "standalone_acc": {"name": "独立训练测试精度", "type": "line"},
                 "cooperation_acc": {"name": "合作训练测试精度", "type": "line"}
             },
-            # "default": ["avg_loss", "learning_rate", "round"],
+            "default": ["cooperation_acc", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -537,7 +537,7 @@ algo_record = {
                 "sva_final": {"name": "最终SV估算精度", "type": "bar"},
                 "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ["sva_acm", "sva_final", "svt_final", "sva", "svt", "round"],
+            # "default": ["sva_acm", "sva_final", "svt_final", "sva", "svt", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -549,7 +549,7 @@ algo_record = {
                 "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            "default": ["contrib", "real_contrib", "round"],
+            # "default": ["contrib", "real_contrib", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }
@@ -565,7 +565,7 @@ algo_record = {
                 "sv_pro": {"name": "Shapely值估算进度", "type": "circle"},
                 "real_sv_pro": {"name": "真实Shapely值进度", "type": "circle"},
             },
-            # "default": ["budget", "user_info"]
+            "default": ["budget", "user_info", "grad_info"]
         },
         "global": {
             "name": "全局信息",
@@ -586,7 +586,7 @@ algo_record = {
                 "sva_final": {"name": "最终SV估算精度", "type": "bar"},
                 "svt_final": {"name": "最终SV估算开销", "type": "bar"},
             },
-            "default": ["bid_pay", "util_info", "round"],
+            "default": ["bid_pay", "util_info", "bid_info", "idx_info", "pay_info", "bid_pay", "util_info", "round"],
 # "bid_info", "idx_info", "pay_info", "bid_pay", "util_info",
             "type": {
                 "round": {'name': "轮次"},
@@ -603,7 +603,7 @@ algo_record = {
                 "real_contrib": {"name": "本轮真实贡献值", "type": "line"},
                 "reward": {"name": "本轮奖励值", "type": "line"},
             },
-            # "default": ["emp", "ucb", "contrib", "reward", "round"],
+            "default": ["emp", "ucb", "contrib", "reward", "round"],
             "type": {
                 "round": {'name': "轮次"},
             }

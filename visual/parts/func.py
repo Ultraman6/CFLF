@@ -517,8 +517,10 @@ def get_grad_info(info_ref):
 
 
 def get_user_info(info_ref, info_name, task_name):
-    with ui.row().classes('w-full justify-center') as row:
-        ui.label('请先执行任务')
+    with ui.column().classes('w-full'):
+        ui.button('下载数据', icon='download', on_click=lambda: download_data()).props('icon=cloud_download')
+        with ui.grid(columns=5).classes('w-full justify-center') as row:
+            ui.label('请先执行任务')
     columns = [
         {"name": "round", "label": "轮次", "field": "round", 'align': 'center'},
         {"name": "bid", "label": "声明成本", "field": "bid", 'align': 'center'},
@@ -553,16 +555,15 @@ def get_user_info(info_ref, info_name, task_name):
         data.seek(0)
         ui.download(data.read(), get_local_download_path(info_name, task_name))
 
-    his_info, icon_list, dialogs, tables = {}, {}, {}, {}  # 此容器用于存放历史的信息记录
+    his_info, row_list, dialogs, tables = {}, {}, {}, {}  # 此容器用于存放历史的信息记录
 
 
     def han_update():
         if len(info_ref.value) != 0:
             if info_ref.value[-1][0] == 'statue':  # 若是状态的更新
-                if len(icon_list) == 0:
+                if len(row_list) == 0:
                     row.clear()
                     with row:
-                        ui.button('下载数据', icon='download', on_click=download_data).props('icon=cloud_download')
                         for cid, statue in info_ref.value[-1][1].items():
                             if cid not in his_info:
                                 his_info[cid] = []  # 每个客户信息用列表存放绑定table
@@ -570,13 +571,14 @@ def get_user_info(info_ref, info_name, task_name):
                                 tables[cid] = ui.table(columns=columns, rows=his_info[cid]).classes('w-full')
                             with ui.column():
                                 lay = '落选' if statue == 'gray' else '获胜'
-                                icon_list[cid] = ui.icon('person', color=statue).classes('text-5xl').on('click',
-                                                                                                        lambda cid=cid:
-                                                                                                        dialogs[cid].open()).tooltip(lay)
-                                ui.label(f'客户{cid}').classes('w-full')
-                # else:
-                #     for cid, statue in info_ref.value[-1][1].items():
-                #         icon_list[cid].props('color=gray').tooltip('落选' if statue == 'gray' else '获胜')
+                                with ui.row() as row_list[cid]:
+                                    ui.icon('person', color=statue).classes('text-5xl')
+                                ui.label(f'客户{cid}').classes('w-full outline-blue-100 outline hover:outline-red-500 p-1').on('click',lambda cid=cid: dialogs[cid].open()).tooltip(lay)
+                else:
+                    for cid, statue in info_ref.value[-1][1].items():
+                        row_list[cid].clear()
+                        with row_list[cid]:
+                            ui.icon('person', color=statue).classes('text-5xl')
 
             elif info_ref.value[-1][0] == 'info':  # 若是信息的更新
                 this_info = info_ref.value[-1][1]

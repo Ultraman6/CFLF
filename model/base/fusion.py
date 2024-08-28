@@ -166,7 +166,6 @@ class FusionLayerModel(nn.Module):
                         client_agg_weights[model_idx][f"{layer_name}.{param_key}"] = agg_weights[model_idx]
                     # 保存聚合后的参数
                     fused_params[f"{layer_name}.{param_key}"] = aggregated_param
-
         # 注意：这里不再将参数转移到CPU，而是保留在它们原来的设备上
         return fused_params, client_agg_weights,
 

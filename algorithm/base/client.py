@@ -14,10 +14,10 @@ class BaseClient:
         self.local_param = None  # 存放上一轮的模型
         self.args = args
         self.device = device
-        if args.standalone:
-            self.standalone_trainer = copy.deepcopy(model_trainer)
-        else:
-            self.standalone_trainer = None
+        # if args.standalone:
+        #     self.standalone_trainer = copy.deepcopy(model_trainer)
+        # else:
+        #     self.standalone_trainer = None
 
     def train_unit(self, round_idx, w_global):
         self.local_param = copy.deepcopy(w_global)
@@ -32,8 +32,8 @@ class BaseClient:
             upgrade_params = self.grad_clip(upgrade_params)
         if self.args.grad_norm:  # 梯度标准化
             upgrade_params = self.grad_norm(upgrade_params)
-        if self.args.standalone:  # 如果开启standalone模式，使用standalone_trainer进行训练
-            self.standalone_trainer.train(self.train_dataloader, round_idx)
+        # if self.args.standalone:  # 如果开启standalone模式，使用standalone_trainer进行训练
+        #     self.standalone_trainer.train(self.train_dataloader, round_idx)
         return upgrade_params
 
     def local_test(self, w_global=None, valid=None, origin=False, mode='global'):
